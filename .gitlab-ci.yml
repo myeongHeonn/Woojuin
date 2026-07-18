@@ -95,4 +95,4 @@ backend-build:
 # EC2/Docker 배포 잡은 인프라 세팅 완료 후 추가:
 #   - docker build & push
 #   - ssh로 EC2에서 compose pull & up
-#   - master 브랜치 merge 시에만 실행 (rules: if $CI_COMMIT_BRANCH == "master")
+#   - main 브랜치 merge 시에만 실행 (rules: if $CI_COMMIT_BRANCH == "main")

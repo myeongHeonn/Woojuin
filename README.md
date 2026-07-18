@@ -83,7 +83,7 @@ npm run build
 
 [docs/CONVENTIONS.md](docs/CONVENTIONS.md) 참고. 요약:
 
-- 브랜치: `feature/FE-{이슈번호}-{설명}`, `feature/BE-{이슈번호}-{설명}` / 기본 브랜치는 `master`, 통합 브랜치는 `develop`
+- 브랜치: `feature/FE-{이슈번호}-{설명}`, `feature/BE-{이슈번호}-{설명}` / 기본 브랜치는 `main`, 통합 브랜치는 `develop`
 - 커밋: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`)
 - 머지: MR 필수, 리뷰 1인 이상 승인 후 머지
 

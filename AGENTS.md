@@ -80,7 +80,7 @@ cd backend && ./gradlew bootRun   # 로컬 실행 (:8080)
 ## 하지 말 것
 
 - Next.js, Elasticsearch, 특정 지도 SDK 등 이미 배제/보류된 기술 도입
-- `master`/`develop`에 직접 푸시하는 워크플로우 가정 (MR 기반)
+- `main`/`develop`에 직접 푸시하는 워크플로우 가정 (MR 기반)
 - 저장 API에 동기 AI 호출 추가
 - 프론트에서 localStorage/sessionStorage 직접 사용 (Jotai/TanStack Query로 대체)
 - `.env`, 시크릿, `firebase-adminsdk*.json` 등을 커밋하는 코드/설정 작성

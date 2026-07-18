@@ -3,7 +3,7 @@
 ## 브랜치 전략
 
 ```
-master ── 배포 기준 브랜치 (보호 브랜치, 직접 푸시 금지)
+main ── 배포 기준 브랜치 (보호 브랜치, 직접 푸시 금지)
   └── develop ── 통합 브랜치 (스프린트 개발분이 모이는 곳)
         ├── feature/FE-12-item-list      # 프론트 기능
         ├── feature/BE-7-item-save-api   # 백엔드 기능
@@ -14,7 +14,7 @@ master ── 배포 기준 브랜치 (보호 브랜치, 직접 푸시 금지)
 
 - 브랜치 이름: `{타입}/{파트}-{이슈번호}-{짧은설명}` (파트: FE / BE / EXT / WEAR)
 - 이슈(GitLab Issue)를 먼저 만들고 그 번호로 브랜치 생성 → MR에서 `Closes #번호`로 연결
-- `master`, `develop`은 보호 브랜치 설정 (Settings > Repository > Protected branches)
+- `main`, `develop`은 보호 브랜치 설정 (Settings > Repository > Protected branches)
 
 ## 커밋 컨벤션 (Conventional Commits)
 
