@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: woojuin
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/woojuin}
+    username: ${DB_USERNAME:woojuin}
+    password: ${DB_PASSWORD:woojuin-local}
+  jpa:
+    hibernate:
+      ddl-auto: update   # 개발용. 운영 전환 시 validate + 마이그레이션 도구 검토
+    open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+woojuin:
+  jwt:
+    secret: ${JWT_SECRET:change-me-to-long-random-string}
+    access-token-validity: 3600000      # 1h
+    refresh-token-validity: 1209600000  # 14d
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: gpt-4o-mini
+  queue:
+    stream-key: woojuin:item-processing
+    consumer-group: ai-workers

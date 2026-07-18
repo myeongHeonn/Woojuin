@@ -1,0 +1,35 @@
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+
+# --- Env / Secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+firebase-adminsdk*.json
+
+# --- Node (frontend, extension) ---
+node_modules/
+dist/
+dev-dist/
+*.local
+npm-debug.log*
+*.tsbuildinfo
+
+# --- Java / Gradle (backend) ---
+backend/.gradle/
+backend/build/
+backend/out/
+!backend/gradle/wrapper/gradle-wrapper.jar
+
+# --- Test / Coverage ---
+coverage/
+*.lcov
+
+# --- Docker ---
+docker-volumes/

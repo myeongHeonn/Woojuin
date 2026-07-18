@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "우주인 — 원클릭 스크랩",
+  "version": "0.1.0",
+  "description": "지금 보는 페이지를 클릭 한 번으로 우주인에 저장",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "우주인에 저장"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["activeTab", "contextMenus", "storage"],
+  "host_permissions": []
+}
