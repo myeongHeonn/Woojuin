@@ -4,6 +4,7 @@ import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.global.common.ApiResponse;
+import com.ssafy.woojuin.global.security.aop.AuthenticatedUser;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,16 +30,19 @@ public class ItemDetailController {
         this.itemService = itemService;
     }
 
+    @AuthenticatedUser
     @GetMapping
     public ResponseEntity<ApiResponse<ItemResponse>> detail(@PathVariable Long itemId) {
         return ResponseEntity.ok(ApiResponse.success(itemService.getDetail(itemId)));
     }
 
+    @AuthenticatedUser
     @GetMapping("/status")
     public ResponseEntity<ApiResponse<ItemStatusResponse>> status(@PathVariable Long itemId) {
         return ResponseEntity.ok(ApiResponse.success(itemService.getStatus(itemId)));
     }
 
+    @AuthenticatedUser
     @PatchMapping
     public ResponseEntity<ApiResponse<ItemResponse>> update(
             @PathVariable Long itemId,
@@ -47,17 +51,20 @@ public class ItemDetailController {
     }
 
     /** 휴지통 이동 (soft delete). 영구 삭제는 /permanent로만 가능하다. */
+    @AuthenticatedUser
     @DeleteMapping
     public ResponseEntity<ApiResponse<Void>> moveToTrash(@PathVariable Long itemId) {
         itemService.moveToTrash(itemId);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
+    @AuthenticatedUser
     @PostMapping("/restore")
     public ResponseEntity<ApiResponse<ItemResponse>> restore(@PathVariable Long itemId) {
         return ResponseEntity.ok(ApiResponse.success(itemService.restore(itemId)));
     }
 
+    @AuthenticatedUser
     @DeleteMapping("/permanent")
     public ResponseEntity<ApiResponse<Void>> deletePermanently(@PathVariable Long itemId) {
         itemService.deletePermanently(itemId);

@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -33,6 +34,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiResponse<Void> handleItemNotFound(ItemNotFoundException e) {
         return ApiResponse.of(404, e.getMessage(), null);
+    }
+
+    /**
+     * CurrentUserResolver가 인증되지 않은 요청에서 던진다. 정상 운영 중엔 Spring
+     * Security의 ExceptionTranslationFilter가 먼저 잡아 RestAuthenticationEntryPoint(401)로
+     * 보내지만, @WebMvcTest처럼 시큐리티 필터 체인이 없는 슬라이스 테스트에서는 여기까지
+     * 그대로 전파되므로 동일한 401 응답 형식을 보장하기 위해 둔다.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Void> handleAccessDenied(AccessDeniedException e) {
+        return ApiResponse.of(401, "인증이 필요합니다", null);
     }
 
     /**
