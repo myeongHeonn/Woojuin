@@ -147,6 +147,22 @@ public class ItemService {
         return ItemResponse.from(item);
     }
 
+    /**
+     * 영구 삭제는 휴지통에 있는 것만 가능하다. DB를 먼저 지우고 S3 원본을 지우는데,
+     * 순서를 바꾸면 S3만 지워지고 DB가 남아 "복구했더니 이미지가 없는" 상태가 될 수
+     * 있다. 반대로 이 순서라면 최악이라도 S3에 고아 파일이 남을 뿐이다.
+     */
+    public void deletePermanently(Long itemId) {
+        Item item = findTrashedItem(itemId);
+        String s3Key = item.getS3Key();
+
+        itemRepository.delete(item);
+
+        if (s3Key != null) {
+            s3Uploader.deleteQuietly(s3Key);
+        }
+    }
+
     private Item findActiveItem(Long itemId) {
         return itemRepository.findById(itemId)
                 .filter(item -> !item.isTrashed())
@@ -157,7 +173,7 @@ public class ItemService {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new ItemNotFoundException(itemId));
         if (!item.isTrashed()) {
-            throw new IllegalArgumentException("휴지통에 있는 아이템만 복구할 수 있습니다");
+            throw new IllegalArgumentException("휴지통에 있는 아이템만 복구하거나 영구 삭제할 수 있습니다");
         }
         return item;
     }

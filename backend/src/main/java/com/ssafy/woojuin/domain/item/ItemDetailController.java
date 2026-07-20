@@ -46,7 +46,7 @@ public class ItemDetailController {
         return ResponseEntity.ok(ApiResponse.success(itemService.update(itemId, request)));
     }
 
-    /** 휴지통 이동 (soft delete). 행을 지우지 않는다. */
+    /** 휴지통 이동 (soft delete). 영구 삭제는 /permanent로만 가능하다. */
     @DeleteMapping
     public ResponseEntity<ApiResponse<Void>> moveToTrash(@PathVariable Long itemId) {
         itemService.moveToTrash(itemId);
@@ -56,5 +56,11 @@ public class ItemDetailController {
     @PostMapping("/restore")
     public ResponseEntity<ApiResponse<ItemResponse>> restore(@PathVariable Long itemId) {
         return ResponseEntity.ok(ApiResponse.success(itemService.restore(itemId)));
+    }
+
+    @DeleteMapping("/permanent")
+    public ResponseEntity<ApiResponse<Void>> deletePermanently(@PathVariable Long itemId) {
+        itemService.deletePermanently(itemId);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
