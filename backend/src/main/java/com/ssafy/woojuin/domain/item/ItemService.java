@@ -29,7 +29,6 @@ public class ItemService {
         this.itemQueueProducer = itemQueueProducer;
     }
 
-    @Transactional
     public ItemCreateResponse createFromRequest(Long workspaceId, Long userId, ItemCreateRequest request) {
         validate(request);
 
@@ -44,8 +43,9 @@ public class ItemService {
         return save(item, workspaceId);
     }
 
-    @Transactional
     public ItemCreateResponse createFromImage(Long workspaceId, Long userId, MultipartFile file) {
+        // S3 업로드는 느린 네트워크 I/O라 트랜잭션 밖에서 먼저 끝낸다. 트랜잭션 안에서
+        // 하면 업로드가 끝날 때까지 DB 커넥션을 붙잡고 있어 풀이 마른다.
         String s3Key = s3Uploader.upload(file, workspaceId);
 
         Item item = Item.builder()
@@ -58,12 +58,21 @@ public class ItemService {
         return save(item, workspaceId);
     }
 
+    /**
+     * 저장은 단일 save라 별도 @Transactional을 걸지 않는다 (repository.save가 자체
+     * 트랜잭션으로 커밋). 덕분에 큐 발행 시점에는 이미 행이 커밋돼 있어 컨슈머가
+     * 바로 조회할 수 있다.
+     * 나중에 태그 등 저장이 하나 더 늘어 원자성이 필요해지면 이 메서드를 감싸는
+     * @Transactional을 추가할 것 — 그때도 큐 발행은 ItemQueueProducer가 커밋 이후로
+     * 미뤄주므로 순서는 계속 안전하다.
+     */
     private ItemCreateResponse save(Item item, Long workspaceId) {
         Item saved = itemRepository.save(item);
         itemQueueProducer.publish(saved.getId(), workspaceId, saved.getType());
         return ItemCreateResponse.from(saved);
     }
 
+    @Transactional(readOnly = true)
     public ItemListResponse list(Long workspaceId, ItemType type, ItemStatus status, Boolean favorite,
             String sort, int page, int size) {
         Specification<Item> spec = (root, query, cb) -> cb.and(
@@ -84,10 +93,12 @@ public class ItemService {
         return ItemListResponse.from(result);
     }
 
+    @Transactional(readOnly = true)
     public ItemResponse getDetail(Long itemId) {
         return ItemResponse.from(findActiveItem(itemId));
     }
 
+    @Transactional(readOnly = true)
     public ItemStatusResponse getStatus(Long itemId) {
         return ItemStatusResponse.from(findActiveItem(itemId));
     }
