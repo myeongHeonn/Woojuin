@@ -10,7 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
-class LogoutServiceTest {
+class   LogoutServiceTest {
 
     @Mock
     private RefreshTokenStore refreshTokenStore;

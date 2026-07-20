@@ -5,6 +5,7 @@ import com.ssafy.woojuin.domain.auth.jwt.JwtTokenProvider;
 import com.ssafy.woojuin.domain.auth.oauth.CustomOidcUserService;
 import com.ssafy.woojuin.domain.auth.oauth.OAuth2LoginSuccessHandler;
 import com.ssafy.woojuin.domain.auth.security.CustomUserDetailsService;
+import com.ssafy.woojuin.global.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -30,14 +31,17 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final CustomOidcUserService customOidcUserService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
 
     public SecurityConfig(JwtTokenProvider jwtTokenProvider, CustomUserDetailsService userDetailsService,
                            CustomOidcUserService customOidcUserService,
-                           OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) {
+                           OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
+                           RestAuthenticationEntryPoint restAuthenticationEntryPoint) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userDetailsService = userDetailsService;
         this.customOidcUserService = customOidcUserService;
         this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
+        this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
     }
 
     @Bean
@@ -67,6 +71,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(restAuthenticationEntryPoint))
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.oidcUserService(customOidcUserService))
                         .successHandler(oAuth2LoginSuccessHandler))
