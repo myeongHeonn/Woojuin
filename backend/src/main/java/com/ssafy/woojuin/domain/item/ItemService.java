@@ -123,10 +123,43 @@ public class ItemService {
         return ItemResponse.from(item);
     }
 
+    /** 삭제는 항상 휴지통 이동이 먼저다 (AGENTS.md 도메인 규칙). */
+    @Transactional
+    public void moveToTrash(Long itemId) {
+        findActiveItem(itemId).moveToTrash();
+    }
+
+    @Transactional(readOnly = true)
+    public ItemListResponse listTrash(Long workspaceId, int page, int size) {
+        Specification<Item> spec = (root, query, cb) -> cb.and(
+                cb.equal(root.get("workspaceId"), workspaceId),
+                cb.isNotNull(root.get("deletedAt")));
+
+        Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE),
+                Sort.by("deletedAt").descending());
+        return ItemListResponse.from(itemRepository.findAll(spec, pageable).map(ItemResponse::from));
+    }
+
+    @Transactional
+    public ItemResponse restore(Long itemId) {
+        Item item = findTrashedItem(itemId);
+        item.restore();
+        return ItemResponse.from(item);
+    }
+
     private Item findActiveItem(Long itemId) {
         return itemRepository.findById(itemId)
-                .filter(item -> item.getDeletedAt() == null)
+                .filter(item -> !item.isTrashed())
                 .orElseThrow(() -> new ItemNotFoundException(itemId));
+    }
+
+    private Item findTrashedItem(Long itemId) {
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new ItemNotFoundException(itemId));
+        if (!item.isTrashed()) {
+            throw new IllegalArgumentException("휴지통에 있는 아이템만 복구할 수 있습니다");
+        }
+        return item;
     }
 
     private Sort resolveSort(String sort) {

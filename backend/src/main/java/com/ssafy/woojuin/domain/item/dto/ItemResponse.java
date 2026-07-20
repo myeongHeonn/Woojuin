@@ -19,7 +19,8 @@ public record ItemResponse(
         String s3Key,
         Preview preview,
         boolean favorite,
-        Instant createdAt) {
+        Instant createdAt,
+        Instant deletedAt) {
 
     public record Preview(String thumbnailUrl, String description) {
     }
@@ -35,6 +36,7 @@ public record ItemResponse(
                 item.getS3Key(),
                 new Preview(item.getPreviewThumbnailUrl(), item.getPreviewDescription()),
                 item.isFavorite(),
-                item.getCreatedAt());
+                item.getCreatedAt(),
+                item.getDeletedAt());
     }
 }

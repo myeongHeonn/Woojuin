@@ -96,4 +96,15 @@ public class Item extends BaseTimeEntity {
         }
     }
 
+    public void moveToTrash() {
+        this.deletedAt = Instant.now();
+    }
+
+    public void restore() {
+        this.deletedAt = null;
+    }
+
+    public boolean isTrashed() {
+        return this.deletedAt != null;
+    }
 }

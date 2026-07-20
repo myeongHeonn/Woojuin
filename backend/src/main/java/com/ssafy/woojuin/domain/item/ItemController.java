@@ -69,4 +69,12 @@ public class ItemController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    /** 휴지통 목록 (FR-036). 삭제된 지 오래된 순이 아니라 최근 삭제 순으로 보여준다. */
+    @GetMapping("/trash")
+    public ResponseEntity<ApiResponse<ItemListResponse>> listTrash(
+            @PathVariable Long workspaceId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success(itemService.listTrash(workspaceId, page, size)));
+    }
 }
