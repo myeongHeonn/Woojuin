@@ -14,10 +14,13 @@ public class LoginService {
 
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenStore refreshTokenStore;
 
-    public LoginService(AuthenticationManager authenticationManager, JwtTokenProvider jwtTokenProvider) {
+    public LoginService(AuthenticationManager authenticationManager, JwtTokenProvider jwtTokenProvider,
+                         RefreshTokenStore refreshTokenStore) {
         this.authenticationManager = authenticationManager;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.refreshTokenStore = refreshTokenStore;
     }
 
     public TokenResponse login(LoginRequest request) {
@@ -27,6 +30,7 @@ public class LoginService {
 
         String accessToken = jwtTokenProvider.createAccessToken(principal.getUserId());
         String refreshToken = jwtTokenProvider.createRefreshToken(principal.getUserId());
+        refreshTokenStore.save(principal.getUserId(), refreshToken);
         return new TokenResponse(accessToken, refreshToken);
     }
 }
