@@ -15,7 +15,7 @@ import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.global.common.ItemStatus;
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -247,7 +247,7 @@ class ItemServiceTest {
     void 이미지_영구삭제는_S3_원본도_지운다() {
         Item trashed = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.IMAGE)
                 .s3Key("items/1/uuid-photo.png").build();
-        ReflectionTestUtils.setField(trashed, "deletedAt", Instant.now());
+        ReflectionTestUtils.setField(trashed, "deletedAt", OffsetDateTime.now());
         when(itemRepository.findById(1L)).thenReturn(Optional.of(trashed));
 
         itemService.deletePermanently(1L);
@@ -270,7 +270,7 @@ class ItemServiceTest {
     private Item trashedItem() {
         Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
                 .content("삭제됨").build();
-        ReflectionTestUtils.setField(item, "deletedAt", Instant.now());
+        ReflectionTestUtils.setField(item, "deletedAt", OffsetDateTime.now());
         return item;
     }
 }

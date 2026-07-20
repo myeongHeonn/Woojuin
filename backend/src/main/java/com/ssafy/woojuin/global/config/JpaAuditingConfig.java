@@ -1,14 +1,23 @@
 package com.ssafy.woojuin.global.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
+import java.time.OffsetDateTime;
+import java.util.Optional;
+
 /**
- * @EnableJpaAuditing을 메인 애플리케이션 클래스가 아닌 여기에 둔다. 메인 클래스에 붙이면
- * @WebMvcTest 같은 슬라이스 테스트도 JPA 메타모델을 요구하게 돼서
- * "JPA metamodel must not be empty"로 전부 실패한다.
+ * 기본 DateTimeProvider는 LocalDateTime을 생성하는데, BaseTimeEntity는
+ * OffsetDateTime 컬럼이라 그대로 두면 저장 시점에 타입 변환 에러가 난다.
  */
 @Configuration
-@EnableJpaAuditing
+@EnableJpaAuditing(dateTimeProviderRef = "auditingDateTimeProvider")
 public class JpaAuditingConfig {
+
+    @Bean
+    public DateTimeProvider auditingDateTimeProvider() {
+        return () -> Optional.of(OffsetDateTime.now());
+    }
 }

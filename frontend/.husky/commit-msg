@@ -1,0 +1,2 @@
+msg="$(pwd)/$1"
+cd frontend && npx --no-install commitlint --edit "$msg"

@@ -10,7 +10,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -67,7 +67,7 @@ public class Item extends BaseTimeEntity {
     @Column(nullable = false)
     private boolean favorite;
 
-    private Instant deletedAt;
+    private OffsetDateTime deletedAt;
 
     @Builder
     private Item(Long workspaceId, Long createdBy, ItemType type, String title, String url,
@@ -97,7 +97,7 @@ public class Item extends BaseTimeEntity {
     }
 
     public void moveToTrash() {
-        this.deletedAt = Instant.now();
+        this.deletedAt = OffsetDateTime.now();
     }
 
     public void restore() {

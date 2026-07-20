@@ -16,7 +16,7 @@ import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.global.common.ItemStatus;
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,7 +66,7 @@ class ItemControllerTest {
     @Test
     void 정상_저장은_201과_PROCESSING() throws Exception {
         when(itemService.createFromRequest(eq(1L), eq(1L), any(ItemCreateRequest.class)))
-                .thenReturn(new ItemCreateResponse(42L, ItemStatus.PROCESSING, Instant.now()));
+                .thenReturn(new ItemCreateResponse(42L, ItemStatus.PROCESSING, OffsetDateTime.now()));
 
         mockMvc.perform(post("/api/workspaces/1/items")
                         .header("X-User-Id", 1L)

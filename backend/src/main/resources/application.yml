@@ -17,10 +17,23 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+            client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
+            scope: openid, email, profile
+        # 카카오는 client-id/secret 발급 후 재추가 예정 (S15P11C105-31 후속 사이클).
+        # 빈 값인 채로 registration을 등록해두면 ClientRegistration 검증에서
+        # "clientId cannot be empty"로 부팅 자체가 실패하니 그 전엔 비워둔다.
 
 woojuin:
+  oauth:
+    redirect-base-url: ${OAUTH_REDIRECT_BASE_URL:http://localhost:5173/oauth/callback}
   jwt:
-    secret: ${JWT_SECRET:change-me-to-long-random-string}
+    secret: ${JWT_SECRET:change-me-to-a-long-random-string-of-at-least-32-bytes}
     access-token-validity: 3600000      # 1h
     refresh-token-validity: 1209600000  # 14d
   openai:

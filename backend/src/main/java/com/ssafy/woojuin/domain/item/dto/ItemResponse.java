@@ -3,7 +3,7 @@ package com.ssafy.woojuin.domain.item.dto;
 import com.ssafy.woojuin.domain.item.Item;
 import com.ssafy.woojuin.domain.item.ItemType;
 import com.ssafy.woojuin.global.common.ItemStatus;
-import java.time.Instant;
+import java.time.OffsetDateTime;
 
 /**
  * 아이템 상세/목록 카드 공통 응답. aiResult/tags/category는 해당 도메인(AI 처리, 태그)이
@@ -19,8 +19,8 @@ public record ItemResponse(
         String s3Key,
         Preview preview,
         boolean favorite,
-        Instant createdAt,
-        Instant deletedAt) {
+        OffsetDateTime createdAt,
+        OffsetDateTime deletedAt) {
 
     public record Preview(String thumbnailUrl, String description) {
     }
