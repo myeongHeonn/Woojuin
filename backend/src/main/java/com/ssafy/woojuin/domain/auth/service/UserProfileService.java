@@ -17,23 +17,18 @@ public class UserProfileService {
     }
 
     public UserProfileResponse getProfile(Long userId) {
-        return toResponse(findUser(userId));
+        return UserProfileResponse.from(findUser(userId));
     }
 
     @Transactional
     public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request) {
         User user = findUser(userId);
         user.updateProfile(request.nickname(), request.profileImageUrl());
-        return toResponse(user);
+        return UserProfileResponse.from(user);
     }
 
     private User findUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
-    }
-
-    private UserProfileResponse toResponse(User user) {
-        return new UserProfileResponse(user.getId(), user.getEmail(), user.getNickname(),
-                user.getProfileImageUrl(), user.getProvider(), user.isEmailVerified());
     }
 }
