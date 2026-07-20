@@ -5,6 +5,7 @@ import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.global.common.ApiResponse;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -38,7 +39,7 @@ public class ItemController {
     public ResponseEntity<ApiResponse<ItemCreateResponse>> createFromRequest(
             @PathVariable Long workspaceId,
             @RequestHeader("X-User-Id") Long userId,
-            @RequestBody ItemCreateRequest request) {
+            @Valid @RequestBody ItemCreateRequest request) {
         ItemCreateResponse response = itemService.createFromRequest(workspaceId, userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(201, "success", response));
     }
