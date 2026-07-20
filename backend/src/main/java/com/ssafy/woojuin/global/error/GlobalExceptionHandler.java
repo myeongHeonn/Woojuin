@@ -1,5 +1,6 @@
 package com.ssafy.woojuin.global.error;
 
+import com.ssafy.woojuin.domain.item.ItemNotFoundException;
 import com.ssafy.woojuin.global.common.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,6 +21,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
     public ApiResponse<Void> handleFileTooLarge(MaxUploadSizeExceededException e) {
         return ApiResponse.of(413, "ITEM_413: 이미지 파일 용량 초과", null);
+    }
+
+    @ExceptionHandler(ItemNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleItemNotFound(ItemNotFoundException e) {
+        return ApiResponse.of(404, e.getMessage(), null);
     }
 
     // TODO: 에러 코드 정의(노션 API 명세서)에 맞춰 커스텀 예외 체계 추가

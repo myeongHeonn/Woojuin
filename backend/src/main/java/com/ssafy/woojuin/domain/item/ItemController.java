@@ -2,15 +2,19 @@ package com.ssafy.woojuin.domain.item;
 
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.global.common.ApiResponse;
+import com.ssafy.woojuin.global.common.ItemStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -46,5 +50,18 @@ public class ItemController {
             @RequestPart MultipartFile file) {
         ItemCreateResponse response = itemService.createFromImage(workspaceId, userId, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(201, "success", response));
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<ItemListResponse>> list(
+            @PathVariable Long workspaceId,
+            @RequestParam(required = false) ItemType type,
+            @RequestParam(required = false) ItemStatus status,
+            @RequestParam(required = false) Boolean favorite,
+            @RequestParam(defaultValue = "latest") String sort,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        ItemListResponse response = itemService.list(workspaceId, type, status, favorite, sort, page, size);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
