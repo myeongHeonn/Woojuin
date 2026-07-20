@@ -56,7 +56,7 @@ cd backend && ./gradlew bootRun   # 로컬 실행 (:8080)
 
 ## 코드 컨벤션
 
-- 브랜치/커밋/MR 규칙: `docs/CONVENTIONS.md` 참조 (Conventional Commits, `feature/FE-{이슈번호}-{설명}` 형식)
+- 브랜치/커밋/MR 규칙: `docs/CONVENTIONS.md` 참조 (Conventional Commits, `feature/FE-{설명}` 형식)
 - **API 공통 응답**: 모든 엔드포인트는 `{ "status": 200, "message": "success", "data": {} }` 형식. 백엔드에서 `com.ssafy.woojuin.global.common.ApiResponse` 레코드 사용
 - 프론트 import는 절대경로 `@/` 사용 (`@/shared/api/client` 등)
 - 백엔드 패키지: `global/`(공통 설정·에러·응답) + `domain/{auth,workspace,item,ai,notification}/`(도메인별 컨트롤러·서비스·리포지토리·엔티티)
@@ -84,3 +84,4 @@ cd backend && ./gradlew bootRun   # 로컬 실행 (:8080)
 - 저장 API에 동기 AI 호출 추가
 - 프론트에서 localStorage/sessionStorage 직접 사용 (Jotai/TanStack Query로 대체)
 - `.env`, 시크릿, `firebase-adminsdk*.json` 등을 커밋하는 코드/설정 작성
+- 커밋 메시지에 `Co-Authored-By: Claude` 등 AI 툴 서명 남기기
