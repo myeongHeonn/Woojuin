@@ -18,6 +18,9 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class ItemService {
 
+    /** 한 번에 조회 가능한 최대 건수. 클라이언트가 size를 크게 보내도 여기서 잘린다. */
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final ItemRepository itemRepository;
     private final S3Uploader s3Uploader;
     private final ItemQueueProducer itemQueueProducer;
@@ -88,7 +91,7 @@ public class ItemService {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("favorite"), favorite));
         }
 
-        Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
+        Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE), resolveSort(sort));
         Page<ItemResponse> result = itemRepository.findAll(spec, pageable).map(ItemResponse::from);
         return ItemListResponse.from(result);
     }
