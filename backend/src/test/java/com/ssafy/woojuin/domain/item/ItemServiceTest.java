@@ -12,10 +12,12 @@ import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -23,6 +25,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class ItemServiceTest {
@@ -128,5 +131,28 @@ class ItemServiceTest {
 
         assertThat(response.totalElements()).isEqualTo(1);
         assertThat(response.content()).hasSize(1);
+    }
+
+    @Test
+    void 목록조회_size가_상한을_넘으면_잘린다() {
+        ArgumentCaptor<PageRequest> captor = ArgumentCaptor.forClass(PageRequest.class);
+        when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
+
+        itemService.list(1L, null, null, null, "latest", 0, 100_000);
+
+        verify(itemRepository).findAll(any(Specification.class), captor.capture());
+        assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    void 소프트삭제된_아이템은_상세조회에서_404() {
+        Item deleted = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .content("삭제됨").build();
+        ReflectionTestUtils.setField(deleted, "deletedAt", Instant.now());
+        when(itemRepository.findById(5L)).thenReturn(Optional.of(deleted));
+
+        assertThatThrownBy(() -> itemService.getDetail(5L))
+                .isInstanceOf(ItemNotFoundException.class);
     }
 }
