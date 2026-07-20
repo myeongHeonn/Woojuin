@@ -2,10 +2,14 @@ package com.ssafy.woojuin.domain.item;
 
 import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.global.common.ApiResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -32,4 +36,12 @@ public class ItemDetailController {
     public ResponseEntity<ApiResponse<ItemStatusResponse>> status(@PathVariable Long itemId) {
         return ResponseEntity.ok(ApiResponse.success(itemService.getStatus(itemId)));
     }
+
+    @PatchMapping
+    public ResponseEntity<ApiResponse<ItemResponse>> update(
+            @PathVariable Long itemId,
+            @Valid @RequestBody ItemUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(itemService.update(itemId, request)));
+    }
+
 }

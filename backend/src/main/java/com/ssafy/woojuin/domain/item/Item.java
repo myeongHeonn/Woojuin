@@ -82,4 +82,18 @@ public class Item extends BaseTimeEntity {
         this.s3Key = s3Key;
         this.favorite = false;
     }
+
+    /**
+     * null인 필드는 건드리지 않는다(부분 수정). content는 타입과 무관하게 수정 가능한데,
+     * URL 아이템도 트랙 A/B가 모두 실패하면 사용자 메모로 폴백하기 때문이다(FR-020).
+     */
+    public void update(String title, String content) {
+        if (title != null) {
+            this.title = title;
+        }
+        if (content != null) {
+            this.content = content;
+        }
+    }
+
 }

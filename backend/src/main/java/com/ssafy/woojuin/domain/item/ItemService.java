@@ -5,6 +5,7 @@ import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -104,6 +105,22 @@ public class ItemService {
     @Transactional(readOnly = true)
     public ItemStatusResponse getStatus(Long itemId) {
         return ItemStatusResponse.from(findActiveItem(itemId));
+    }
+
+    /**
+     * 제목·메모 수정. 수정해도 AI 재처리 큐에는 발행하지 않는다 — 사용자가 직접 고친
+     * 내용을 AI가 다시 덮어쓰면 안 되기 때문. 재처리 정책은 AI 로직을 만드는
+     * 묶음 D/F와 합의해서 정할 것.
+     * 태그·카테고리 수정(API 명세서)은 해당 도메인이 아직 없어 이번 범위 밖.
+     */
+    @Transactional
+    public ItemResponse update(Long itemId, ItemUpdateRequest request) {
+        if (request.title() == null && request.content() == null) {
+            throw new IllegalArgumentException("수정할 내용이 없습니다 (title 또는 content 필요)");
+        }
+        Item item = findActiveItem(itemId);
+        item.update(request.title(), request.content());
+        return ItemResponse.from(item);
     }
 
     private Item findActiveItem(Long itemId) {
