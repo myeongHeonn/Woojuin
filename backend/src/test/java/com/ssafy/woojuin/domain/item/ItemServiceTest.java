@@ -3,7 +3,9 @@ package com.ssafy.woojuin.domain.item;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
@@ -11,6 +13,7 @@ import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.time.Instant;
 import java.util.List;
@@ -147,12 +150,127 @@ class ItemServiceTest {
 
     @Test
     void 소프트삭제된_아이템은_상세조회에서_404() {
-        Item deleted = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
-                .content("삭제됨").build();
-        ReflectionTestUtils.setField(deleted, "deletedAt", Instant.now());
+        Item deleted = trashedItem();
         when(itemRepository.findById(5L)).thenReturn(Optional.of(deleted));
 
         assertThatThrownBy(() -> itemService.getDetail(5L))
                 .isInstanceOf(ItemNotFoundException.class);
+    }
+
+    @Test
+    void 수정은_null이_아닌_필드만_반영() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .title("원래 제목").content("원래 내용").build();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
+
+        ItemResponse response = itemService.update(1L, new ItemUpdateRequest("바뀐 제목", null));
+
+        assertThat(response.title()).isEqualTo("바뀐 제목");
+        assertThat(response.content()).isEqualTo("원래 내용");
+    }
+
+    @Test
+    void URL_아이템에도_메모를_붙일_수_있다() {
+        // 트랙 A/B가 모두 실패하면 사용자 메모로 폴백하기 때문 (FR-020)
+        Item urlItem = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.URL)
+                .url("https://example.com").build();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(urlItem));
+
+        ItemResponse response = itemService.update(1L, new ItemUpdateRequest(null, "직접 남긴 메모"));
+
+        assertThat(response.content()).isEqualTo("직접 남긴 메모");
+        assertThat(response.url()).isEqualTo("https://example.com");
+    }
+
+    @Test
+    void 수정할_내용이_하나도_없으면_예외() {
+        assertThatThrownBy(() -> itemService.update(1L, new ItemUpdateRequest(null, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 수정은_큐에_재발행하지_않는다() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .content("원래").build();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
+
+        itemService.update(1L, new ItemUpdateRequest(null, "수정됨"));
+
+        verifyNoInteractions(itemQueueProducer);
+    }
+
+    @Test
+    void 삭제는_행을_지우지_않고_휴지통으로_보낸다() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .content("메모").build();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
+
+        itemService.moveToTrash(1L);
+
+        assertThat(item.isTrashed()).isTrue();
+        verify(itemRepository, never()).delete(any(Item.class));
+    }
+
+    @Test
+    void 휴지통에_없는_아이템은_복구할_수_없다() {
+        Item active = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .content("정상").build();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(active));
+
+        assertThatThrownBy(() -> itemService.restore(1L))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 복구하면_다시_조회된다() {
+        Item trashed = trashedItem();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(trashed));
+
+        ItemResponse response = itemService.restore(1L);
+
+        assertThat(trashed.isTrashed()).isFalse();
+        assertThat(response.deletedAt()).isNull();
+    }
+
+    @Test
+    void 휴지통에_없는_아이템은_영구삭제할_수_없다() {
+        Item active = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .content("정상").build();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(active));
+
+        assertThatThrownBy(() -> itemService.deletePermanently(1L))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(itemRepository, never()).delete(any(Item.class));
+    }
+
+    @Test
+    void 이미지_영구삭제는_S3_원본도_지운다() {
+        Item trashed = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.IMAGE)
+                .s3Key("items/1/uuid-photo.png").build();
+        ReflectionTestUtils.setField(trashed, "deletedAt", Instant.now());
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(trashed));
+
+        itemService.deletePermanently(1L);
+
+        verify(itemRepository).delete(trashed);
+        verify(s3Uploader).deleteQuietly("items/1/uuid-photo.png");
+    }
+
+    @Test
+    void s3Key가_없는_아이템_영구삭제는_S3를_호출하지_않는다() {
+        Item trashed = trashedItem();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(trashed));
+
+        itemService.deletePermanently(1L);
+
+        verify(itemRepository).delete(trashed);
+        verifyNoInteractions(s3Uploader);
+    }
+
+    private Item trashedItem() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .content("삭제됨").build();
+        ReflectionTestUtils.setField(item, "deletedAt", Instant.now());
+        return item;
     }
 }
