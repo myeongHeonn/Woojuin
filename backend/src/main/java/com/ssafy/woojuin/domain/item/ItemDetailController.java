@@ -5,6 +5,7 @@ import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.global.common.ApiResponse;
 import com.ssafy.woojuin.global.security.aop.AuthenticatedUser;
+import com.ssafy.woojuin.global.security.aop.CurrentUserResolver;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,21 +26,25 @@ import org.springframework.web.bind.annotation.RestController;
 public class ItemDetailController {
 
     private final ItemService itemService;
+    private final CurrentUserResolver currentUserResolver;
 
-    public ItemDetailController(ItemService itemService) {
+    public ItemDetailController(ItemService itemService, CurrentUserResolver currentUserResolver) {
         this.itemService = itemService;
+        this.currentUserResolver = currentUserResolver;
     }
 
     @AuthenticatedUser
     @GetMapping
     public ResponseEntity<ApiResponse<ItemResponse>> detail(@PathVariable Long itemId) {
-        return ResponseEntity.ok(ApiResponse.success(itemService.getDetail(itemId)));
+        Long userId = currentUserResolver.resolveUserId();
+        return ResponseEntity.ok(ApiResponse.success(itemService.getDetail(itemId, userId)));
     }
 
     @AuthenticatedUser
     @GetMapping("/status")
     public ResponseEntity<ApiResponse<ItemStatusResponse>> status(@PathVariable Long itemId) {
-        return ResponseEntity.ok(ApiResponse.success(itemService.getStatus(itemId)));
+        Long userId = currentUserResolver.resolveUserId();
+        return ResponseEntity.ok(ApiResponse.success(itemService.getStatus(itemId, userId)));
     }
 
     @AuthenticatedUser
@@ -47,27 +52,31 @@ public class ItemDetailController {
     public ResponseEntity<ApiResponse<ItemResponse>> update(
             @PathVariable Long itemId,
             @Valid @RequestBody ItemUpdateRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(itemService.update(itemId, request)));
+        Long userId = currentUserResolver.resolveUserId();
+        return ResponseEntity.ok(ApiResponse.success(itemService.update(itemId, userId, request)));
     }
 
     /** 휴지통 이동 (soft delete). 영구 삭제는 /permanent로만 가능하다. */
     @AuthenticatedUser
     @DeleteMapping
     public ResponseEntity<ApiResponse<Void>> moveToTrash(@PathVariable Long itemId) {
-        itemService.moveToTrash(itemId);
+        Long userId = currentUserResolver.resolveUserId();
+        itemService.moveToTrash(itemId, userId);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @AuthenticatedUser
     @PostMapping("/restore")
     public ResponseEntity<ApiResponse<ItemResponse>> restore(@PathVariable Long itemId) {
-        return ResponseEntity.ok(ApiResponse.success(itemService.restore(itemId)));
+        Long userId = currentUserResolver.resolveUserId();
+        return ResponseEntity.ok(ApiResponse.success(itemService.restore(itemId, userId)));
     }
 
     @AuthenticatedUser
     @DeleteMapping("/permanent")
     public ResponseEntity<ApiResponse<Void>> deletePermanently(@PathVariable Long itemId) {
-        itemService.deletePermanently(itemId);
+        Long userId = currentUserResolver.resolveUserId();
+        itemService.deletePermanently(itemId, userId);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
