@@ -39,6 +39,9 @@ dependencies {
     // S3 업로드
     implementation 'software.amazon.awssdk:s3:2.29.52'
 
+    // Swagger UI (springdoc-openapi)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+
     runtimeOnly 'org.postgresql:postgresql'
 
     compileOnly 'org.projectlombok:lombok'
