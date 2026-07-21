@@ -1,0 +1,6 @@
+requests>=2.31
+pydantic>=2.6
+PyYAML>=6.0
+pandas>=2.1
+psutil>=5.9
+pytest>=8.0

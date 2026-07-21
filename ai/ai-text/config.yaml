@@ -1,0 +1,13 @@
+models:
+  - qwen3:4b
+  - qwen3:8b
+repeatCount: 3
+temperature: 0
+ollamaBaseUrl: http://localhost:11434
+connectTimeoutSeconds: 5
+readTimeoutSeconds: 300
+keepAlive: 10m
+promptVersion: v1
+modelSizesGb:
+  qwen3:4b: 2.5
+  qwen3:8b: 5.2
