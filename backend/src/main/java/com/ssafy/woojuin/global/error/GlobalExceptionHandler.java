@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.global.error;
 
 import com.ssafy.woojuin.domain.item.ItemNotFoundException;
+import com.ssafy.woojuin.domain.item.WorkspaceAccessDeniedException;
 import com.ssafy.woojuin.global.common.ApiResponse;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +35,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiResponse<Void> handleItemNotFound(ItemNotFoundException e) {
         return ApiResponse.of(404, e.getMessage(), null);
+    }
+
+    /** 로그인은 했지만 해당 워크스페이스 멤버가 아닌 경우. 인증 자체가 없는 AccessDeniedException(401)과는 구분한다. */
+    @ExceptionHandler(WorkspaceAccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleWorkspaceAccessDenied(WorkspaceAccessDeniedException e) {
+        return ApiResponse.of(403, e.getMessage(), null);
     }
 
     /**

@@ -105,7 +105,7 @@ class ItemControllerTest {
     @Test
     void 없는_아이템_조회는_공통형식_404() throws Exception {
         authenticateAs(1L);
-        when(itemService.list(any(), any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(),
+        when(itemService.list(any(), any(), any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyInt()))
                 .thenThrow(new ItemNotFoundException(999L));
 
@@ -117,7 +117,7 @@ class ItemControllerTest {
     @Test
     void 휴지통_목록_경로가_매핑되어_있다() throws Exception {
         authenticateAs(1L);
-        when(itemService.listTrash(eq(1L), org.mockito.ArgumentMatchers.anyInt(),
+        when(itemService.listTrash(eq(1L), eq(1L), org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn(new ItemListResponse(List.of(), 0, 20, 0));
 
@@ -125,7 +125,7 @@ class ItemControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200));
 
-        verify(itemService).listTrash(eq(1L), org.mockito.ArgumentMatchers.anyInt(),
+        verify(itemService).listTrash(eq(1L), eq(1L), org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyInt());
     }
 
@@ -140,7 +140,7 @@ class ItemControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
 
-        verify(itemService, never()).update(any(), any());
+        verify(itemService, never()).update(any(), any(), any());
     }
 
     @Test
@@ -148,10 +148,10 @@ class ItemControllerTest {
         authenticateAs(1L);
 
         mockMvc.perform(delete("/api/items/1")).andExpect(status().isOk());
-        verify(itemService).moveToTrash(1L);
-        verify(itemService, never()).deletePermanently(any());
+        verify(itemService).moveToTrash(1L, 1L);
+        verify(itemService, never()).deletePermanently(any(), any());
 
         mockMvc.perform(delete("/api/items/1/permanent")).andExpect(status().isOk());
-        verify(itemService).deletePermanently(1L);
+        verify(itemService).deletePermanently(1L, 1L);
     }
 }

@@ -6,6 +6,7 @@ import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,15 +26,18 @@ public class ItemService {
     private final ItemRepository itemRepository;
     private final S3Uploader s3Uploader;
     private final ItemQueueProducer itemQueueProducer;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
 
     public ItemService(ItemRepository itemRepository, S3Uploader s3Uploader,
-            ItemQueueProducer itemQueueProducer) {
+            ItemQueueProducer itemQueueProducer, WorkspaceMemberRepository workspaceMemberRepository) {
         this.itemRepository = itemRepository;
         this.s3Uploader = s3Uploader;
         this.itemQueueProducer = itemQueueProducer;
+        this.workspaceMemberRepository = workspaceMemberRepository;
     }
 
     public ItemCreateResponse createFromRequest(Long workspaceId, Long userId, ItemCreateRequest request) {
+        verifyMembership(workspaceId, userId);
         validate(request);
 
         Item item = Item.builder()
@@ -48,6 +52,8 @@ public class ItemService {
     }
 
     public ItemCreateResponse createFromImage(Long workspaceId, Long userId, MultipartFile file) {
+        verifyMembership(workspaceId, userId);
+
         // S3 업로드는 느린 네트워크 I/O라 트랜잭션 밖에서 먼저 끝낸다. 트랜잭션 안에서
         // 하면 업로드가 끝날 때까지 DB 커넥션을 붙잡고 있어 풀이 마른다.
         String s3Key = s3Uploader.upload(file, workspaceId);
@@ -77,8 +83,10 @@ public class ItemService {
     }
 
     @Transactional(readOnly = true)
-    public ItemListResponse list(Long workspaceId, ItemType type, ItemStatus status, Boolean favorite,
+    public ItemListResponse list(Long workspaceId, Long userId, ItemType type, ItemStatus status, Boolean favorite,
             String sort, int page, int size) {
+        verifyMembership(workspaceId, userId);
+
         Specification<Item> spec = (root, query, cb) -> cb.and(
                 cb.equal(root.get("workspaceId"), workspaceId),
                 cb.isNull(root.get("deletedAt")));
@@ -98,13 +106,13 @@ public class ItemService {
     }
 
     @Transactional(readOnly = true)
-    public ItemResponse getDetail(Long itemId) {
-        return ItemResponse.from(findActiveItem(itemId));
+    public ItemResponse getDetail(Long itemId, Long userId) {
+        return ItemResponse.from(findActiveItem(itemId, userId));
     }
 
     @Transactional(readOnly = true)
-    public ItemStatusResponse getStatus(Long itemId) {
-        return ItemStatusResponse.from(findActiveItem(itemId));
+    public ItemStatusResponse getStatus(Long itemId, Long userId) {
+        return ItemStatusResponse.from(findActiveItem(itemId, userId));
     }
 
     /**
@@ -114,23 +122,25 @@ public class ItemService {
      * 태그·카테고리 수정(API 명세서)은 해당 도메인이 아직 없어 이번 범위 밖.
      */
     @Transactional
-    public ItemResponse update(Long itemId, ItemUpdateRequest request) {
+    public ItemResponse update(Long itemId, Long userId, ItemUpdateRequest request) {
         if (request.title() == null && request.content() == null) {
             throw new IllegalArgumentException("수정할 내용이 없습니다 (title 또는 content 필요)");
         }
-        Item item = findActiveItem(itemId);
+        Item item = findActiveItem(itemId, userId);
         item.update(request.title(), request.content());
         return ItemResponse.from(item);
     }
 
     /** 삭제는 항상 휴지통 이동이 먼저다 (AGENTS.md 도메인 규칙). */
     @Transactional
-    public void moveToTrash(Long itemId) {
-        findActiveItem(itemId).moveToTrash();
+    public void moveToTrash(Long itemId, Long userId) {
+        findActiveItem(itemId, userId).moveToTrash();
     }
 
     @Transactional(readOnly = true)
-    public ItemListResponse listTrash(Long workspaceId, int page, int size) {
+    public ItemListResponse listTrash(Long workspaceId, Long userId, int page, int size) {
+        verifyMembership(workspaceId, userId);
+
         Specification<Item> spec = (root, query, cb) -> cb.and(
                 cb.equal(root.get("workspaceId"), workspaceId),
                 cb.isNotNull(root.get("deletedAt")));
@@ -141,8 +151,8 @@ public class ItemService {
     }
 
     @Transactional
-    public ItemResponse restore(Long itemId) {
-        Item item = findTrashedItem(itemId);
+    public ItemResponse restore(Long itemId, Long userId) {
+        Item item = findTrashedItem(itemId, userId);
         item.restore();
         return ItemResponse.from(item);
     }
@@ -152,8 +162,8 @@ public class ItemService {
      * 순서를 바꾸면 S3만 지워지고 DB가 남아 "복구했더니 이미지가 없는" 상태가 될 수
      * 있다. 반대로 이 순서라면 최악이라도 S3에 고아 파일이 남을 뿐이다.
      */
-    public void deletePermanently(Long itemId) {
-        Item item = findTrashedItem(itemId);
+    public void deletePermanently(Long itemId, Long userId) {
+        Item item = findTrashedItem(itemId, userId);
         String s3Key = item.getS3Key();
 
         itemRepository.delete(item);
@@ -163,19 +173,28 @@ public class ItemService {
         }
     }
 
-    private Item findActiveItem(Long itemId) {
-        return itemRepository.findById(itemId)
-                .filter(item -> !item.isTrashed())
+    /** itemId만으로 접근하는 API용. 아이템이 속한 workspaceId를 먼저 알아낸 뒤 멤버십을 검증한다. */
+    private Item findActiveItem(Long itemId, Long userId) {
+        Item item = itemRepository.findById(itemId)
+                .filter(i -> !i.isTrashed())
                 .orElseThrow(() -> new ItemNotFoundException(itemId));
+        verifyMembership(item.getWorkspaceId(), userId);
+        return item;
     }
 
-    private Item findTrashedItem(Long itemId) {
+    private Item findTrashedItem(Long itemId, Long userId) {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new ItemNotFoundException(itemId));
+        verifyMembership(item.getWorkspaceId(), userId);
         if (!item.isTrashed()) {
             throw new IllegalArgumentException("휴지통에 있는 아이템만 복구하거나 영구 삭제할 수 있습니다");
         }
         return item;
+    }
+
+    private void verifyMembership(Long workspaceId, Long userId) {
+        workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .orElseThrow(() -> new WorkspaceAccessDeniedException(workspaceId));
     }
 
     private Sort resolveSort(String sort) {

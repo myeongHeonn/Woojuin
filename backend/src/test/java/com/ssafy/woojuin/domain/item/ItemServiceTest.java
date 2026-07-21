@@ -3,6 +3,8 @@ package com.ssafy.woojuin.domain.item;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -14,10 +16,13 @@ import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -42,8 +47,21 @@ class ItemServiceTest {
     @Mock
     private ItemQueueProducer itemQueueProducer;
 
+    @Mock
+    private WorkspaceMemberRepository workspaceMemberRepository;
+
     @InjectMocks
     private ItemService itemService;
+
+    /**
+     * 대부분의 테스트는 멤버십 검증 자체가 아니라 그 다음 로직을 보는 것이라, 기본적으로 멤버라고
+     * 가정한다. 아이템이 없어 멤버십 검증까지 가지도 않는 404 테스트들도 있어 lenient로 둔다.
+     */
+    @BeforeEach
+    void setUpMembership() {
+        lenient().when(workspaceMemberRepository.findByWorkspaceIdAndUserId(any(), any()))
+                .thenReturn(Optional.of(mock(WorkspaceMember.class)));
+    }
 
     @Test
     void URL_타입은_url이_없으면_예외() {
@@ -98,7 +116,7 @@ class ItemServiceTest {
                 .url("https://example.com").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
 
-        ItemResponse response = itemService.getDetail(1L);
+        ItemResponse response = itemService.getDetail(1L, 1L);
 
         assertThat(response.type()).isEqualTo(ItemType.URL);
         assertThat(response.url()).isEqualTo("https://example.com");
@@ -108,7 +126,7 @@ class ItemServiceTest {
     void 상세조회는_없는_아이템이면_404_예외() {
         when(itemRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> itemService.getDetail(999L))
+        assertThatThrownBy(() -> itemService.getDetail(999L, 1L))
                 .isInstanceOf(ItemNotFoundException.class);
     }
 
@@ -118,7 +136,7 @@ class ItemServiceTest {
                 .content("메모").build();
         when(itemRepository.findById(2L)).thenReturn(Optional.of(item));
 
-        ItemStatusResponse response = itemService.getStatus(2L);
+        ItemStatusResponse response = itemService.getStatus(2L, 1L);
 
         assertThat(response.status()).isEqualTo(ItemStatus.PROCESSING);
     }
@@ -130,7 +148,7 @@ class ItemServiceTest {
         when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 20), 1));
 
-        ItemListResponse response = itemService.list(1L, null, null, null, "latest", 0, 20);
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, "latest", 0, 20);
 
         assertThat(response.totalElements()).isEqualTo(1);
         assertThat(response.content()).hasSize(1);
@@ -142,7 +160,7 @@ class ItemServiceTest {
         when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
 
-        itemService.list(1L, null, null, null, "latest", 0, 100_000);
+        itemService.list(1L, 1L, null, null, null, "latest", 0, 100_000);
 
         verify(itemRepository).findAll(any(Specification.class), captor.capture());
         assertThat(captor.getValue().getPageSize()).isEqualTo(100);
@@ -153,8 +171,29 @@ class ItemServiceTest {
         Item deleted = trashedItem();
         when(itemRepository.findById(5L)).thenReturn(Optional.of(deleted));
 
-        assertThatThrownBy(() -> itemService.getDetail(5L))
+        assertThatThrownBy(() -> itemService.getDetail(5L, 1L))
                 .isInstanceOf(ItemNotFoundException.class);
+    }
+
+    @Test
+    void 워크스페이스_멤버가_아니면_상세조회_403() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.URL)
+                .url("https://example.com").build();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(1L, 999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> itemService.getDetail(1L, 999L))
+                .isInstanceOf(WorkspaceAccessDeniedException.class);
+    }
+
+    @Test
+    void 워크스페이스_멤버가_아니면_생성_403() {
+        ItemCreateRequest request = new ItemCreateRequest(ItemType.URL, "https://example.com", null);
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(1L, 999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> itemService.createFromRequest(1L, 999L, request))
+                .isInstanceOf(WorkspaceAccessDeniedException.class);
+        verify(itemRepository, never()).save(any());
     }
 
     @Test
@@ -163,7 +202,7 @@ class ItemServiceTest {
                 .title("원래 제목").content("원래 내용").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
 
-        ItemResponse response = itemService.update(1L, new ItemUpdateRequest("바뀐 제목", null));
+        ItemResponse response = itemService.update(1L, 1L, new ItemUpdateRequest("바뀐 제목", null));
 
         assertThat(response.title()).isEqualTo("바뀐 제목");
         assertThat(response.content()).isEqualTo("원래 내용");
@@ -176,7 +215,7 @@ class ItemServiceTest {
                 .url("https://example.com").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(urlItem));
 
-        ItemResponse response = itemService.update(1L, new ItemUpdateRequest(null, "직접 남긴 메모"));
+        ItemResponse response = itemService.update(1L, 1L, new ItemUpdateRequest(null, "직접 남긴 메모"));
 
         assertThat(response.content()).isEqualTo("직접 남긴 메모");
         assertThat(response.url()).isEqualTo("https://example.com");
@@ -184,7 +223,7 @@ class ItemServiceTest {
 
     @Test
     void 수정할_내용이_하나도_없으면_예외() {
-        assertThatThrownBy(() -> itemService.update(1L, new ItemUpdateRequest(null, null)))
+        assertThatThrownBy(() -> itemService.update(1L, 1L, new ItemUpdateRequest(null, null)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -194,7 +233,7 @@ class ItemServiceTest {
                 .content("원래").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
 
-        itemService.update(1L, new ItemUpdateRequest(null, "수정됨"));
+        itemService.update(1L, 1L, new ItemUpdateRequest(null, "수정됨"));
 
         verifyNoInteractions(itemQueueProducer);
     }
@@ -205,7 +244,7 @@ class ItemServiceTest {
                 .content("메모").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
 
-        itemService.moveToTrash(1L);
+        itemService.moveToTrash(1L, 1L);
 
         assertThat(item.isTrashed()).isTrue();
         verify(itemRepository, never()).delete(any(Item.class));
@@ -217,7 +256,7 @@ class ItemServiceTest {
                 .content("정상").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(active));
 
-        assertThatThrownBy(() -> itemService.restore(1L))
+        assertThatThrownBy(() -> itemService.restore(1L, 1L))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -226,7 +265,7 @@ class ItemServiceTest {
         Item trashed = trashedItem();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(trashed));
 
-        ItemResponse response = itemService.restore(1L);
+        ItemResponse response = itemService.restore(1L, 1L);
 
         assertThat(trashed.isTrashed()).isFalse();
         assertThat(response.deletedAt()).isNull();
@@ -238,7 +277,7 @@ class ItemServiceTest {
                 .content("정상").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(active));
 
-        assertThatThrownBy(() -> itemService.deletePermanently(1L))
+        assertThatThrownBy(() -> itemService.deletePermanently(1L, 1L))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(itemRepository, never()).delete(any(Item.class));
     }
@@ -250,7 +289,7 @@ class ItemServiceTest {
         ReflectionTestUtils.setField(trashed, "deletedAt", OffsetDateTime.now());
         when(itemRepository.findById(1L)).thenReturn(Optional.of(trashed));
 
-        itemService.deletePermanently(1L);
+        itemService.deletePermanently(1L, 1L);
 
         verify(itemRepository).delete(trashed);
         verify(s3Uploader).deleteQuietly("items/1/uuid-photo.png");
@@ -261,7 +300,7 @@ class ItemServiceTest {
         Item trashed = trashedItem();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(trashed));
 
-        itemService.deletePermanently(1L);
+        itemService.deletePermanently(1L, 1L);
 
         verify(itemRepository).delete(trashed);
         verifyNoInteractions(s3Uploader);
