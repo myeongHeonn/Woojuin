@@ -22,6 +22,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
 
+    // 루트의 .env를 자동으로 읽어 환경변수로 주입 (별도 export 없이 bootRun 가능).
+    // spring-dotenv(코어)는 수동 등록이 필요해 Boot 3 auto-registration이 되는
+    // springboot3-dotenv를 써야 한다.
+    implementation 'me.paulschwarz:springboot3-dotenv:5.1.0'
+
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
@@ -44,3 +49,10 @@ dependencies {
 }
 
 tasks.named('test') { useJUnitPlatform() }
+
+// spring-dotenv는 EnvironmentPostProcessor라서 application.yml이 다 읽히기 전에
+// 실행된다 — springdotenv.directory를 application.yml에 적어도 무시된다.
+// JVM 시스템 프로퍼티는 부팅 즉시 존재하는 프로퍼티 소스라 이 시점에도 보인다.
+tasks.named('bootRun') {
+    systemProperty 'springdotenv.directory', file("$rootDir/..").canonicalPath
+}
