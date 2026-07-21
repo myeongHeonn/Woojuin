@@ -1,0 +1,73 @@
+package com.ssafy.woojuin.domain.item;
+
+import com.ssafy.woojuin.domain.item.dto.ItemResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
+import com.ssafy.woojuin.global.common.ApiResponse;
+import com.ssafy.woojuin.global.security.aop.AuthenticatedUser;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * 개별 아이템 단위 API. API 명세서 기준 이 경로들은 workspaceId 없이 itemId만으로
+ * 접근한다 (아이템이 자기 workspaceId를 갖고 있어 경로에 중복시킬 필요가 없음).
+ */
+@RestController
+@RequestMapping("/api/items/{itemId}")
+public class ItemDetailController {
+
+    private final ItemService itemService;
+
+    public ItemDetailController(ItemService itemService) {
+        this.itemService = itemService;
+    }
+
+    @AuthenticatedUser
+    @GetMapping
+    public ResponseEntity<ApiResponse<ItemResponse>> detail(@PathVariable Long itemId) {
+        return ResponseEntity.ok(ApiResponse.success(itemService.getDetail(itemId)));
+    }
+
+    @AuthenticatedUser
+    @GetMapping("/status")
+    public ResponseEntity<ApiResponse<ItemStatusResponse>> status(@PathVariable Long itemId) {
+        return ResponseEntity.ok(ApiResponse.success(itemService.getStatus(itemId)));
+    }
+
+    @AuthenticatedUser
+    @PatchMapping
+    public ResponseEntity<ApiResponse<ItemResponse>> update(
+            @PathVariable Long itemId,
+            @Valid @RequestBody ItemUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(itemService.update(itemId, request)));
+    }
+
+    /** 휴지통 이동 (soft delete). 영구 삭제는 /permanent로만 가능하다. */
+    @AuthenticatedUser
+    @DeleteMapping
+    public ResponseEntity<ApiResponse<Void>> moveToTrash(@PathVariable Long itemId) {
+        itemService.moveToTrash(itemId);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @AuthenticatedUser
+    @PostMapping("/restore")
+    public ResponseEntity<ApiResponse<ItemResponse>> restore(@PathVariable Long itemId) {
+        return ResponseEntity.ok(ApiResponse.success(itemService.restore(itemId)));
+    }
+
+    @AuthenticatedUser
+    @DeleteMapping("/permanent")
+    public ResponseEntity<ApiResponse<Void>> deletePermanently(@PathVariable Long itemId) {
+        itemService.deletePermanently(itemId);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+}
