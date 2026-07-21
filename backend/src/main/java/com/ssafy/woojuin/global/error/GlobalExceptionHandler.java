@@ -2,6 +2,9 @@ package com.ssafy.woojuin.global.error;
 
 import com.ssafy.woojuin.domain.item.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.WorkspaceAccessDeniedException;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
 import com.ssafy.woojuin.global.common.ApiResponse;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpHeaders;
@@ -41,6 +44,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(WorkspaceAccessDeniedException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ApiResponse<Void> handleWorkspaceAccessDenied(WorkspaceAccessDeniedException e) {
+        return ApiResponse.of(403, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(WorkspaceNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleWorkspaceNotFound(WorkspaceNotFoundException e) {
+        return ApiResponse.of(404, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(WorkspaceMemberRequiredException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleWorkspaceMemberRequired(WorkspaceMemberRequiredException e) {
+        return ApiResponse.of(403, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(WorkspaceOwnerRequiredException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleWorkspaceOwnerRequired(WorkspaceOwnerRequiredException e) {
         return ApiResponse.of(403, e.getMessage(), null);
     }
 
