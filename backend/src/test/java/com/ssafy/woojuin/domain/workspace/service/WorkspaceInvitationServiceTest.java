@@ -11,6 +11,7 @@ import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotAllowedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
@@ -67,7 +68,11 @@ class WorkspaceInvitationServiceTest {
     }
 
     private Workspace workspace(Long id, User creator) {
-        Workspace workspace = Workspace.builder().name("우리팀").type(WorkspaceType.TEAM).createdBy(creator).build();
+        return workspace(id, creator, WorkspaceType.TEAM);
+    }
+
+    private Workspace workspace(Long id, User creator, WorkspaceType type) {
+        Workspace workspace = Workspace.builder().name("우리팀").type(type).createdBy(creator).build();
         ReflectionTestUtils.setField(workspace, "id", id);
         return workspace;
     }
@@ -97,6 +102,21 @@ class WorkspaceInvitationServiceTest {
         ArgumentCaptor<WorkspaceInvitation> captor = ArgumentCaptor.forClass(WorkspaceInvitation.class);
         verify(workspaceInvitationRepository).save(captor.capture());
         assertThat(captor.getValue().getCreatedBy()).isEqualTo(me);
+    }
+
+    @Test
+    @DisplayName("PERSONAL 워크스페이스는 초대 코드를 생성할 수 없다")
+    void createInvitation_personalWorkspace_throwsNotAllowed() {
+        User me = user(1L);
+        Workspace ws = workspace(10L, me, WorkspaceType.PERSONAL);
+        WorkspaceMember membership = WorkspaceMember.builder().workspace(ws).user(me).role(WorkspaceRole.OWNER).build();
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(membership));
+
+        assertThatThrownBy(() -> workspaceInvitationService.createInvitation(10L, 1L))
+                .isInstanceOf(WorkspaceInvitationNotAllowedException.class);
+
+        verify(workspaceInvitationRepository, never()).save(any(WorkspaceInvitation.class));
     }
 
     @Test

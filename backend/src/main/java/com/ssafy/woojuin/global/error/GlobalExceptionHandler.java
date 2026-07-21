@@ -3,6 +3,7 @@ package com.ssafy.woojuin.global.error;
 import com.ssafy.woojuin.domain.item.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.WorkspaceAccessDeniedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotAllowedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceLastOwnerException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberNotFoundException;
@@ -78,6 +79,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(WorkspaceInvitationExpiredException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleWorkspaceInvitationExpired(WorkspaceInvitationExpiredException e) {
+        return ApiResponse.of(400, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(WorkspaceInvitationNotAllowedException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleWorkspaceInvitationNotAllowed(WorkspaceInvitationNotAllowedException e) {
         return ApiResponse.of(400, e.getMessage(), null);
     }
 

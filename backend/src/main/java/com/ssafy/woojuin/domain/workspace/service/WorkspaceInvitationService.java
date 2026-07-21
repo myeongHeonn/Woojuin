@@ -8,7 +8,9 @@ import com.ssafy.woojuin.domain.workspace.entity.Workspace;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceInvitation;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotAllowedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
@@ -52,6 +54,9 @@ public class WorkspaceInvitationService {
     public WorkspaceInvitationResponse createInvitation(Long workspaceId, Long userId) {
         Workspace workspace = findWorkspace(workspaceId);
         requireOwner(workspaceId, userId);
+        if (workspace.getType() == WorkspaceType.PERSONAL) {
+            throw new WorkspaceInvitationNotAllowedException(workspaceId);
+        }
         User creator = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
 
