@@ -7,12 +7,22 @@ def sentence_count(text: str) -> int:
     parts = [x for x in re.split(r"(?<=[.!?。！？])\s*|\n+", text.strip()) if x.strip()]
     return len(parts) or (1 if text.strip() else 0)
 
-class TextResult(BaseModel):
+class StrictResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    summary: str = Field(min_length=1)
+
+class CategoryResult(StrictResult):
     category: str
-    tags: list[str] = Field(min_length=3, max_length=5)
-    keywords: list[str] = Field(min_length=3, max_length=5)
+    confidence: float = Field(ge=0, le=1)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def confidence_is_number(cls, value: Any) -> Any:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("confidence는 숫자여야 합니다")
+        return value
+
+class SummaryResult(StrictResult):
+    summary: str = Field(min_length=1)
 
     @field_validator("summary")
     @classmethod
@@ -26,6 +36,10 @@ class TextResult(BaseModel):
         if not 1 <= sentence_count(value) <= 3: raise ValueError("요약은 1~3문장이어야 합니다")
         return value
 
+class MetadataResult(StrictResult):
+    tags: list[str] = Field(min_length=3, max_length=5)
+    keywords: list[str] = Field(min_length=3, max_length=5)
+
     @field_validator("tags", "keywords")
     @classmethod
     def valid_terms(cls, values: list[str]) -> list[str]:
@@ -33,6 +47,16 @@ class TextResult(BaseModel):
         normalized = [v.strip().casefold() for v in values]
         if len(normalized) != len(set(normalized)): raise ValueError("중복 항목은 허용되지 않습니다")
         return values
+
+class IntegratedResult(SummaryResult, MetadataResult):
+    category: str
+
+MODELS: dict[str, type[BaseModel]] = {
+    "category-only": CategoryResult,
+    "summary-only": SummaryResult,
+    "metadata-only": MetadataResult,
+    "integrated": IntegratedResult,
+}
 
 def _balanced_json(text: str) -> tuple[str | None, tuple[int, int] | None]:
     for start, ch in enumerate(text):
@@ -51,12 +75,15 @@ def _balanced_json(text: str) -> tuple[str | None, tuple[int, int] | None]:
                 if depth == 0: return text[start:i+1], (start, i+1)
     return None, None
 
-def output_schema(categories: list[str]) -> dict[str, Any]:
-    schema = TextResult.model_json_schema()
-    schema["properties"]["category"]["enum"] = categories
+def output_schema(categories: list[str], mode: str = "integrated") -> dict[str, Any]:
+    if mode not in MODELS: raise ValueError(f"지원하지 않는 테스트 모드: {mode}")
+    schema = MODELS[mode].model_json_schema()
+    if "category" in schema["properties"]:
+        schema["properties"]["category"]["enum"] = categories
     return schema
 
-def parse_response(raw: str, categories: list[str]) -> dict[str, Any]:
+def parse_response(raw: str, categories: list[str], mode: str = "integrated") -> dict[str, Any]:
+    if mode not in MODELS: raise ValueError(f"지원하지 않는 테스트 모드: {mode}")
     thinking = bool(re.search(r"<think>.*?</think>", raw, flags=re.S | re.I))
     cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.S | re.I).strip()
     candidate, span = _balanced_json(cleaned)
@@ -66,10 +93,12 @@ def parse_response(raw: str, categories: list[str]) -> dict[str, Any]:
         result["validationError"] = "JSON 객체를 찾지 못했습니다"; return result
     try:
         parsed = json.loads(candidate)
-        result.update(jsonValid=True, parsedResponse=parsed, requiredFieldsPresent=all(k in parsed for k in ("summary", "category", "tags", "keywords")))
-        validated = TextResult.model_validate(parsed)
-        if validated.category not in categories:
-            raise ValueError(f"허용되지 않은 카테고리: {validated.category}")
+        required = set(MODELS[mode].model_fields)
+        result.update(jsonValid=True, parsedResponse=parsed, requiredFieldsPresent=all(k in parsed for k in required))
+        validated = MODELS[mode].model_validate(parsed)
+        category = getattr(validated, "category", None)
+        if category is not None and category not in categories:
+            raise ValueError(f"허용되지 않은 카테고리: {category}")
         result.update(schemaValid=True, parsedResponse=validated.model_dump())
     except (json.JSONDecodeError, ValueError) as exc:
         result["validationError"] = str(exc)

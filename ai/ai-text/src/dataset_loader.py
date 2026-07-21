@@ -3,6 +3,25 @@ import json
 import re
 MEMO_NAME_PATTERN = re.compile(r"^(?P<id>\d+)-(?P<title>.+)$")
 
+def load_category_definitions(path: Path, memo_root: Path | None = None) -> list[dict]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, list) or not data:
+        raise ValueError("카테고리 정의는 비어 있지 않은 배열이어야 합니다.")
+    names: list[str] = []
+    for item in data:
+        if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+            raise ValueError("각 카테고리 정의에는 문자열 name이 필요합니다.")
+        if not isinstance(item.get("description"), str) or not item["description"].strip():
+            raise ValueError(f"{item['name']}: description이 필요합니다.")
+        if not isinstance(item.get("examples"), list):
+            raise ValueError(f"{item['name']}: examples는 배열이어야 합니다.")
+        names.append(item["name"])
+    if len(names) != len(set(names)):
+        raise ValueError("카테고리 정의에 중복 name이 있습니다.")
+    if memo_root is not None and set(names) != set(load_categories(memo_root)):
+        raise ValueError("카테고리 정의와 dataset/memo 폴더명이 일치하지 않습니다.")
+    return data
+
 def load_categories(memo_root: Path) -> list[str]:
     if not memo_root.is_dir():
         raise ValueError(f"메모 카테고리 루트가 없습니다: {memo_root}")
@@ -30,6 +49,9 @@ def load_dataset(path: Path) -> list[dict]:
         missing = {"testId", "input", "expected"} - item.keys()
         if missing: raise ValueError(f"{item.get('testId', '?')}: 필드 누락 {sorted(missing)}")
         item.setdefault("title", "")
+        item.setdefault("sourcePath", path.name)
+        item.setdefault("idAutoAssigned", False)
+        item["datasetType"] = "json"
     return data
 
 def load_memo_dataset(memo_root: Path, categories: list[str] | None = None) -> list[dict]:
@@ -79,6 +101,7 @@ def load_memo_dataset(memo_root: Path, categories: list[str] | None = None) -> l
             "sourceTitle": title,
             "sourcePath": path.relative_to(memo_root).as_posix(),
             "idAutoAssigned": auto_assigned,
+            "datasetType": "memo",
             "expected": {
                 "categories": [path.parent.name],
                 "requiredKeywords": [],

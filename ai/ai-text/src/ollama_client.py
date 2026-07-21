@@ -14,8 +14,22 @@ class OllamaClient:
     def unload(self, model: str) -> None:
         try: requests.post(f"{self.base_url}/api/chat", json={"model": model, "messages": [], "keep_alive": 0}, timeout=self.timeout).raise_for_status()
         except requests.RequestException: pass
-    def chat(self, model: str, prompt: str, temperature: float, keep_alive: str, schema: dict[str, Any]) -> tuple[dict, dict]:
-        payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False, "format": schema, "options": {"temperature": temperature}, "keep_alive": keep_alive}
+    def chat(
+        self,
+        model: str,
+        prompt: str,
+        temperature: float,
+        keep_alive: str,
+        schema: dict[str, Any],
+        seed: int | None = None,
+        context_length: int | None = None,
+        thinking: bool | None = None,
+    ) -> tuple[dict, dict]:
+        options: dict[str, Any] = {"temperature": temperature}
+        if seed is not None: options["seed"] = seed
+        if context_length is not None: options["num_ctx"] = context_length
+        payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False, "format": schema, "options": options, "keep_alive": keep_alive}
+        if thinking is not None: payload["think"] = thinking
         try:
             r = requests.post(f"{self.base_url}/api/chat", json=payload, timeout=self.timeout)
             if r.status_code >= 400: raise OllamaError("MODEL_EXECUTION_FAILED", r.text[:500])
