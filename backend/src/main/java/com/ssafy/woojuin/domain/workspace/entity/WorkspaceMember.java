@@ -52,4 +52,8 @@ public class WorkspaceMember {
         this.role = role;
         this.joinedAt = OffsetDateTime.now();
     }
+
+    public void updateRole(WorkspaceRole role) {
+        this.role = role;
+    }
 }

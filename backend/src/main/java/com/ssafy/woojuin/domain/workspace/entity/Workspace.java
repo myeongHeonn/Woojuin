@@ -45,4 +45,8 @@ public class Workspace extends BaseTimeEntity {
         this.type = type;
         this.createdBy = createdBy;
     }
+
+    public void updateName(String name) {
+        this.name = name;
+    }
 }
