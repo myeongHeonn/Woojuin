@@ -4,6 +4,8 @@ import com.ssafy.woojuin.domain.item.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.WorkspaceAccessDeniedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceLastOwnerException;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
@@ -76,6 +78,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(WorkspaceInvitationExpiredException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleWorkspaceInvitationExpired(WorkspaceInvitationExpiredException e) {
+        return ApiResponse.of(400, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(WorkspaceMemberNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleWorkspaceMemberNotFound(WorkspaceMemberNotFoundException e) {
+        return ApiResponse.of(404, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(WorkspaceLastOwnerException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleWorkspaceLastOwner(WorkspaceLastOwnerException e) {
         return ApiResponse.of(400, e.getMessage(), null);
     }
 
