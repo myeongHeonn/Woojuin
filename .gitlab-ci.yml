@@ -2,11 +2,11 @@
 # 전략: 모노레포라서 rules:changes 로 변경된 파트만 빌드
 # 스테이지: lint/test → build → (배포는 인프라 세팅 후 deploy 잡 추가 예정)
 
-# 파이프라인 생성 조건: MR(develop/main 대상 포함) 또는 main 브랜치 push/머지 시에만.
-# feature/* 브랜치에 단독 push할 때는 파이프라인 자체가 생성되지 않음.
+# 파이프라인 생성 조건: main을 대상으로 하는 MR 또는 main 브랜치 push/머지 시에만.
+# develop 대상 MR·push, feature/* 브랜치 단독 push는 파이프라인 자체가 생성되지 않음.
 workflow:
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
     - if: '$CI_COMMIT_BRANCH == "main"'
 
 stages:
