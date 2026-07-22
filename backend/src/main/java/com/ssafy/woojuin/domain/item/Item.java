@@ -96,6 +96,45 @@ public class Item extends BaseTimeEntity {
         }
     }
 
+    /**
+     * 트랙 A(미리보기) 결과 반영. title은 사용자가 이미 값을 넣었을 수 있어 덮어쓰지 않고
+     * 비어 있을 때만 채운다 — 저장 시엔 URL 아이템 title이 비어 있는 게 일반적이다.
+     * null 인자는 "확보 못 함"이므로 기존 값을 지우지 않는다.
+     */
+    public void applyPreview(String title, String thumbnailUrl, String description) {
+        if ((this.title == null || this.title.isBlank()) && title != null && !title.isBlank()) {
+            this.title = title;
+        }
+        if (thumbnailUrl != null) {
+            this.previewThumbnailUrl = thumbnailUrl;
+        }
+        if (description != null) {
+            this.previewDescription = description;
+        }
+    }
+
+    /** 트랙 B(본문 확보) 결과 반영. AI 분석 입력이 되는 원문 텍스트다. */
+    public void applyContent(String content) {
+        if (content != null) {
+            this.content = content;
+        }
+    }
+
+    /** 트랙 A/B 모두 성공. AI 분석까지 끝난 최종 상태. */
+    public void markDone() {
+        this.status = ItemStatus.DONE;
+    }
+
+    /** 트랙 A는 됐지만 트랙 B(또는 AI)가 실패. 미리보기만 있는 반쪽 상태. */
+    public void markPartial() {
+        this.status = ItemStatus.PARTIAL;
+    }
+
+    /** 트랙 A까지 실패해 사용자에게 보여줄 게 URL밖에 없는 상태. */
+    public void markFailed() {
+        this.status = ItemStatus.FAILED;
+    }
+
     public void moveToTrash() {
         this.deletedAt = OffsetDateTime.now();
     }
