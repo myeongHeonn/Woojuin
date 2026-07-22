@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
 import Dot from '@/components/ui/Dot';
 
@@ -8,30 +8,33 @@ interface NavItemProps {
   label: string;
   /** 사이드바 접힘 상태 — 라벨을 숨기고 아이콘만 남긴다 */
   collapsed: boolean;
-  /** 지금 보고 있는 항목 — 배경 강조 + 우측 보라 점 */
-  active?: boolean;
   /** 보조 항목(＋ New workspace)용 흐린 글자색 */
   muted?: boolean;
   /** 우측 추가 요소 (예: Workspaces 의 ⌃) */
   trailing?: ReactNode;
   /**
-   * 이동할 경로. 주면 <a>(Link), 없으면 <button> 으로 렌더한다.
+   * 이동할 경로. 주면 <a>(NavLink), 없으면 <button> 으로 렌더한다.
    * 화면 이동은 링크여야 새 탭 열기·가운데 클릭·주소 복사가 동작한다.
+   *
+   * 선택 상태(보라 점)는 이 경로와 현재 URL 을 NavLink 가 대조해 스스로 정한다 —
+   * 소비처가 useParams 로 따로 계산하지 않는다.
+   * 하위 경로까지 선택으로 친다(/workspace/1 은 /workspace/1/map 에서도 켜진다).
    */
   to?: string;
   onClick?: () => void;
 }
 
-function NavItem({ icon, label, collapsed, active, muted, trailing, to, onClick }: NavItemProps) {
-  const className = classNames(
-    'group relative flex items-center w-full rounded-md text-[15px] font-medium cursor-pointer transition-colors',
-    collapsed ? 'justify-center gap-0 px-0 py-[11px]' : 'gap-3 px-3.5 py-[11px]',
-    active
-      ? 'bg-surface-2 text-text-1'
-      : classNames(muted ? 'text-text-3' : 'text-text-2', 'hover:bg-surface hover:text-text-1'),
-  );
+function NavItem({ icon, label, collapsed, muted, trailing, to, onClick }: NavItemProps) {
+  const buildClassName = (active: boolean) =>
+    classNames(
+      'group relative flex items-center w-full rounded-md text-[15px] font-medium cursor-pointer transition-colors',
+      collapsed ? 'justify-center gap-0 px-0 py-[11px]' : 'gap-3 px-3.5 py-[11px]',
+      active
+        ? 'bg-surface-2 text-text-1'
+        : classNames(muted ? 'text-text-3' : 'text-text-2', 'hover:bg-surface hover:text-text-1'),
+    );
 
-  const inner = (
+  const inner = (active: boolean) => (
     <>
       <span className="[&>svg]:w-[17px] [&>svg]:h-[17px] [&>svg]:shrink-0 grid place-items-center">
         {icon}
@@ -56,15 +59,20 @@ function NavItem({ icon, label, collapsed, active, muted, trailing, to, onClick 
 
   if (to) {
     return (
-      <Link to={to} className={className} title={title} onClick={onClick}>
-        {inner}
-      </Link>
+      <NavLink
+        to={to}
+        className={({ isActive }) => buildClassName(isActive)}
+        title={title}
+        onClick={onClick}
+      >
+        {({ isActive }) => inner(isActive)}
+      </NavLink>
     );
   }
 
   return (
-    <button type="button" className={className} title={title} onClick={onClick}>
-      {inner}
+    <button type="button" className={buildClassName(false)} title={title} onClick={onClick}>
+      {inner(false)}
     </button>
   );
 }

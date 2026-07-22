@@ -27,6 +27,51 @@ export function TrashIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** 별자리 — 뷰바 "성좌" */
+export function ConstellationIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="6" cy="7" r="1.4" />
+      <circle cx="18" cy="6" r="1.4" />
+      <circle cx="13" cy="13" r="1.4" />
+      <circle cx="7" cy="17" r="1.4" />
+      <path d="M6 7 13 13M18 6 13 13M13 13 7 17" />
+    </svg>
+  );
+}
+
+/** 2×2 격자 — 뷰바 "대시보드" */
+export function DashboardIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+/** 접힌 지도 — 뷰바 "지도" */
+export function MapIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
+      <path d="M9 3v15M15 6v15" />
+    </svg>
+  );
+}
+
+/** 패널 분할 — 뷰바 "한눈에 보기" */
+export function OverviewIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M3 10h18M9 10v10" />
+    </svg>
+  );
+}
+
 /** 큐브 — Workspaces 그룹 헤더 */
 export function WorkspacesIcon(props: SVGProps<SVGSVGElement>) {
   return (

@@ -12,6 +12,12 @@ export interface UserProfile {
   profileImageUrl: string | null;
   provider: 'LOCAL' | 'KAKAO' | 'GOOGLE';
   emailVerified: boolean;
+  /**
+   * 가입할 때 서버가 만들어준 개인 워크스페이스 id.
+   * 클라이언트가 알 방법이 없어서 프로필에 실려 온다.
+   * TODO: 백엔드에 아직 없는 필드 — 응답에 추가되면 이 주석을 지운다
+   */
+  personalSpaceId: number;
 }
 
 export interface SignupPayload {

@@ -1,11 +1,15 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AuthLayout from '@/layouts/AuthLayout';
 import Layout from '@/layouts/Layout';
-import HomePage from '@/pages/HomePage';
+import StageLayout from '@/layouts/StageLayout';
+import PersonalSpacePage from '@/pages/PersonalSpacePage';
 import WorkspacePage from '@/pages/WorkspacePage';
 import ShareTargetPage from '@/pages/ShareTargetPage';
 import LandingPage from '@/pages/LandingPage';
 import UniversePage from '@/pages/UniversePage';
+import LibraryPage from '@/pages/LibraryPage';
+import MapPage from '@/pages/MapPage';
+import CanvasPage from '@/pages/CanvasPage';
 import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
 import OAuthCallbackPage from '@/pages/OAuthCallbackPage';
@@ -26,9 +30,27 @@ export const router = createBrowserRouter([
       {
         element: <Layout />,
         children: [
-          { path: '/home', element: <HomePage /> },
-          { path: '/universe', element: <UniversePage /> },
-          { path: '/workspace/:workspaceId', element: <WorkspacePage /> },
+          // 로그인 직후 도착지 — 개인 워크스페이스 성좌로 넘긴다
+          { path: '/home', element: <PersonalSpacePage /> },
+          {
+            path: '/workspace/:workspaceId',
+            children: [
+              // 뷰 없이 들어오면 성좌가 기본
+              { index: true, element: <Navigate to="universe" replace /> },
+              // 같은 워크스페이스를 다르게 보는 네 화면 — 상단 헤더(제목·뷰바)를 공유한다
+              {
+                element: <StageLayout />,
+                children: [
+                  { path: 'universe', element: <UniversePage /> },
+                  { path: 'library', element: <LibraryPage /> },
+                  { path: 'map', element: <MapPage /> },
+                  { path: 'canvas', element: <CanvasPage /> },
+                ],
+              },
+              // 저장 API 확인용 임시 화면 — CommandBar 가 생기면 이 줄만 지운다
+              { path: 'items', element: <WorkspacePage /> },
+            ],
+          },
         ],
       },
     ],

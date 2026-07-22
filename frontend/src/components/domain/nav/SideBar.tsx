@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { classNames } from '@/utils/classNames';
-import { SideBarProvider, type ActiveId } from '@/stores/context/SideBarContext';
+import { SideBarProvider } from '@/stores/context/SideBarContext';
 import SideBarBrand from './SideBarBrand';
 import FixedNav from './FixedNav';
 import WorkspaceNav from './WorkspaceNav';
@@ -9,12 +9,11 @@ import SideBarUser from './SideBarUser';
 
 const SideBar = () => {
   const [sideBarClosed, setSideBarClosed] = useState(false);
-  const [activeId, setActiveId] = useState<ActiveId>('personal');
 
   const toggleSideBar = () => setSideBarClosed((closed) => !closed);
 
   return (
-    <SideBarProvider value={{ sideBarClosed, toggleSideBar, activeId, setActiveId }}>
+    <SideBarProvider value={{ sideBarClosed, toggleSideBar }}>
       <aside
         className={classNames(
           'flex flex-col shrink-0 h-screen z-20 transition-[width] duration-200 overflow-y-scroll scrollbar-none',
