@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import NavItem from '@/components/ui/nav/NavItem';
+import CreateWorkspaceModal from '@/components/domain/nav/CreateWorkspaceModal';
 import { PlanetIcon, WorkspacesIcon } from '@/assets/icons';
-import { useUser } from '@/hooks/useUser';
+import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { classNames } from '@/utils/classNames';
 import { useSideBar } from '@/stores/context/SideBarContext';
 
@@ -11,12 +12,13 @@ const WorkspaceNav = () => {
 
   // 목록 펼침은 이 영역 안에서만 쓰이는 상태
   const [listOpen, setListOpen] = useState(true);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   // 서버 상태
-  const { workSpaces } = useUser();
+  const { data: workSpaces = [] } = useWorkspaces();
 
   const handleNewWorkspace = () => {
-    // TODO: 워크스페이스 생성 모달 열기
+    setCreateModalOpen(true);
   };
 
   return (
@@ -70,6 +72,8 @@ const WorkspaceNav = () => {
           />
         </div>
       )}
+
+      <CreateWorkspaceModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
     </>
   );
 };
