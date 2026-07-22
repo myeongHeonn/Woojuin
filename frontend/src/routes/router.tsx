@@ -5,6 +5,7 @@ import HomePage from '@/pages/HomePage';
 import WorkspacePage from '@/pages/WorkspacePage';
 import ShareTargetPage from '@/pages/ShareTargetPage';
 import LandingPage from '@/pages/LandingPage';
+import UniversePage from '@/pages/UniversePage';
 import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
 import OAuthCallbackPage from '@/pages/OAuthCallbackPage';
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
         element: <Layout />,
         children: [
           { path: '/home', element: <HomePage /> },
+          { path: '/universe', element: <UniversePage /> },
           { path: '/workspace/:workspaceId', element: <WorkspacePage /> },
         ],
       },
