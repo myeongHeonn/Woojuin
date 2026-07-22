@@ -1,6 +1,6 @@
 package com.ssafy.woojuin.domain.item.dto;
 
-import com.ssafy.woojuin.domain.item.Item;
+import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.time.OffsetDateTime;
 
