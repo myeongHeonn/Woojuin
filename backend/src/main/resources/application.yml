@@ -42,6 +42,10 @@ woojuin:
   queue:
     stream-key: woojuin:item-processing
     consumer-group: ai-workers
+  fetch:
+    timeout-ms: 5000
+    max-body-bytes: 3145728   # 3MB. 미리보기/본문 추출에 이보다 큰 HTML은 불필요
+    max-redirects: 5
 
 aws:
   region: ${AWS_REGION:ap-northeast-2}
