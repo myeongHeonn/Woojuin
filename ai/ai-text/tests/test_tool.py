@@ -11,8 +11,8 @@ from src.response_parser import output_schema, parse_response
 from src.result_writer import append_jsonl, read_jsonl, write_json
 from run_tests import all_mode_command, args as cli_args
 
-VALID={"summary":"S3 업로드와 파일명 중복 처리를 구현한다.","category":"개발·IT","tags":["Spring Boot","S3","업로드"],"keywords":["이미지 업로드","파일명","중복 처리"]}
-CATEGORIES=["개발·IT","학습·지식","업무·프로젝트","취업·커리어","생활·할 일","쇼핑·제품","음식·맛집","여행·장소","건강·운동","문화·콘텐츠","기타"]
+VALID={"summary":"S3 업로드와 파일명 중복 처리를 구현한다.","category":"학습·지식","tags":["Spring Boot","S3","업로드"],"keywords":["이미지 업로드","파일명","중복 처리"]}
+CATEGORIES=["생활·할 일","학습·지식","취업·커리어","여행·장소","음식·맛집","쇼핑·제품","건강·운동","문화·콘텐츠","돈·재테크","아이디어·영감","기타"]
 def raw(value=VALID): return json.dumps(value,ensure_ascii=False)
 def test_normal_json(): assert parse_response(raw(),CATEGORIES)["schemaValid"]
 def test_markdown_json(): assert parse_response(f"```json\n{raw()}\n```",CATEGORIES)["jsonValid"]
@@ -22,18 +22,18 @@ def test_think_tag():
     r=parse_response("<think>비공개 사고</think>"+raw(),CATEGORIES); assert r["schemaValid"] and r["thinkingTagDetected"]
 
 def test_category_confidence_range_and_extra_field():
-    valid = json.dumps({"category":"개발·IT","confidence":.91}, ensure_ascii=False)
+    valid = json.dumps({"category":"학습·지식","confidence":.91}, ensure_ascii=False)
     assert parse_response(valid, CATEGORIES, "category-only")["schemaValid"]
-    out_of_range = json.dumps({"category":"개발·IT","confidence":1.1}, ensure_ascii=False)
+    out_of_range = json.dumps({"category":"학습·지식","confidence":1.1}, ensure_ascii=False)
     assert not parse_response(out_of_range, CATEGORIES, "category-only")["schemaValid"]
-    extra = json.dumps({"category":"개발·IT","confidence":.9,"summary":"불필요"}, ensure_ascii=False)
+    extra = json.dumps({"category":"학습·지식","confidence":.9,"summary":"불필요"}, ensure_ascii=False)
     assert not parse_response(extra, CATEGORIES, "category-only")["schemaValid"]
-    boolean = json.dumps({"category":"개발·IT","confidence":True}, ensure_ascii=False)
+    boolean = json.dumps({"category":"학습·지식","confidence":True}, ensure_ascii=False)
     assert not parse_response(boolean, CATEGORIES, "category-only")["schemaValid"]
 
 def test_mode_specific_schema_rejects_unrequested_fields():
     assert parse_response('{"summary":"한 문장입니다."}', CATEGORIES, "summary-only")["schemaValid"]
-    assert not parse_response('{"summary":"한 문장입니다.","category":"개발·IT"}', CATEGORIES, "summary-only")["schemaValid"]
+    assert not parse_response('{"summary":"한 문장입니다.","category":"학습·지식"}', CATEGORIES, "summary-only")["schemaValid"]
     metadata = '{"tags":["a","b","c"],"keywords":["d","e","f"]}'
     assert parse_response(metadata, CATEGORIES, "metadata-only")["schemaValid"]
 @pytest.mark.parametrize("change",[
@@ -45,12 +45,12 @@ def test_schema_failures(change):
     else: value.update(change)
     assert not parse_response(raw(value),CATEGORIES)["schemaValid"]
 def test_keyword_recall_and_forbidden():
-    info=parse_response(raw(),CATEGORIES); expected={"categories":["개발·IT"],"requiredKeywords":["S3","없는 말"],"summaryPoints":[],"forbiddenClaims":["파일명 중복 처리"]}
+    info=parse_response(raw(),CATEGORIES); expected={"categories":["학습·지식"],"requiredKeywords":["S3","없는 말"],"summaryPoints":[],"forbiddenClaims":["파일명 중복 처리"]}
     e=evaluate(info,expected,CATEGORIES); assert e["requiredKeywordRecall"]==.5 and e["possibleHallucination"]
 
 def test_empty_semantic_answers_are_not_zero():
     info=parse_response(raw(),CATEGORIES)
-    result=evaluate(info,{"categories":["개발·IT"],"requiredKeywords":[],"summaryPoints":[],"forbiddenClaims":[]},CATEGORIES)
+    result=evaluate(info,{"categories":["학습·지식"],"requiredKeywords":[],"summaryPoints":[],"forbiddenClaims":[]},CATEGORIES)
     assert result["requiredKeywordRecall"] is None
     assert result["summaryPointRecall"] is None
     assert result["possibleHallucination"] is None
@@ -60,16 +60,16 @@ def test_speed_score(): assert speed_scores({"a":100,"b":200})=={"a":5.0,"b":2.5
 def test_percentile_and_classification_metrics():
     assert percentile([1,2,3,4,5], .95) == pytest.approx(4.8)
     rows = [
-        {"expectedCategory":"개발·IT","generatedCategory":"개발·IT"},
-        {"expectedCategory":"개발·IT","generatedCategory":"학습·지식"},
         {"expectedCategory":"학습·지식","generatedCategory":"학습·지식"},
+        {"expectedCategory":"학습·지식","generatedCategory":"아이디어·영감"},
+        {"expectedCategory":"아이디어·영감","generatedCategory":"아이디어·영감"},
     ]
-    metrics=classification_metrics(rows,["개발·IT","학습·지식"])
+    metrics=classification_metrics(rows,["학습·지식","아이디어·영감"])
     assert metrics["accuracy"] == pytest.approx(2/3)
     assert metrics["macroPrecision"] == pytest.approx(.75)
     assert metrics["macroRecall"] == pytest.approx(.75)
     assert metrics["macroF1"] == pytest.approx(2/3)
-    assert metrics["confusionMatrix"]["개발·IT"]["학습·지식"] == 1
+    assert metrics["confusionMatrix"]["학습·지식"]["아이디어·영감"] == 1
 
 def test_failed_response_is_preserved(tmp_path):
     path=tmp_path/"raw"/"results.jsonl"
@@ -117,12 +117,12 @@ def test_category_folders_drive_prompt_and_schema(tmp_path):
     assert "title" not in schema["properties"]
 
 def test_category_definitions_match_folders_and_reach_prompt(tmp_path):
-    memo=tmp_path/"memo"; (memo/"개발·IT").mkdir(parents=True)
+    memo=tmp_path/"memo"; (memo/"학습·지식").mkdir(parents=True)
     path=tmp_path/"categories.json"
-    path.write_text(json.dumps([{"name":"개발·IT","description":"기술 구현 중심","examples":["JWT 구현"]}],ensure_ascii=False),encoding="utf-8")
+    path.write_text(json.dumps([{"name":"학습·지식","description":"기술과 지식 정리 중심","examples":["JWT 구현"]}],ensure_ascii=False),encoding="utf-8")
     definitions=load_category_definitions(path,memo)
-    prompt=build_prompt("{{CATEGORY_DEFINITIONS}}\n{{TITLE_CONTEXT}}{{CONTENT}}","본문",["개발·IT"],category_definitions=definitions)
-    assert "기술 구현 중심" in prompt and "JWT 구현" in prompt
+    prompt=build_prompt("{{CATEGORY_DEFINITIONS}}\n{{TITLE_CONTEXT}}{{CONTENT}}","본문",["학습·지식"],category_definitions=definitions)
+    assert "기술과 지식 정리 중심" in prompt and "JWT 구현" in prompt
 
 def test_default_title_is_excluded_and_user_title_is_included():
     template = "분류: {{CATEGORIES}}\n{{TITLE_CONTEXT}}내용: {{CONTENT}}"
@@ -132,21 +132,21 @@ def test_default_title_is_excluded_and_user_title_is_included():
     assert "입력 제목:\nJWT 재발급 구조 정리" in user_prompt
 
 def test_load_memos_with_explicit_and_automatic_ids(tmp_path):
-    development = tmp_path / "개발·IT"
+    development = tmp_path / "학습·지식"
     career = tmp_path / "취업·커리어"
     development.mkdir(); career.mkdir()
     (development / "002-S3 업로드.txt").write_text("S3 업로드 메모", encoding="utf-8")
     (career / "면접 준비.txt").write_text("백엔드 면접 준비", encoding="utf-8")
     rows = load_memo_dataset(tmp_path)
     by_path = {row["sourcePath"]: row for row in rows}
-    assert by_path["개발·IT/002-S3 업로드.txt"]["testId"] == "TEXT-002"
-    assert by_path["개발·IT/002-S3 업로드.txt"]["idAutoAssigned"] is False
+    assert by_path["학습·지식/002-S3 업로드.txt"]["testId"] == "TEXT-002"
+    assert by_path["학습·지식/002-S3 업로드.txt"]["idAutoAssigned"] is False
     assert by_path["취업·커리어/면접 준비.txt"]["testId"] == "TEXT-001"
     assert by_path["취업·커리어/면접 준비.txt"]["idAutoAssigned"] is True
     assert by_path["취업·커리어/면접 준비.txt"]["expected"]["categories"] == ["취업·커리어"]
 
 def test_duplicate_memo_id_is_rejected(tmp_path):
-    development = tmp_path / "개발·IT"
+    development = tmp_path / "학습·지식"
     career = tmp_path / "취업·커리어"
     development.mkdir(); career.mkdir()
     (development / "001-첫 메모.txt").write_text("첫 메모", encoding="utf-8")
