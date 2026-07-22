@@ -10,6 +10,10 @@ ollamaBaseUrl: http://localhost:11434
 connectTimeoutSeconds: 5
 readTimeoutSeconds: 300
 keepAlive: 10m
+openai:
+  apiKeyEnv: GMS_KEY
+  baseUrl: https://gms.ssafy.io/gmsapi/api.openai.com/v1
+  apiMode: chat_completions
 promptVersions:
   category-only: v1
   summary-only: v1
