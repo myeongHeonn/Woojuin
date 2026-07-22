@@ -1,14 +1,9 @@
 import { createContext, useContext } from 'react';
 
-/** 선택 항목 id — 고정 항목은 문자열, 워크스페이스는 number 라 서로 섞이지 않는다 */
-export type ActiveId = 'personal' | 'trash' | number;
-
 interface SideBarContextValue {
   /** 사이드바가 접혀(닫혀) 있는지 */
   sideBarClosed: boolean;
   toggleSideBar: () => void;
-  activeId: ActiveId;
-  setActiveId: (id: ActiveId) => void;
 }
 
 const SideBarContext = createContext<SideBarContextValue | null>(null);

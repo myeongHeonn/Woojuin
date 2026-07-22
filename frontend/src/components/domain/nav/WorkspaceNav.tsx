@@ -2,20 +2,20 @@ import { useState } from 'react';
 import NavItem from '@/components/ui/nav/NavItem';
 import CreateWorkspaceModal from '@/components/domain/nav/CreateWorkspaceModal';
 import { PlanetIcon, WorkspacesIcon } from '@/assets/icons';
-import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { useSpaces } from '@/hooks/useSpaces';
 import { classNames } from '@/utils/classNames';
 import { useSideBar } from '@/stores/context/SideBarContext';
 
 /** SPACE 라벨 + 워크스페이스 목록 (접기 가능) */
 const WorkspaceNav = () => {
-  const { sideBarClosed, activeId, setActiveId } = useSideBar();
+  const { sideBarClosed } = useSideBar();
 
   // 목록 펼침은 이 영역 안에서만 쓰이는 상태
   const [listOpen, setListOpen] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
-  // 서버 상태
-  const { data: workSpaces = [] } = useWorkspaces();
+  // 개인 스페이스는 이미 빠져 있다 — 무엇이 개인인지는 useSpaces 만 안다
+  const { teams } = useSpaces();
 
   const handleNewWorkspace = () => {
     setCreateModalOpen(true);
@@ -51,15 +51,13 @@ const WorkspaceNav = () => {
       {listOpen && (
         /* 들여쓰기는 목록의 책임 — 컨테이너 패딩이라 자식 폭이 자동으로 좁아진다 */
         <div className={classNames(!sideBarClosed && 'pl-1')}>
-          {workSpaces.map((ws) => (
+          {teams.map((ws) => (
             <NavItem
               key={ws.id}
               icon={<PlanetIcon />}
               label={ws.name}
               to={`/workspace/${ws.id}`}
               collapsed={sideBarClosed}
-              active={activeId === ws.id}
-              onClick={() => setActiveId(ws.id)}
             />
           ))}
           <NavItem

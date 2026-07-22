@@ -4,7 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import NavItem from '@/components/ui/nav/NavItem';
 import { PlanetIcon } from '@/assets/icons';
 
-const wrap = (ui: React.ReactNode) => render(<MemoryRouter>{ui}</MemoryRouter>);
+const wrap = (ui: React.ReactNode, path = '/') =>
+  render(<MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>);
 
 describe('NavItem', () => {
   describe('태그 분기', () => {
@@ -29,27 +30,36 @@ describe('NavItem', () => {
     });
   });
 
-  describe('선택 표시', () => {
+  describe('선택 표시 — 소비처가 아니라 현재 URL 이 정한다', () => {
     const dotOf = (c: HTMLElement) => c.querySelector('span.bg-current');
+    const item = (
+      <NavItem label="몽골 여행" to="/workspace/2" icon={<PlanetIcon />} collapsed={false} />
+    );
 
-    it('active 면 보라 점이 뜬다', async () => {
-      const { container } = await wrap(
-        <NavItem label="몽골 여행" icon={<PlanetIcon />} collapsed={false} active />,
-      );
+    it('현재 경로와 맞으면 보라 점이 뜬다', async () => {
+      const { container } = await wrap(item, '/workspace/2');
       expect(dotOf(container)).not.toBeNull();
     });
 
-    it('active 가 아니면 점이 없다', async () => {
-      const { container } = await wrap(
-        <NavItem label="몽골 여행" icon={<PlanetIcon />} collapsed={false} />,
-      );
+    it('다른 경로면 점이 없다', async () => {
+      const { container } = await wrap(item, '/workspace/3');
       expect(dotOf(container)).toBeNull();
     });
 
+    it('id 앞자리만 같은 경로에 반응하지 않는다', async () => {
+      // /workspace/2 가 /workspace/20 에서 켜지면 워크스페이스가 늘었을 때 오작동한다
+      const { container } = await wrap(item, '/workspace/20');
+      expect(dotOf(container)).toBeNull();
+    });
+
+    it('하위 뷰로 들어가도 선택이 유지된다', async () => {
+      // 뷰바로 성좌 → 지도를 오갈 때 사이드바 선택이 깜빡이면 안 된다
+      const { container } = await wrap(item, '/workspace/2/map');
+      expect(dotOf(container)).not.toBeNull();
+    });
+
     it('점은 v3.5 스펙대로 7px 원이다', async () => {
-      const { container } = await wrap(
-        <NavItem label="몽골 여행" icon={<PlanetIcon />} collapsed={false} active />,
-      );
+      const { container } = await wrap(item, '/workspace/2');
       const rect = dotOf(container)!.getBoundingClientRect();
       expect(rect.width).toBeCloseTo(7, 1);
       expect(rect.height).toBeCloseTo(7, 1);
