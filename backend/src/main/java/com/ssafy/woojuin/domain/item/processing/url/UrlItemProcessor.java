@@ -9,6 +9,7 @@ import com.ssafy.woojuin.domain.item.ItemType;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
@@ -115,16 +116,20 @@ public class UrlItemProcessor implements ItemProcessor {
     }
 
     /**
-     * AI 보강. 결과를 저장할 스키마가 아직 없어 지금은 호출 seam만 살아 있다 — 묶음 F가
-     * 실제 AiAnalyzer를, 카테고리/AI결과 도메인이 저장 컬럼을 붙이면 여기서 매핑한다.
+     * AI 보강. 결과를 저장할 스키마(item_categories 조인 테이블, items.summary)와 Category
+     * 도메인이 아직 없어 지금은 호출 seam만 살아 있다. Category 도메인이 생기면 여기서
+     * (1) 워크스페이스의 현재 카테고리 목록을 candidateCategories로 넘기고,
+     * (2) 반환된 categories 이름들을 그 워크스페이스의 category_id로 매핑해 조인 테이블에 저장한다.
      * 어떤 실패도 이미 확보한 본문/미리보기를 무효화하면 안 되므로 조용히 흡수한다.
      */
     private void analyzeQuietly(Item item, String content) {
         try {
-            AiAnalysis analysis = aiAnalyzer.analyze(new AiAnalysisRequest(item.getTitle(), content));
+            // TODO: List.of() 자리에 workspace의 현재 카테고리 이름 목록을 넣는다(Category 도메인 대기)
+            AiAnalysis analysis = aiAnalyzer.analyze(
+                    new AiAnalysisRequest(item.getTitle(), content, List.of()));
             if (!analysis.isEmpty()) {
-                log.debug("AI 분석 결과 수신(미영속): itemId={}, category={}", item.getId(), analysis.category());
-                // TODO: categories/ai_results/tags 스키마 생기면 여기서 item에 반영
+                log.debug("AI 분석 결과 수신(미영속): itemId={}, categories={}", item.getId(), analysis.categories());
+                // TODO: item_categories 조인 + items.summary 저장
             }
         } catch (Exception e) {
             log.warn("AI 분석 실패(무시): itemId={}, cause={}", item.getId(), e.toString());
