@@ -6,6 +6,7 @@ import com.ssafy.woojuin.domain.auth.oauth.CustomOidcUserService;
 import com.ssafy.woojuin.domain.auth.oauth.OAuth2LoginSuccessHandler;
 import com.ssafy.woojuin.domain.auth.security.CustomUserDetailsService;
 import com.ssafy.woojuin.global.security.RestAuthenticationEntryPoint;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -18,6 +19,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 /**
  * 인가 규칙은 아직 전체 허용 상태.
@@ -32,6 +38,9 @@ public class SecurityConfig {
     private final CustomOidcUserService customOidcUserService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+
+    @Value("${woojuin.cors.allowed-origin:http://localhost:5173}")
+    private String allowedOrigin;
 
     public SecurityConfig(JwtTokenProvider jwtTokenProvider, CustomUserDetailsService userDetailsService,
                            CustomOidcUserService customOidcUserService,
@@ -61,10 +70,30 @@ public class SecurityConfig {
         return configuration.getAuthenticationManager();
     }
 
+    /**
+     * 프론트(5173)와 백엔드(8080)가 다른 오리진이라 명시적으로 열어줘야 한다.
+     * 안 열면 axios가 baseURL을 절대경로로 쓰는 순간(=Vite 프록시를 안 타는 순간)
+     * 모든 요청이 브라우저 단에서 CORS로 막힌다 — 응답 자체를 못 받아서 네트워크
+     * 탭에 상태코드도 안 찍히고 콘솔에도 별다른 에러가 안 남는 게 특징.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of(allowedOrigin));
+        config.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // OAuth2 로그인은 인가 요청을 세션에 잠깐 저장했다가 콜백에서 대조하는 방식이라
                 // STATELESS로 두면 매번 "authorization_request_not_found"로 실패한다.
                 // JWT 인증 자체는 세션이 필요 없지만, 필요한 쪽(oauth2Login)이 있으니 IF_REQUIRED로 둔다.
