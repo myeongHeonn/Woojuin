@@ -1,4 +1,4 @@
-package com.ssafy.woojuin.domain.item;
+package com.ssafy.woojuin.domain.item.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,6 +15,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
+import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
+import com.ssafy.woojuin.domain.item.service.ItemService;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import com.ssafy.woojuin.global.security.aop.AuthenticationAspect;
 import com.ssafy.woojuin.global.security.aop.CurrentUserResolver;

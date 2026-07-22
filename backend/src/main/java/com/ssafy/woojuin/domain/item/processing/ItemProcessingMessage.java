@@ -1,6 +1,6 @@
 package com.ssafy.woojuin.domain.item.processing;
 
-import com.ssafy.woojuin.domain.item.ItemType;
+import com.ssafy.woojuin.domain.item.entity.ItemType;
 import java.util.Map;
 
 /**

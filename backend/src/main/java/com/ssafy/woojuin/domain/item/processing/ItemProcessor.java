@@ -1,6 +1,6 @@
 package com.ssafy.woojuin.domain.item.processing;
 
-import com.ssafy.woojuin.domain.item.ItemType;
+import com.ssafy.woojuin.domain.item.entity.ItemType;
 
 /**
  * 아이템 타입별 비동기 가공 담당. 큐 컨슈머(ItemQueueConsumer)가 메시지의 type을 보고

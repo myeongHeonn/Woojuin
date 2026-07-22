@@ -6,9 +6,9 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.ssafy.woojuin.domain.item.Item;
-import com.ssafy.woojuin.domain.item.ItemRepository;
-import com.ssafy.woojuin.domain.item.ItemType;
+import com.ssafy.woojuin.domain.item.entity.Item;
+import com.ssafy.woojuin.domain.item.repository.ItemRepository;
+import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.util.List;
 import java.util.Map;

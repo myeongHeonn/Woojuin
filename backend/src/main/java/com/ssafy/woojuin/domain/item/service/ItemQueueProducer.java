@@ -1,5 +1,6 @@
-package com.ssafy.woojuin.domain.item;
+package com.ssafy.woojuin.domain.item.service;
 
+import com.ssafy.woojuin.domain.item.entity.ItemType;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;

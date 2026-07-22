@@ -1,8 +1,8 @@
 package com.ssafy.woojuin.domain.item.dto;
 
 import com.ssafy.woojuin.domain.category.dto.CategoryResponse;
-import com.ssafy.woojuin.domain.item.Item;
-import com.ssafy.woojuin.domain.item.ItemType;
+import com.ssafy.woojuin.domain.item.entity.Item;
+import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.time.OffsetDateTime;
 import java.util.List;
