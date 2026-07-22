@@ -1,8 +1,10 @@
-package com.ssafy.woojuin.domain.item;
+package com.ssafy.woojuin.domain.item.controller;
 
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
+import com.ssafy.woojuin.domain.item.entity.ItemType;
+import com.ssafy.woojuin.domain.item.service.ItemService;
 import com.ssafy.woojuin.global.common.ApiResponse;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import com.ssafy.woojuin.global.security.aop.AuthenticatedUser;

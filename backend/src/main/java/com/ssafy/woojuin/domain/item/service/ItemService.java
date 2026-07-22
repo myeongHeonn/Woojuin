@@ -1,4 +1,4 @@
-package com.ssafy.woojuin.domain.item;
+package com.ssafy.woojuin.domain.item.service;
 
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
@@ -6,6 +6,11 @@ import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
+import com.ssafy.woojuin.domain.item.entity.Item;
+import com.ssafy.woojuin.domain.item.entity.ItemType;
+import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
+import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
+import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.category.dto.CategoryResponse;
 import com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;

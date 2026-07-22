@@ -1,4 +1,4 @@
-package com.ssafy.woojuin.domain.item;
+package com.ssafy.woojuin.domain.item.service;
 
 import java.util.Set;
 import java.util.UUID;

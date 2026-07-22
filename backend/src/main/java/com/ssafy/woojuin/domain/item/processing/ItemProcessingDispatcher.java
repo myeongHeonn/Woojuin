@@ -1,7 +1,7 @@
 package com.ssafy.woojuin.domain.item.processing;
 
-import com.ssafy.woojuin.domain.item.Item;
-import com.ssafy.woojuin.domain.item.ItemRepository;
+import com.ssafy.woojuin.domain.item.entity.Item;
+import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;

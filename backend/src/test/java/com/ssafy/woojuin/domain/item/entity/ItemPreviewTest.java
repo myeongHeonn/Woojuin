@@ -1,4 +1,4 @@
-package com.ssafy.woojuin.domain.item;
+package com.ssafy.woojuin.domain.item.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

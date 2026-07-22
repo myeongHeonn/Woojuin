@@ -1,4 +1,4 @@
-package com.ssafy.woojuin.domain.item;
+package com.ssafy.woojuin.domain.item.exception;
 
 public class ItemNotFoundException extends RuntimeException {
 

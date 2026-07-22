@@ -1,4 +1,4 @@
-package com.ssafy.woojuin.domain.item;
+package com.ssafy.woojuin.domain.item.entity;
 
 import com.ssafy.woojuin.global.common.BaseTimeEntity;
 import com.ssafy.woojuin.global.common.ItemStatus;

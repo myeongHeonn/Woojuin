@@ -1,8 +1,8 @@
 package com.ssafy.woojuin.global.error;
 
 import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
-import com.ssafy.woojuin.domain.item.ItemNotFoundException;
-import com.ssafy.woojuin.domain.item.WorkspaceAccessDeniedException;
+import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
+import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotAllowedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;

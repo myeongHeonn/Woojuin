@@ -1,4 +1,4 @@
-package com.ssafy.woojuin.domain.item;
+package com.ssafy.woojuin.domain.item.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -16,6 +16,11 @@ import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
+import com.ssafy.woojuin.domain.item.entity.Item;
+import com.ssafy.woojuin.domain.item.entity.ItemType;
+import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
+import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
+import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;

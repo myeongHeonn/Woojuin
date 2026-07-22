@@ -1,8 +1,9 @@
-package com.ssafy.woojuin.domain.item;
+package com.ssafy.woojuin.domain.item.controller;
 
 import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
+import com.ssafy.woojuin.domain.item.service.ItemService;
 import com.ssafy.woojuin.global.common.ApiResponse;
 import com.ssafy.woojuin.global.security.aop.AuthenticatedUser;
 import com.ssafy.woojuin.global.security.aop.CurrentUserResolver;
