@@ -1,48 +1,160 @@
 # AI 텍스트 모델 테스트 도구
 
-Ollama 모델의 텍스트 분류·요약·검색 메타데이터 생성 성능을 서로 분리하거나 실제 서비스 출력 형태로 통합해 평가합니다. Python 3.11 이상과 실행 중인 Ollama가 필요합니다.
+동일한 데이터, 프롬프트, JSON Schema, 평가 코드로 Ollama 로컬 모델과 OpenAI API 모델을 비교하는 도구입니다. 기존 Ollama 전용 진입점인 `run_tests.py`는 그대로 유지하고, 설정 기반 공통 실행은 `main.py`를 사용합니다.
 
-## 준비
+지원 모드는 다음 네 가지입니다.
+
+| 모드 | 모델 출력 | 주요 평가 |
+|---|---|---|
+| `category-only` | `category`, `confidence` | Accuracy, Macro Precision/Recall/F1, 혼동 행렬, confidence |
+| `summary-only` | `summary` | 필수 키워드·핵심 내용 재현율, 금지 표현 |
+| `metadata-only` | `tags`, `keywords` | 개수·중복 제약, 원문 키워드 포함 비율 |
+| `integrated` | 요약, 카테고리, 태그, 키워드 | 분류·요약·메타데이터 통합 평가 |
+
+## 카테고리
+
+최종 카테고리는 다음 11개입니다.
+
+```text
+생활·할 일
+학습·지식
+취업·커리어
+여행·장소
+음식·맛집
+쇼핑·제품
+건강·운동
+문화·콘텐츠
+돈·재테크
+아이디어·영감
+기타
+```
+
+`dataset/memo/<카테고리>/*.txt`의 상위 폴더명이 메모 테스트의 정답입니다. 상세 설명과 예시는 `config/categories.json`에서 관리하며 폴더명과 정의 이름은 정확히 일치해야 합니다. 기술 구현과 개발·IT 참고 내용은 `학습·지식`, 실행 체크리스트는 `생활·할 일`, 발상과 개선 방향은 `아이디어·영감`으로 분류합니다.
+
+## 설치
 
 ```powershell
 cd C:\Users\SSAFY\IdeaProjects\S15P11C105\ai\ai-text
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-ollama pull qwen3:4b
+```
+
+이 PC처럼 Python 3.14만 설치되어 있으면 `py -3.14`를 사용해도 됩니다. Ollama 모델은 별도로 설치합니다.
+
+```powershell
 ollama pull qwen3:8b
 ```
 
-현재 PC처럼 Python 3.14만 설치된 경우 `py -3.14`를 사용해도 됩니다.
+## SSAFY GMS API 키
 
-## 테스트 모드
+`.env.example`을 참고해 프로젝트 루트(`S15P11C105/.env`)에 키를 입력합니다. 실행기는 `ai/ai-text`부터 상위 폴더를 탐색해 가장 가까운 `.env`를 사용하므로 필요하면 도구 폴더에 별도 `.env`를 둘 수도 있습니다.
 
-| 모드 | 목적 | 모델 출력 |
-|---|---|---|
-| `category-only` | 순수 카테고리 분류와 confidence 평가 | `category`, `confidence` |
-| `summary-only` | 요약 생성 품질 평가 | `summary` |
-| `metadata-only` | 검색용 태그·키워드 생성 평가 | `tags`, `keywords` |
-| `integrated` | 실제 서비스용 통합 출력 검증 | `summary`, `category`, `tags`, `keywords` |
-
-모드별 JSON Schema와 프롬프트는 분리되어 있습니다. 요청하지 않은 필드를 모델이 추가하면 스키마 실패입니다. 모드를 지정하지 않으면 기존 동작과 호환되도록 `integrated`를 사용합니다.
-
-```powershell
-# 순수 분류
-.\.venv\Scripts\python.exe run_tests.py --category-only --models qwen3:4b --memo-only --repeat 1
-
-# 요약
-.\.venv\Scripts\python.exe run_tests.py --summary-only --models qwen3:4b --memo-only --repeat 1
-
-# 태그·키워드
-.\.venv\Scripts\python.exe run_tests.py --metadata-only --models qwen3:4b --memo-only --repeat 1
-
-# 통합 출력
-.\.venv\Scripts\python.exe run_tests.py --integrated --models qwen3:4b --memo-only --repeat 1
-
-# 기존 명령도 integrated로 실행
-.\.venv\Scripts\python.exe run_tests.py --models qwen3:4b --memo-only --repeat 1
+```dotenv
+GMS_KEY=
 ```
 
-네 모드를 한 명령으로 순서대로 실행할 수도 있습니다.
+- `.env` 파일은 Git에 커밋하지 않는다.
+- SSAFY GMS 키는 `GMS_KEY`라는 이름으로 관리한다.
+- 키 값은 코드, 로그, 오류, JSON, CSV, 보고서에 저장하지 않는다.
+- 모델 이름은 `.env`가 아니라 `config/models.yaml`에서 관리한다.
+
+기존 설정과의 호환을 위해 `GMS_KEY`가 없으면 `OPENAI_API_KEY` 값을 GMS 인증 키로 사용합니다. 새 환경에서는 `GMS_KEY` 사용을 권장합니다.
+
+`.gitignore`에는 `.env`, `.env.local`, `*.key`가 포함되어 있습니다. `--dry-run`은 키 값을 출력하지 않고 `configured` 또는 `missing`만 표시합니다.
+
+## 모델 설정
+
+`config/models.yaml`에서 모델을 관리합니다.
+
+```yaml
+models:
+  - id: openai-gpt-5-nano
+    provider: openai
+    model: gpt-5-nano
+    enabled: true
+    purpose: 최저 비용 API 모델의 최소 성능 확인
+    inputTypes: [text]
+    testModes: [category-only, summary-only, metadata-only, integrated]
+```
+
+- `id`: CLI에서 쓰는 내부 ID이며 결과 파일명에도 사용합니다.
+- `provider`: `ollama` 또는 `openai`입니다.
+- `model`: Provider에 실제로 전달하는 모델명입니다.
+- `enabled`: `false`이면 Suite 실행에서 `SKIPPED` 처리합니다.
+- `inputTypes`, `testModes`: 지원 입력과 테스트 모드입니다.
+
+모델을 추가하거나 변경할 때 Python 코드를 수정하지 않고 설정 파일을 수정합니다. 모델명이 변경되면 `.env`가 아니라 `config/models.yaml`의 `model` 값만 바꿉니다. 모델을 잠시 제외하려면 `enabled: false`로 설정합니다.
+
+현재 등록 모델을 확인합니다.
+
+```powershell
+.\.venv\Scripts\python.exe main.py --list-models
+```
+
+## Suite 설정
+
+`config/model-suites.yaml`은 비교할 내부 모델 ID를 묶습니다.
+
+```yaml
+suites:
+  api-basic:
+    - openai-gpt-5-nano
+    - openai-gpt-5-mini
+
+  text-comparison:
+    - qwen-local
+    - openai-gpt-5-nano
+    - openai-gpt-5-mini
+```
+
+```powershell
+.\.venv\Scripts\python.exe main.py --list-suites
+```
+
+등록되지 않은 ID, 중복 ID, 비활성 모델, 현재 모드를 지원하지 않는 모델은 해당 항목만 `SKIPPED` 처리하며 나머지 모델은 계속 실행합니다. `models.yaml` 자체의 필수 필드 누락, 중복 ID, 알 수 없는 Provider 또는 모드는 실행 전에 명확한 설정 오류로 보고합니다. 설정 파일을 프로그램이 자동 수정하지는 않습니다.
+
+## 실행 방법
+
+먼저 Dry-run으로 요청 수와 키 설정 여부를 확인하는 것을 권장합니다. Dry-run은 Ollama와 OpenAI를 호출하지 않고 결과 폴더도 만들지 않습니다.
+
+```powershell
+.\.venv\Scripts\python.exe main.py `
+  --category-only `
+  --suite text-comparison `
+  --limit 3 `
+  --dry-run
+```
+
+단일 모델과 데이터 한 건을 실행합니다.
+
+```powershell
+.\.venv\Scripts\python.exe main.py `
+  --category-only `
+  --model openai-gpt-5-nano `
+  --limit 1
+```
+
+Suite를 실행합니다.
+
+```powershell
+.\.venv\Scripts\python.exe main.py `
+  --category-only `
+  --suite text-comparison `
+  --limit 3
+```
+
+여러 모드는 한 상위 폴더 아래 모드별 폴더로 저장됩니다.
+
+```powershell
+.\.venv\Scripts\python.exe main.py `
+  --suite text-comparison `
+  --modes category-only summary-only metadata-only integrated `
+  --limit 3
+```
+
+`--all-modes`는 네 모드를 지정하는 단축 옵션입니다. `--repeat N`은 데이터 한 건당 반복 수이며 새 공통 실행기의 기본값은 API 요청 보호를 위해 1입니다. `--test-ids TEXT-001 TEXT-002`, `--limit N`, `--memo-only`, `--include-json`도 사용할 수 있습니다. API 요청은 항상 순차 실행합니다.
+
+기존 Ollama 전용 명령도 계속 지원합니다.
 
 ```powershell
 .\.venv\Scripts\python.exe run_tests.py `
@@ -52,10 +164,50 @@ ollama pull qwen3:8b
   --repeat 1
 ```
 
-`--all-modes`는 category-only → summary-only → metadata-only → integrated 순서로 실행합니다. 한 개의 상위 실행 폴더 안에 모드별 하위 폴더 4개와 종합 비교 보고서를 생성합니다.
+## 구조화 출력과 공정한 비교
+
+OpenAI Provider는 공식 SDK에 SSAFY GMS Base URL을 지정하고 OpenAI 호환 Chat Completions API를 호출합니다. Chat Completions의 JSON Schema 구조화 출력을 먼저 요청하고, GMS 또는 모델이 이를 거부하면 같은 프롬프트를 일반 JSON 응답 방식으로 다시 호출한 뒤 기존 파서와 Schema 검증기를 적용합니다. 원문, 요청 여부, 적용 여부, fallback 여부와 정제된 원인을 각 결과에 기록합니다.
 
 ```text
-results/20260721-143000-all-modes/
+Base URL: https://gms.ssafy.io/gmsapi/api.openai.com/v1
+인증 환경변수: GMS_KEY
+API 모드: chat_completions
+```
+
+두 Provider에 공통으로 다음 조건을 적용합니다.
+
+- 동일한 데이터 순서, testId, 카테고리와 카테고리 설명
+- 동일한 프롬프트와 모드별 JSON Schema
+- 동일한 평가 코드와 실패 판정 기준
+- 스트리밍, 외부 검색, 도구 사용 비활성화
+- 동일한 `--limit`과 반복 수
+
+OpenAI 모델에는 호환성을 위해 temperature, seed, Ollama context length를 억지로 적용하지 않습니다. 이 차이는 실행 메타데이터에 기록합니다.
+
+## 결과 디렉터리
+
+단일 모드는 다음과 같이 저장합니다.
+
+```text
+results/<시각>-category-only-text-comparison/
+├── run-metadata.json
+├── model-results/
+│   ├── qwen-local.json
+│   ├── openai-gpt-5-nano.json
+│   └── openai-gpt-5-mini.json
+├── raw-responses/
+│   └── <model-id>/<test-id>-<반복>.json
+├── evaluation-results.json
+├── comparison.csv
+├── failures.csv
+├── confusion-matrices/
+└── report.md
+```
+
+여러 모드는 다음처럼 하나의 상위 폴더 아래에 저장합니다.
+
+```text
+results/<시각>-text-comparison/
 ├── category-only/
 ├── summary-only/
 ├── metadata-only/
@@ -64,102 +216,62 @@ results/20260721-143000-all-modes/
 └── comparison-summary.json
 ```
 
-한 모드가 실패하거나 `Ctrl+C`로 중단되면 다음 모드는 실행하지 않으며, 이미 완료된 모드 결과는 상위 폴더에 유지됩니다. 개별 모드 플래그와 `--all-modes`는 동시에 사용할 수 없습니다.
+`--modes` 또는 `--all-modes` 실행이 모두 완료되면 상위 폴더의 종합 비교 보고서가 자동 생성됩니다. 이 단계는 저장된 결과만 집계하며 모델 API를 추가로 호출하지 않습니다.
 
-특정 데이터만 빠르게 확인할 수 있습니다.
+각 요청에는 내부 모델 ID, Provider, 요청 모델명, API가 반환한 실제 모델명, 원문, 파싱 결과, 지연 시간, 토큰, 시도 횟수, 종료 사유, 요청 ID, 오류와 구조화 출력 상태를 기록합니다. 실패 응답도 삭제하지 않습니다.
 
-```powershell
-.\.venv\Scripts\python.exe run_tests.py --category-only --models qwen3:4b --test-ids TEXT-001 --repeat 1
+## 토큰과 비용
+
+OpenAI가 제공하는 입력·출력·전체·캐시·추론 토큰을 가능한 범위에서 기록합니다. Provider가 값을 주지 않으면 `0`이 아니라 `null` 또는 보고서의 `N/A`입니다. Ollama와 OpenAI의 토큰 측정 기준은 다를 수 있으므로 절대적으로 같은 단위라고 가정하지 마세요.
+
+가격은 코드가 아닌 `config/model-pricing.yaml`에서 관리합니다.
+
+```yaml
+currency: USD
+unit: per_1m_tokens
+updatedAt: null
+models:
+  openai-gpt-5-nano:
+    inputPrice: null
+    outputPrice: null
 ```
 
-각 모델은 첫 데이터로 COLD 측정을 한 번 수행한 뒤 전체 데이터를 WARM으로 실행합니다. 데이터 23개, 반복 1회라면 모델당 호출 수는 `COLD 1 + WARM 23 = 24`입니다. 품질 지표는 WARM 결과로 계산하고 COLD 결과는 로딩 성능 측정에 보존합니다.
+입력·출력 단가가 모두 숫자로 설정된 경우에만 `토큰 수 / 1,000,000 × 단가`로 예상 비용을 계산합니다. 가격 정보가 없으면 예상 비용은 0원이 아니라 N/A이다. 프로젝트 내부 크레딧과 실제 API 비용은 같은 값으로 취급하지 않습니다.
 
-## 데이터셋
+## 오류와 재시도
 
-기본값과 `--memo-only`는 `dataset/memo/<카테고리>/*.txt`의 메모 23개를 사용합니다. 카테고리 정확도의 정답은 파일의 상위 폴더명입니다. `텍스트-YYYY.MM.DD-HHmm` 형식의 기본 제목은 모델 입력에서 제외하고 의미 있는 제목만 전달합니다.
-
-`config/categories.json`에는 11개 카테고리의 이름, 설명, 대표 예시가 있습니다. 폴더명과 정의 파일의 카테고리 이름이 다르면 실행을 중단합니다.
-
-`--include-json`은 메모와 `dataset/text-test-data.json`을 함께 사용합니다. JSON 회귀 데이터에는 다음 의미 정답이 있으므로 요약·통합 모드의 상세 자동 평가에 적합합니다.
-
-- `requiredKeywords`: 결과에 포함돼야 할 핵심 키워드
-- `summaryPoints`: 요약에 포함돼야 할 핵심 내용
-- `forbiddenClaims`: 생성하면 안 되는 원문 밖 주장
-
-```powershell
-.\.venv\Scripts\python.exe run_tests.py --summary-only --models qwen3:4b --include-json --repeat 1
-```
-
-## 평가 지표
-
-모든 모드는 응답 성공률, JSON 성공률, 스키마 성공률, 출력 제약 준수율, 평균·중앙값·P95·최소·최대 응답 시간, 평균 TPS, 토큰 수, 모델 로딩 시간과 순수 생성 시간을 기록합니다.
-
-`category-only`와 `integrated`는 Accuracy, Macro Precision, Macro Recall, Macro F1, 카테고리별 Precision·Recall·F1과 혼동 행렬을 생성합니다. `category-only`는 전체·정답·오답 confidence 평균과 confidence 구간별 정확도도 계산합니다.
-
-`summary-only`와 `integrated`는 정답이 있을 때 필수 키워드 재현율, 요약 핵심 내용 재현율과 금지 표현 발생률을 계산합니다. `metadata-only`는 태그·키워드 개수 및 중복 제약과 생성 키워드가 원문에 직접 존재하는 비율을 계산합니다.
-
-다음 차이를 반드시 구분해야 합니다.
-
-- `0%`: 정답 데이터가 있고 실제 측정 결과가 0인 경우
-- `N/A`: 정답 데이터가 없거나 해당 모드에서 평가하지 않는 경우
-
-스키마 성공률 100%는 요약과 태그의 의미 품질이 완벽하다는 뜻이 아닙니다.
-
-`requiredKeywords`, `summaryPoints`, `forbiddenClaims`가 비어 있으면 해당 의미 평가는 수행되지 않습니다.
-
-카테고리 정확도는 파일의 상위 폴더명을 정답으로 사용합니다.
-
-## 결과 파일
-
-실행마다 모드가 포함된 새 폴더를 생성하며 기존 결과를 덮어쓰지 않습니다.
+다음 오류를 구분해 결과에 기록합니다.
 
 ```text
-results/20260721-143000-category-only/
-├── run-metadata.json
-├── raw-responses.json
-├── evaluation-results.json
-├── category-metrics.json       # 분류 모드만
-├── confusion-matrix.csv        # 분류 모드만
-├── manual-evaluation.csv
-├── report.md
-├── raw/results.jsonl           # 기존 도구 호환 원본
-└── detail/
-    ├── auto-evaluation.csv
-    └── representative-results.csv
+MISSING_API_KEY, AUTHENTICATION_ERROR, MODEL_NOT_FOUND,
+PERMISSION_DENIED, RATE_LIMIT_ERROR, TIMEOUT, CONNECTION_ERROR,
+INVALID_REQUEST, CONTENT_FILTERED, EMPTY_RESPONSE,
+JSON_PARSE_ERROR, SCHEMA_ERROR, UNKNOWN_ERROR
 ```
 
-실패 응답도 오류 정보와 함께 `raw-responses.json`과 JSONL에 남습니다. 실행 중 `Ctrl+C`로 중단하면 완료된 호출을 기반으로 부분 결과와 보고서를 생성하고 `run-metadata.json`의 상태를 `INTERRUPTED`로 기록합니다.
+Rate limit, timeout, 연결 오류와 일부 5xx만 최대 2회 지수 백오프로 재시도합니다. 인증, 권한, 모델 없음, 잘못된 요청은 재시도하지 않습니다. 한 모델이 실패해도 Suite의 다음 모델은 계속 실행합니다. 저장 전 오류 메시지에서 API 키, Authorization, Bearer 토큰을 제거합니다.
 
-## 모델 결과 비교
+## 평가 결과 해석
 
-두 개 이상의 새 형식 결과 폴더를 비교할 수 있습니다.
+- 스키마 성공률 100%는 요약과 태그의 의미 품질이 완벽하다는 뜻이 아니다.
+- 정답 데이터가 없으면 의미 평가 결과는 0%가 아니라 N/A이다.
+- `requiredKeywords`, `summaryPoints`, `forbiddenClaims`가 비어 있으면 해당 의미 지표는 평가하지 않습니다.
+- 작은 `--limit` 결과는 연결·형식 확인에는 유용하지만 전체 성능을 대표하지 않습니다.
+- 비용 대비 운영 후보는 정확도, 지연 시간, 토큰, 설정한 가격을 함께 보고 판단합니다.
 
-```powershell
-.\.venv\Scripts\python.exe run_tests.py --compare-results `
-  results\20260721-143000-category-only `
-  results\20260721-160000-category-only
-```
+## 테스트
 
-`results/comparison-실행시각/`에 `comparison-report.md`와 `comparison-summary.json`이 생성됩니다. 평가하지 않은 항목은 `0`이 아닌 `N/A`로 표시됩니다.
-
-## 수동 평가
-
-모드별 `manual-evaluation.csv`에 사람이 평가할 항목만 생성됩니다.
-
-- summary-only: `summaryQuality`, `factuality`, `readability`, `hallucinationLevel`
-- metadata-only: `tagQuality`, `keywordQuality`, `searchUsefulness`
-- integrated: `summaryQuality`, `factuality`, `tagQuality`, `readability`, `hallucinationLevel`
-
-각 품질 점수는 1~5점으로 작성하고 `hallucinationLevel`은 `NONE`, `MINOR`, `MAJOR` 중 하나를 사용합니다. `reviewer`와 `reviewNote`에 평가자와 근거를 기록합니다.
-
-## 공정한 모델 비교 조건
-
-동일한 데이터셋, 프롬프트 버전, temperature, seed, context length, 반복 횟수와 하드웨어를 사용해야 합니다. `config.yaml`의 공통 옵션을 바꾸지 않고 모델만 바꾸는 방식을 권장합니다. COLD 로딩 시간과 WARM 응답 시간을 구분하고, 의미 품질은 자동 지표와 수동 평가를 함께 확인합니다.
-
-## 코드 테스트
-
-실제 Ollama 호출 없이 평가 로직을 검증합니다.
+기본 테스트는 OpenAI API를 실제 호출하지 않습니다.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
 ```
+
+실제 API 통합 테스트는 `integration`, `requires_openai_api_key` 마커로 분리되어 기본 실행에서 제외됩니다. 명시적으로 실행하려면 키와 opt-in 환경 변수를 설정합니다.
+
+```powershell
+$env:RUN_OPENAI_INTEGRATION = "1"
+.\.venv\Scripts\python.exe -m pytest -o addopts="" -m "integration and requires_openai_api_key"
+```
+
+요청 비용을 더 명확하게 통제하려면 통합 테스트 대신 먼저 Dry-run을 확인한 뒤 `main.py --model openai-gpt-5-nano --limit 1`을 직접 실행하세요.
