@@ -1,17 +1,5 @@
 import { api, type ApiResponse } from './client';
-
-/** 저장 항목 처리 상태 (FR-025) */
-export type ItemStatus = 'PROCESSING' | 'DONE' | 'PARTIAL' | 'FAILED';
-
-export interface Item {
-  id: number;
-  type: 'URL' | 'IMAGE' | 'MEMO';
-  status: ItemStatus;
-  title: string | null;
-  summary: string | null;
-  tags: string[];
-  createdAt: string;
-}
+import type { Item } from '@/types/item';
 
 export async function fetchItems(workspaceId: number) {
   const res = await api.get<ApiResponse<Item[]>>(`/workspaces/${workspaceId}/items`);
