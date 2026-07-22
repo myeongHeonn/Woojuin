@@ -18,4 +18,7 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     Optional<Category> findByWorkspaceIdAndName(Long workspaceId, String name);
 
     boolean existsByWorkspaceId(Long workspaceId);
+
+    /** 같은 워크스페이스 안 이름 중복 검사. */
+    boolean existsByWorkspaceIdAndName(Long workspaceId, String name);
 }
