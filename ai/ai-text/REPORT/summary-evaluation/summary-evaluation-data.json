@@ -2,6 +2,8 @@
   "metadata": {
     "purpose": "summary-only와 integrated 요약 수동 평가",
     "testCaseCount": 23,
+    "datasetTestCaseCount": 78,
+    "unexecutedTestCaseCount": 55,
     "modelCount": 4,
     "testModes": [
       "summary-only",
@@ -22,8 +24,8 @@
       "hallucinationLevel": "NONE | MINOR | MAJOR"
     },
     "sources": [
-      "results\\20260721-101535-all-modes",
-      "results\\20260721-140910-api-basic"
+      "results\\2차 분류 테스트\\20260721-101535-all-modes",
+      "results\\2차 분류 테스트\\20260721-140910-api-basic"
     ]
   },
   "testCases": [

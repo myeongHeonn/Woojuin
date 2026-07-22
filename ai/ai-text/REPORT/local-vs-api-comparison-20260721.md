@@ -205,9 +205,9 @@
 
 ## 11. 사용한 결과
 
-- 로컬 모델 전체 모드: `results/20260721-101535-all-modes/`
-- API 모델 전체 모드: `results/20260721-140910-api-basic/`
-- 로컬 종합 요약: `results/20260721-101535-all-modes/comparison-summary.json`
-- API 종합 요약: `results/20260721-140910-api-basic/comparison-summary.json`
+- 로컬 모델 전체 모드: `results/2차 분류 테스트/20260721-101535-all-modes/`
+- API 모델 전체 모드: `results/2차 분류 테스트/20260721-140910-api-basic/`
+- 로컬 종합 요약: `results/2차 분류 테스트/20260721-101535-all-modes/comparison-summary.json`
+- API 종합 요약: `results/2차 분류 테스트/20260721-140910-api-basic/comparison-summary.json`
 
 이 보고서는 저장된 결과만 분석해 작성했으며 추가 Ollama 또는 GMS API 호출은 수행하지 않았다.

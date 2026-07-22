@@ -10,8 +10,9 @@ from src.result_writer import write_json
 
 
 ROOT = Path(__file__).resolve().parent
-LOCAL_RESULTS = ROOT / "results" / "20260721-101535-all-modes"
-API_RESULTS = ROOT / "results" / "20260721-140910-api-basic"
+PHASE2_RESULTS = ROOT / "results" / "2차 분류 테스트"
+LOCAL_RESULTS = PHASE2_RESULTS / "20260721-101535-all-modes"
+API_RESULTS = PHASE2_RESULTS / "20260721-140910-api-basic"
 OUTPUT_DIR = ROOT / "REPORT" / "summary-evaluation"
 MODES = ("summary-only", "integrated")
 MODEL_ORDER = ("qwen3:4b", "qwen3:8b", "openai-gpt-5-nano", "openai-gpt-5-mini")
@@ -65,9 +66,16 @@ def build() -> tuple[dict[str, Any], list[dict[str, Any]]]:
     dataset = load_memo_dataset(memo_root, load_categories(memo_root))
     by_test_id = {item["testId"]: item for item in dataset}
     rows_by_mode = {mode: selected_rows(mode) for mode in MODES}
+    executed_ids = set.intersection(*(
+        {str(row["testId"]) for row in rows}
+        for rows in rows_by_mode.values()
+    ))
+    unknown_ids = executed_ids - set(by_test_id)
+    if unknown_ids:
+        raise ValueError(f"현재 메모 데이터에서 찾을 수 없는 테스트 ID: {sorted(unknown_ids)}")
     test_cases: list[dict[str, Any]] = []
     flat_rows: list[dict[str, Any]] = []
-    for test_id in sorted(by_test_id, key=lambda value: int(value.split("-")[1])):
+    for test_id in sorted(executed_ids, key=lambda value: int(value.split("-")[1])):
         item = by_test_id[test_id]
         case: dict[str, Any] = {
             "testId": test_id,
@@ -105,6 +113,8 @@ def build() -> tuple[dict[str, Any], list[dict[str, Any]]]:
         "metadata": {
             "purpose": "summary-only와 integrated 요약 수동 평가",
             "testCaseCount": len(test_cases),
+            "datasetTestCaseCount": len(dataset),
+            "unexecutedTestCaseCount": len(dataset) - len(test_cases),
             "modelCount": len(MODEL_ORDER),
             "testModes": list(MODES),
             "models": list(MODEL_ORDER),
