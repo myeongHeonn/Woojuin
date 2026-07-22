@@ -6,8 +6,12 @@ import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
+import com.ssafy.woojuin.domain.category.dto.CategoryResponse;
+import com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import java.util.List;
+import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,13 +31,16 @@ public class ItemService {
     private final S3Uploader s3Uploader;
     private final ItemQueueProducer itemQueueProducer;
     private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final ItemCategoryQueryService itemCategoryQueryService;
 
     public ItemService(ItemRepository itemRepository, S3Uploader s3Uploader,
-            ItemQueueProducer itemQueueProducer, WorkspaceMemberRepository workspaceMemberRepository) {
+            ItemQueueProducer itemQueueProducer, WorkspaceMemberRepository workspaceMemberRepository,
+            ItemCategoryQueryService itemCategoryQueryService) {
         this.itemRepository = itemRepository;
         this.s3Uploader = s3Uploader;
         this.itemQueueProducer = itemQueueProducer;
         this.workspaceMemberRepository = workspaceMemberRepository;
+        this.itemCategoryQueryService = itemCategoryQueryService;
     }
 
     public ItemCreateResponse createFromRequest(Long workspaceId, Long userId, ItemCreateRequest request) {
@@ -101,13 +108,13 @@ public class ItemService {
         }
 
         Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE), resolveSort(sort));
-        Page<ItemResponse> result = itemRepository.findAll(spec, pageable).map(ItemResponse::from);
-        return ItemListResponse.from(result);
+        return toListResponse(itemRepository.findAll(spec, pageable));
     }
 
     @Transactional(readOnly = true)
     public ItemResponse getDetail(Long itemId, Long userId) {
-        return ItemResponse.from(findActiveItem(itemId, userId));
+        Item item = findActiveItem(itemId, userId);
+        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()));
     }
 
     @Transactional(readOnly = true)
@@ -128,7 +135,7 @@ public class ItemService {
         }
         Item item = findActiveItem(itemId, userId);
         item.update(request.title(), request.content());
-        return ItemResponse.from(item);
+        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()));
     }
 
     /** 삭제는 항상 휴지통 이동이 먼저다 (AGENTS.md 도메인 규칙). */
@@ -147,14 +154,23 @@ public class ItemService {
 
         Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE),
                 Sort.by("deletedAt").descending());
-        return ItemListResponse.from(itemRepository.findAll(spec, pageable).map(ItemResponse::from));
+        return toListResponse(itemRepository.findAll(spec, pageable));
     }
 
     @Transactional
     public ItemResponse restore(Long itemId, Long userId) {
         Item item = findTrashedItem(itemId, userId);
         item.restore();
-        return ItemResponse.from(item);
+        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()));
+    }
+
+    /** 페이지의 아이템들에 카테고리를 배치로 채워 응답으로 변환한다(N+1 방지). */
+    private ItemListResponse toListResponse(Page<Item> items) {
+        Map<Long, List<CategoryResponse>> categoriesByItem = itemCategoryQueryService.categoriesByItemIds(
+                items.getContent().stream().map(Item::getId).toList());
+        Page<ItemResponse> mapped = items.map(item ->
+                ItemResponse.from(item, categoriesByItem.getOrDefault(item.getId(), List.of())));
+        return ItemListResponse.from(mapped);
     }
 
     /**

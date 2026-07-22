@@ -50,6 +50,9 @@ class ItemServiceTest {
     @Mock
     private WorkspaceMemberRepository workspaceMemberRepository;
 
+    @Mock
+    private com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService itemCategoryQueryService;
+
     @InjectMocks
     private ItemService itemService;
 
@@ -61,6 +64,9 @@ class ItemServiceTest {
     void setUpMembership() {
         lenient().when(workspaceMemberRepository.findByWorkspaceIdAndUserId(any(), any()))
                 .thenReturn(Optional.of(mock(WorkspaceMember.class)));
+        // 읽기 경로가 카테고리를 조회하지만 이 테스트들의 관심사는 아니라 기본 빈 결과로 둔다.
+        lenient().when(itemCategoryQueryService.categoriesByItemIds(any())).thenReturn(java.util.Map.of());
+        lenient().when(itemCategoryQueryService.categoriesOf(any())).thenReturn(List.of());
     }
 
     @Test
@@ -145,6 +151,7 @@ class ItemServiceTest {
     void 목록조회는_페이지_결과를_그대로_매핑() {
         Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.URL)
                 .url("https://example.com").build();
+        ReflectionTestUtils.setField(item, "id", 1L);   // 영속 아이템은 id를 가진다
         when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 20), 1));
 

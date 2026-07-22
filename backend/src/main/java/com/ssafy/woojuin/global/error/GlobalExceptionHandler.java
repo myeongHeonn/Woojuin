@@ -1,5 +1,6 @@
 package com.ssafy.woojuin.global.error;
 
+import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
 import com.ssafy.woojuin.domain.item.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.WorkspaceAccessDeniedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
@@ -42,6 +43,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ItemNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiResponse<Void> handleItemNotFound(ItemNotFoundException e) {
+        return ApiResponse.of(404, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(CategoryNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleCategoryNotFound(CategoryNotFoundException e) {
         return ApiResponse.of(404, e.getMessage(), null);
     }
 

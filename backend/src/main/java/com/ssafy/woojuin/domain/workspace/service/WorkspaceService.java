@@ -8,12 +8,14 @@ import com.ssafy.woojuin.domain.workspace.dto.WorkspaceUpdateRequest;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
+import com.ssafy.woojuin.domain.workspace.event.WorkspaceCreatedEvent;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceInvitationRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,13 +33,16 @@ public class WorkspaceService {
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final WorkspaceInvitationRepository workspaceInvitationRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public WorkspaceService(WorkspaceRepository workspaceRepository, WorkspaceMemberRepository workspaceMemberRepository,
-                             WorkspaceInvitationRepository workspaceInvitationRepository, UserRepository userRepository) {
+                             WorkspaceInvitationRepository workspaceInvitationRepository, UserRepository userRepository,
+                             ApplicationEventPublisher eventPublisher) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.workspaceInvitationRepository = workspaceInvitationRepository;
         this.userRepository = userRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -49,6 +54,10 @@ public class WorkspaceService {
                 Workspace.builder().name(request.name()).type(request.type()).createdBy(creator).build());
         workspaceMemberRepository.save(
                 WorkspaceMember.builder().workspace(workspace).user(creator).role(WorkspaceRole.OWNER).build());
+
+        // 기본 카테고리 시드 등 후속 처리는 이벤트로 위임한다(이 서비스는 카테고리 도메인을 모른다).
+        // 동기 리스너라 같은 트랜잭션에서 처리돼, 시드 실패 시 워크스페이스 생성도 롤백된다.
+        eventPublisher.publishEvent(new WorkspaceCreatedEvent(workspace.getId()));
 
         return WorkspaceResponse.of(workspace, WorkspaceRole.OWNER);
     }

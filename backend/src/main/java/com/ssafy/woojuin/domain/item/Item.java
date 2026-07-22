@@ -53,6 +53,9 @@ public class Item extends BaseTimeEntity {
     @Column(columnDefinition = "text")
     private String content;
 
+    @Column(columnDefinition = "text")
+    private String summary;
+
     @Column(length = 500)
     private String s3Key;
 
@@ -62,7 +65,8 @@ public class Item extends BaseTimeEntity {
     @Column(columnDefinition = "text")
     private String previewThumbnailUrl;
 
-    private Long categoryId;
+    // 카테고리는 item_categories 조인 테이블로 다대다 관리한다(단일 category_id 폐기).
+    // 기존 DB의 category_id 컬럼은 ddl-auto=update로는 드롭되지 않으니 마이그레이션 시 정리.
 
     @Column(nullable = false)
     private boolean favorite;
@@ -117,6 +121,13 @@ public class Item extends BaseTimeEntity {
     public void applyContent(String content) {
         if (content != null) {
             this.content = content;
+        }
+    }
+
+    /** AI 요약 반영. 본문이 없어 요약을 못 만든 경우(null)는 기존 값을 지우지 않는다. */
+    public void applySummary(String summary) {
+        if (summary != null) {
+            this.summary = summary;
         }
     }
 
