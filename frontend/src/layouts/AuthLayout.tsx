@@ -1,14 +1,19 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useAtomValue } from 'jotai';
+import { accessTokenAtom } from '@/stores/authAtoms';
 
 const AuthLayout = () => {
-  // TODO: 인증 가드 — 유저 정보가 없으면 / 로 이동
-  //   const navigate = useNavigate();
-  //   const location = useLocation();
+  const accessToken = useAtomValue(accessTokenAtom);
+  const navigate = useNavigate();
+
   useEffect(() => {
-    // 유저 정보가 없으면 /로 이동
-    // navigate('/');
-  }, []);
+    if (!accessToken) {
+      navigate('/', { replace: true });
+    }
+  }, [accessToken, navigate]);
+
+  if (!accessToken) return null;
 
   return (
     <>
