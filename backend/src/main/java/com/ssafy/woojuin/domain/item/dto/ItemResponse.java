@@ -6,8 +6,9 @@ import com.ssafy.woojuin.global.common.ItemStatus;
 import java.time.OffsetDateTime;
 
 /**
- * 아이템 상세/목록 카드 공통 응답. aiResult/tags/category는 해당 도메인(AI 처리, 태그)이
- * 아직 없어 포함하지 않는다 — 나중에 그 도메인이 생기면 이 레코드에 필드를 추가한다.
+ * 아이템 상세/목록 카드 공통 응답. summary는 AI 요약(본문이 있을 때만 채워짐)이다.
+ * 카테고리 목록은 item_categories 조인 조회가 필요해 아직 포함하지 않는다 — 읽기 경로에서
+ * 카테고리를 노출하는 건 후속 작업.
  */
 public record ItemResponse(
         Long itemId,
@@ -16,6 +17,7 @@ public record ItemResponse(
         String title,
         String url,
         String content,
+        String summary,
         String s3Key,
         Preview preview,
         boolean favorite,
@@ -33,6 +35,7 @@ public record ItemResponse(
                 item.getTitle(),
                 item.getUrl(),
                 item.getContent(),
+                item.getSummary(),
                 item.getS3Key(),
                 new Preview(item.getPreviewThumbnailUrl(), item.getPreviewDescription()),
                 item.isFavorite(),

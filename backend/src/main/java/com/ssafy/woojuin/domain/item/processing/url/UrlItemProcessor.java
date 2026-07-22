@@ -3,6 +3,7 @@ package com.ssafy.woojuin.domain.item.processing.url;
 import com.ssafy.woojuin.domain.ai.AiAnalysis;
 import com.ssafy.woojuin.domain.ai.AiAnalysisRequest;
 import com.ssafy.woojuin.domain.ai.AiAnalyzer;
+import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.item.Item;
 import com.ssafy.woojuin.domain.item.ItemRepository;
 import com.ssafy.woojuin.domain.item.ItemType;
@@ -25,16 +26,16 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><b>트랙 B(본문 확보)</b>: 트랙 A가 받아둔 Document를 재활용해 readability4j로 본문을
  * 뽑는다. 두 트랙은 완전히 격리돼 한쪽 실패가 다른 쪽에 영향을 주지 않는다.
  *
+ * <p><b>AI 보강</b>: 본문이 없어도(PARTIAL) title만으로 분류하도록 항상 시도한다. 요약은
+ * 본문이 있을 때만 채워지고, 카테고리는 그 워크스페이스의 현재 카테고리 중에서 배정된다.
+ * 보강 실패는 이미 확보한 미리보기·본문을 무효화하지 않는다.
+ *
  * <p><b>상태 전이</b>는 AGENTS.md 정의를 따른다 — 트랙 B(콘텐츠) 성공 여부로만 정한다.
  * <ul>
  *   <li>트랙 B 성공 → DONE</li>
  *   <li>트랙 A만 성공(트랙 B 실패) → PARTIAL</li>
  *   <li>트랙 A조차 실패(도메인 폴백도 불가) → FAILED (사실상 URL 파싱 불가일 때만)</li>
  * </ul>
- *
- * <p><b>AI 분석</b>은 상태와 무관한 별개 보강 단계다. 본문이 있으면 {@link AiAnalyzer}에
- * 넘기지만, 요약·카테고리·태그를 저장할 스키마(ai_results/categories/tags)가 아직 없어
- * 결과를 영속화하지 못한다. 스키마가 생기면 이 지점에서 매핑을 붙인다.
  */
 @Slf4j
 @Component
@@ -47,10 +48,12 @@ public class UrlItemProcessor implements ItemProcessor {
     private final OpenGraphScraper openGraphScraper;
     private final ContentExtractor contentExtractor;
     private final AiAnalyzer aiAnalyzer;
+    private final CategoryAssignmentService categoryAssignmentService;
 
     public UrlItemProcessor(ItemRepository itemRepository, UrlNormalizer urlNormalizer,
             OEmbedClient oEmbedClient, HtmlFetcher htmlFetcher, OpenGraphScraper openGraphScraper,
-            ContentExtractor contentExtractor, AiAnalyzer aiAnalyzer) {
+            ContentExtractor contentExtractor, AiAnalyzer aiAnalyzer,
+            CategoryAssignmentService categoryAssignmentService) {
         this.itemRepository = itemRepository;
         this.urlNormalizer = urlNormalizer;
         this.oEmbedClient = oEmbedClient;
@@ -58,6 +61,7 @@ public class UrlItemProcessor implements ItemProcessor {
         this.openGraphScraper = openGraphScraper;
         this.contentExtractor = contentExtractor;
         this.aiAnalyzer = aiAnalyzer;
+        this.categoryAssignmentService = categoryAssignmentService;
     }
 
     @Override
@@ -66,8 +70,9 @@ public class UrlItemProcessor implements ItemProcessor {
     }
 
     /**
-     * @Transactional이라 JPA 더티체킹으로 변경이 flush된다. 아이템이 사라졌으면(저장과 처리
-     * 사이에 삭제) 조용히 반환한다 — 재시도해도 다시 생기지 않으므로 예외를 던지지 않는다.
+     * @Transactional이라 JPA 더티체킹으로 변경이 flush되고, 미리보기·본문·요약·카테고리가
+     * 한 트랜잭션에서 함께 커밋된다. 아이템이 사라졌으면(저장과 처리 사이 삭제) 조용히
+     * 반환한다 — 재시도해도 다시 생기지 않으므로 예외를 던지지 않는다.
      */
     @Override
     @Transactional
@@ -100,9 +105,9 @@ public class UrlItemProcessor implements ItemProcessor {
         boolean contentAcquired = content != null;
         if (contentAcquired) {
             item.applyContent(content);
-            analyzeQuietly(item, content);   // 보강 단계, 상태에 영향 없음
         }
 
+        enrichWithAi(item, content);   // 본문이 없어도 title로 분류 시도(상태에는 영향 없음)
         finalizeStatus(item, preview, contentAcquired);
     }
 
@@ -116,23 +121,19 @@ public class UrlItemProcessor implements ItemProcessor {
     }
 
     /**
-     * AI 보강. 결과를 저장할 스키마(item_categories 조인 테이블, items.summary)와 Category
-     * 도메인이 아직 없어 지금은 호출 seam만 살아 있다. Category 도메인이 생기면 여기서
-     * (1) 워크스페이스의 현재 카테고리 목록을 candidateCategories로 넘기고,
-     * (2) 반환된 categories 이름들을 그 워크스페이스의 category_id로 매핑해 조인 테이블에 저장한다.
-     * 어떤 실패도 이미 확보한 본문/미리보기를 무효화하면 안 되므로 조용히 흡수한다.
+     * AI 요약·분류를 반영한다. 후보 카테고리(그 워크스페이스의 현재 목록)를 넘기고, 결과
+     * 요약을 저장하며, 분류된 카테고리를 아이템에 연결한다. 어떤 실패도 이미 확보한 본문·
+     * 미리보기를 무효화하면 안 되므로 조용히 흡수한다.
      */
-    private void analyzeQuietly(Item item, String content) {
+    private void enrichWithAi(Item item, String content) {
         try {
-            // TODO: List.of() 자리에 workspace의 현재 카테고리 이름 목록을 넣는다(Category 도메인 대기)
+            List<String> candidates = categoryAssignmentService.candidateNames(item.getWorkspaceId());
             AiAnalysis analysis = aiAnalyzer.analyze(
-                    new AiAnalysisRequest(item.getTitle(), content, List.of()));
-            if (!analysis.isEmpty()) {
-                log.debug("AI 분석 결과 수신(미영속): itemId={}, categories={}", item.getId(), analysis.categories());
-                // TODO: item_categories 조인 + items.summary 저장
-            }
+                    new AiAnalysisRequest(item.getTitle(), content, candidates));
+            item.applySummary(analysis.summary());
+            categoryAssignmentService.assign(item.getId(), item.getWorkspaceId(), analysis.categories());
         } catch (Exception e) {
-            log.warn("AI 분석 실패(무시): itemId={}, cause={}", item.getId(), e.toString());
+            log.warn("AI 보강 실패(무시): itemId={}, cause={}", item.getId(), e.toString());
         }
     }
 
