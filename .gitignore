@@ -35,6 +35,9 @@ backend/out/
 # --- Test / Coverage ---
 coverage/
 *.lcov
+__screenshots__/
+.vitest-attachments/
+test-results/
 
 # --- Docker ---
 docker-volumes/
