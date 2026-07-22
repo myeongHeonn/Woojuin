@@ -42,6 +42,10 @@ woojuin:
   queue:
     stream-key: woojuin:item-processing
     consumer-group: ai-workers
+    max-delivery: 3            # 이 횟수만큼 배달·재시도한 뒤에도 실패하면 FAILED 확정
+    reclaim-idle-ms: 60000     # pending이 이 시간 이상 방치되면 회수 대상(처리 중 유예)
+    reclaim-interval-ms: 30000 # 회수 스케줄러 실행 주기
+    reclaim-batch-size: 32     # 한 주기에 살펴볼 pending 최대 건수
   fetch:
     timeout-ms: 5000
     max-body-bytes: 3145728   # 3MB. 미리보기/본문 추출에 이보다 큰 HTML은 불필요

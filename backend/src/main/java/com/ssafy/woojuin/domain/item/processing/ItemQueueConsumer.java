@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.data.redis.connection.stream.MapRecord;
@@ -21,19 +22,13 @@ import org.springframework.stereotype.Component;
 
 /**
  * Redis Streams(woojuin:item-processing) consumer group의 유일한 소비자.
- * 메시지 type을 보고 맞는 {@link ItemProcessor}에 위임한 뒤 ACK한다.
+ * 새 메시지를 받아 {@link ItemProcessingDispatcher}에 넘기고, 결과에 따라 ACK를 정한다.
  *
  * <p><b>왜 컨슈머가 하나인가</b> — {@link ItemProcessor} javadoc 참조. 타입별로 컨슈머를
  * 나누면 consumer group의 임의 분배 때문에 URL 메시지가 이미지 워커에게 갈 수 있다.
  *
- * <p><b>ACK 규칙</b>
- * <ul>
- *   <li>정상 처리 → ACK</li>
- *   <li>파싱 불가한 독약 메시지 → 재시도해도 소용없으므로 ACK하고 버린다</li>
- *   <li>담당 프로세서가 아직 없는 타입 → ACK하지 않는다(pending 유지). 해당 묶음의
- *       프로세서가 배포되면 재기동 시 pending을 다시 집어 처리한다</li>
- *   <li>처리 중 예외 → ACK하지 않는다(pending 유지). 재시도 대상. 상한/에스컬레이션은 후속 단계</li>
- * </ul>
+ * <p>이 컨슈머는 <b>새 메시지(never-delivered)만</b> 처리한다. 처리에 실패해 pending에
+ * 남은 메시지의 재시도·최종 포기는 {@link PendingMessageReclaimer}가 맡는다.
  */
 @Slf4j
 @Component
@@ -43,7 +38,7 @@ public class ItemQueueConsumer
 
     private final RedisConnectionFactory connectionFactory;
     private final StringRedisTemplate redisTemplate;
-    private final List<ItemProcessor> processors;
+    private final ItemProcessingDispatcher dispatcher;
     private final String streamKey;
     private final String consumerGroup;
     private final String consumerName;
@@ -53,12 +48,13 @@ public class ItemQueueConsumer
     public ItemQueueConsumer(
             RedisConnectionFactory connectionFactory,
             StringRedisTemplate redisTemplate,
+            ItemProcessingDispatcher dispatcher,
             List<ItemProcessor> processors,
             @Value("${woojuin.queue.stream-key}") String streamKey,
             @Value("${woojuin.queue.consumer-group}") String consumerGroup) {
         this.connectionFactory = connectionFactory;
         this.redisTemplate = redisTemplate;
-        this.processors = processors;
+        this.dispatcher = dispatcher;
         this.streamKey = streamKey;
         this.consumerGroup = consumerGroup;
         // 인스턴스마다 고유해야 pending 추적이 섞이지 않는다. 다중 인스턴스 배포 대비.
@@ -79,13 +75,16 @@ public class ItemQueueConsumer
 
     @Override
     public void afterPropertiesSet() {
+        // 컨테이너를 켜기 전에 consumer group을 보장한다. 그룹이 없는 상태로 XREADGROUP을
+        // 시작하면 NOGROUP 에러로 컨테이너가 영구 정지하기 때문이다(신선한 Redis 배포 시).
+        createGroupIfAbsent();
+
         var options = StreamMessageListenerContainerOptions.builder()
                 .pollTimeout(Duration.ofSeconds(2))
                 .build();
         this.container = StreamMessageListenerContainer.create(connectionFactory, options);
-        // ReadOffset.lastConsumed() = 이 그룹이 아직 배달받지 않은 새 메시지("&")부터.
-        // 기존 pending은 재기동 시 컨테이너가 자동으로 다시 배달하지 않으므로, pending
-        // 복구(XAUTOCLAIM)는 후속 단계에서 별도 스케줄러로 처리한다.
+        // ReadOffset.lastConsumed() = 이 그룹이 아직 배달받지 않은 새 메시지(">")부터.
+        // 기존 pending은 컨테이너가 자동으로 다시 배달하지 않으므로 PendingMessageReclaimer가 회수한다.
         container.receive(
                 Consumer.from(consumerGroup, consumerName),
                 StreamOffset.create(streamKey, ReadOffset.lastConsumed()),
@@ -95,42 +94,33 @@ public class ItemQueueConsumer
                 streamKey, consumerGroup, consumerName);
     }
 
-    @Override
-    public void onMessage(MapRecord<String, String, String> record) {
-        ItemProcessingMessage message;
+    /**
+     * consumer group을 생성한다(없으면 스트림도 함께 — createGroup은 MKSTREAM 동작).
+     * 이미 있으면(BUSYGROUP) 정상이므로 무시한다.
+     */
+    private void createGroupIfAbsent() {
         try {
-            message = ItemProcessingMessage.from(record.getValue());
-        } catch (IllegalArgumentException e) {
-            // 독약 메시지 — 형식이 깨져 재시도해도 영원히 실패. ACK하고 버린다.
-            log.error("큐 메시지 파싱 실패, 폐기: recordId={}, value={}",
-                    record.getId(), record.getValue(), e);
-            acknowledge(record);
-            return;
-        }
-
-        ItemProcessor processor = processors.stream()
-                .filter(p -> p.supports(message.type()))
-                .findFirst()
-                .orElse(null);
-        if (processor == null) {
-            // 담당 묶음이 아직 프로세서를 안 붙임. ACK하지 않고 pending에 남겨 나중에 처리.
-            log.warn("타입 {}를 처리할 프로세서 없음, pending 유지: itemId={}",
-                    message.type(), message.itemId());
-            return;
-        }
-
-        try {
-            processor.process(message);
-            acknowledge(record);
-        } catch (Exception e) {
-            // pending에 남아 재시도된다. 무한 재시도 방지 상한은 후속 단계에서.
-            log.error("아이템 처리 실패, 재시도 예정: itemId={}, type={}",
-                    message.itemId(), message.type(), e);
+            redisTemplate.opsForStream().createGroup(streamKey, ReadOffset.from("0"), consumerGroup);
+            log.info("Redis stream consumer group 생성: stream={}, group={}", streamKey, consumerGroup);
+        } catch (RedisSystemException e) {
+            Throwable cause = e.getMostSpecificCause();
+            if (cause != null && cause.getMessage() != null && cause.getMessage().contains("BUSYGROUP")) {
+                log.debug("consumer group 이미 존재: group={}", consumerGroup);
+            } else {
+                throw e;
+            }
         }
     }
 
-    private void acknowledge(MapRecord<String, String, String> record) {
-        redisTemplate.opsForStream().acknowledge(consumerGroup, record);
+    @Override
+    public void onMessage(MapRecord<String, String, String> record) {
+        ItemProcessingDispatcher.Outcome outcome = dispatcher.handle(record.getValue());
+        // PROCESSED/POISON은 ACK로 큐에서 제거. NO_PROCESSOR/RETRYABLE은 pending에 남겨
+        // PendingMessageReclaimer가 이어받게 한다.
+        if (outcome == ItemProcessingDispatcher.Outcome.PROCESSED
+                || outcome == ItemProcessingDispatcher.Outcome.POISON) {
+            redisTemplate.opsForStream().acknowledge(consumerGroup, record);
+        }
     }
 
     @Override
