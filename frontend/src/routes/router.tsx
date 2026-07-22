@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import AuthLayout from '@/layouts/AuthLayout';
 import Layout from '@/layouts/Layout';
 import HomePage from '@/pages/HomePage';
+import WorkspacePage from '@/pages/WorkspacePage';
 import ShareTargetPage from '@/pages/ShareTargetPage';
 import LandingPage from '@/pages/LandingPage';
 import LoginPage from '@/pages/LoginPage';
@@ -23,7 +24,10 @@ export const router = createBrowserRouter([
     children: [
       {
         element: <Layout />,
-        children: [{ path: '/home', element: <HomePage /> }],
+        children: [
+          { path: '/home', element: <HomePage /> },
+          { path: '/workspace/:workspaceId', element: <WorkspacePage /> },
+        ],
       },
     ],
   },

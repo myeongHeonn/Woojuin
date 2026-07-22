@@ -56,8 +56,7 @@ const WorkspaceNav = () => {
               key={ws.id}
               icon={<PlanetIcon />}
               label={ws.name}
-              /* TODO: 화면이 생기면 `/universe/${ws.id}` 등 실제 경로로 교체 */
-              to="/home"
+              to={`/workspace/${ws.id}`}
               collapsed={sideBarClosed}
               active={activeId === ws.id}
               onClick={() => setActiveId(ws.id)}
