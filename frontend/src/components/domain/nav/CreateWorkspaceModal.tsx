@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import Modal from '@/components/ui/Modal';
+import SubmitButton from '@/components/ui/SubmitButton';
+import TextInput from '@/components/ui/TextInput';
 import { createWorkspace } from '@/services/workspaces';
 
 interface CreateWorkspaceModalProps {
@@ -36,23 +38,18 @@ const CreateWorkspaceModal = ({ open, onClose }: CreateWorkspaceModalProps) => {
           createMutation.mutate({ name, type: 'TEAM' });
         }}
       >
-        <input
+        <TextInput
           type="text"
           placeholder="워크스페이스 이름"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded-md border border-border bg-surface-2 px-3 py-2 text-text-1 outline-none focus:border-accent"
           autoFocus
           required
         />
         {errorMessage && <p className="text-sm text-red-500">{errorMessage}</p>}
-        <button
-          type="submit"
-          disabled={createMutation.isPending}
-          className="rounded-md bg-accent px-3 py-2 font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
-        >
-          {createMutation.isPending ? '생성 중...' : '만들기'}
-        </button>
+        <SubmitButton pending={createMutation.isPending} pendingLabel="생성 중...">
+          만들기
+        </SubmitButton>
       </form>
     </Modal>
   );

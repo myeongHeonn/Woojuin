@@ -9,6 +9,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
+import { classNames } from '@/utils/classNames';
 
 interface HeaderPopoverProps {
   /**
@@ -79,13 +80,27 @@ const HeaderPopover = ({ trigger, children }: HeaderPopoverProps) => {
       {triggerNode}
 
       {open && (
-        <div
-          id={panelId}
-          role="dialog"
-          className="absolute right-0 top-[calc(100%+8px)] z-[45] overflow-hidden rounded-lg border border-border bg-surface shadow-float"
-        >
-          {typeof children === 'function' ? children(close) : children}
-        </div>
+        <>
+          {/*
+            모바일에서만 뒤를 덮는다 — 가운데 뜬 패널이 성좌 배경에 묻히지 않게.
+            wrapRef 안이라 바깥클릭 판정에 안 걸리므로 직접 close 를 건다.
+          */}
+          <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={close} />
+
+          <div
+            id={panelId}
+            role="dialog"
+            className={classNames(
+              'z-[45] overflow-hidden rounded-lg border border-border bg-surface p-4 shadow-float',
+              // 모바일 — 화면 한가운데. 좁은 기기에서 넘치지 않게 폭을 제한한다
+              'fixed left-1/2 top-1/2 max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2',
+              // 데스크톱 — 트리거 바로 아래, 오른쪽 끝 맞춤
+              'lg:absolute lg:left-auto lg:top-[calc(100%+8px)] lg:right-0 lg:translate-x-0 lg:translate-y-0',
+            )}
+          >
+            {typeof children === 'function' ? children(close) : children}
+          </div>
+        </>
       )}
     </div>
   );
