@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.domain.workspace.service;
 
 import com.ssafy.woojuin.domain.auth.entity.User;
+import com.ssafy.woojuin.domain.auth.event.UserSignedUpEvent;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceCreateRequest;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceResponse;
@@ -8,6 +9,7 @@ import com.ssafy.woojuin.domain.workspace.dto.WorkspaceUpdateRequest;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
 import com.ssafy.woojuin.domain.workspace.event.WorkspaceCreatedEvent;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
@@ -16,6 +18,7 @@ import com.ssafy.woojuin.domain.workspace.repository.WorkspaceInvitationReposito
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,6 +96,36 @@ public class WorkspaceService {
         workspaceMemberRepository.deleteAll(workspaceMemberRepository.findByWorkspaceId(workspaceId));
         workspaceInvitationRepository.deleteAll(workspaceInvitationRepository.findByWorkspaceId(workspaceId));
         workspaceRepository.delete(workspace);
+    }
+
+    /** 회원가입 이벤트에 반응해 PERSONAL 워크스페이스 생성을 시도한다. */
+    @EventListener
+    public void onUserSignedUp(UserSignedUpEvent event) {
+        ensurePersonalWorkspace(event.userId());
+    }
+
+    /**
+     * 이 유저가 PERSONAL 워크스페이스를 갖고 있지 않으면 만들어주고, 있으면 아무것도 하지 않는다(멱등).
+     * 회원가입 이벤트뿐 아니라 기존 가입자 백필(PersonalWorkspaceBackfillRunner)에서도 재사용한다.
+     */
+    @Transactional
+    public void ensurePersonalWorkspace(Long userId) {
+        boolean alreadyHasPersonalWorkspace = workspaceMemberRepository.findByUserId(userId).stream()
+                .anyMatch(member -> member.getWorkspace().getType() == WorkspaceType.PERSONAL);
+        if (alreadyHasPersonalWorkspace) {
+            return;
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
+
+        Workspace workspace = workspaceRepository.save(
+                Workspace.builder().name("My Space").type(WorkspaceType.PERSONAL).createdBy(user).build());
+        workspaceMemberRepository.save(
+                WorkspaceMember.builder().workspace(workspace).user(user).role(WorkspaceRole.OWNER).build());
+        user.assignPersonalWorkspace(workspace.getId());
+
+        eventPublisher.publishEvent(new WorkspaceCreatedEvent(workspace.getId()));
     }
 
     private Workspace findWorkspace(Long workspaceId) {

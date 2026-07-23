@@ -2,6 +2,7 @@ package com.ssafy.woojuin.domain.workspace.service;
 
 import com.ssafy.woojuin.domain.auth.entity.AuthProvider;
 import com.ssafy.woojuin.domain.auth.entity.User;
+import com.ssafy.woojuin.domain.auth.event.UserSignedUpEvent;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
@@ -203,5 +204,60 @@ class WorkspaceServiceTest {
                 .isInstanceOf(WorkspaceOwnerRequiredException.class);
 
         verify(workspaceRepository, never()).delete(any(Workspace.class));
+    }
+
+    @Test
+    @DisplayName("PERSONAL 워크스페이스가 없으면 생성하고 OWNER로 등록하며 유저에 id를 기록한다")
+    void ensurePersonalWorkspace_noPersonalWorkspace_createsAndAssignsToUser() {
+        User me = user(1L);
+        when(workspaceMemberRepository.findByUserId(1L)).thenReturn(List.of());
+        when(userRepository.findById(1L)).thenReturn(Optional.of(me));
+        when(workspaceRepository.save(any(Workspace.class))).thenAnswer(invocation -> {
+            Workspace ws = invocation.getArgument(0);
+            ReflectionTestUtils.setField(ws, "id", 20L);
+            return ws;
+        });
+        when(workspaceMemberRepository.save(any(WorkspaceMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        workspaceService.ensurePersonalWorkspace(1L);
+
+        ArgumentCaptor<Workspace> workspaceCaptor = ArgumentCaptor.forClass(Workspace.class);
+        verify(workspaceRepository).save(workspaceCaptor.capture());
+        assertThat(workspaceCaptor.getValue().getType()).isEqualTo(WorkspaceType.PERSONAL);
+
+        ArgumentCaptor<WorkspaceMember> memberCaptor = ArgumentCaptor.forClass(WorkspaceMember.class);
+        verify(workspaceMemberRepository).save(memberCaptor.capture());
+        assertThat(memberCaptor.getValue().getRole()).isEqualTo(WorkspaceRole.OWNER);
+        assertThat(memberCaptor.getValue().getUser()).isEqualTo(me);
+
+        assertThat(me.getPersonalWorkspaceId()).isEqualTo(20L);
+    }
+
+    @Test
+    @DisplayName("이미 PERSONAL 워크스페이스가 있으면 아무것도 하지 않는다")
+    void ensurePersonalWorkspace_alreadyHasPersonalWorkspace_doesNothing() {
+        User me = user(1L);
+        Workspace personal = Workspace.builder().name("My Space").type(WorkspaceType.PERSONAL).createdBy(me).build();
+        WorkspaceMember membership = WorkspaceMember.builder().workspace(personal).user(me).role(WorkspaceRole.OWNER).build();
+        when(workspaceMemberRepository.findByUserId(1L)).thenReturn(List.of(membership));
+
+        workspaceService.ensurePersonalWorkspace(1L);
+
+        verify(workspaceRepository, never()).save(any(Workspace.class));
+        verify(workspaceMemberRepository, never()).save(any(WorkspaceMember.class));
+    }
+
+    @Test
+    @DisplayName("UserSignedUpEvent를 받으면 개인 워크스페이스 생성을 시도한다")
+    void onUserSignedUp_receivesEvent_ensuresPersonalWorkspace() {
+        User me = user(1L);
+        when(workspaceMemberRepository.findByUserId(1L)).thenReturn(List.of());
+        when(userRepository.findById(1L)).thenReturn(Optional.of(me));
+        when(workspaceRepository.save(any(Workspace.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(workspaceMemberRepository.save(any(WorkspaceMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        workspaceService.onUserSignedUp(new UserSignedUpEvent(1L));
+
+        verify(workspaceRepository).save(any(Workspace.class));
     }
 }

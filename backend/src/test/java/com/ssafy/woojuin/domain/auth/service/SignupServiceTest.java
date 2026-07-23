@@ -2,7 +2,9 @@ package com.ssafy.woojuin.domain.auth.service;
 
 import com.ssafy.woojuin.domain.auth.dto.SignupRequest;
 import com.ssafy.woojuin.domain.auth.entity.AuthProvider;
+import com.ssafy.woojuin.domain.auth.entity.AvatarColor;
 import com.ssafy.woojuin.domain.auth.entity.User;
+import com.ssafy.woojuin.domain.auth.event.UserSignedUpEvent;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,7 +12,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -30,12 +34,15 @@ class SignupServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private SignupService signupService;
 
     @Test
     @DisplayName("신규 이메일이면 비밀번호를 인코딩해 LOCAL 유저를 저장한다")
     void signup_newEmail_savesEncodedLocalUser() {
-        signupService = new SignupService(userRepository, passwordEncoder);
+        signupService = new SignupService(userRepository, passwordEncoder, eventPublisher);
         SignupRequest request = new SignupRequest("test@woojuin.com", "raw-password", "우주인");
 
         when(userRepository.findByEmailAndProvider("test@woojuin.com", AuthProvider.LOCAL))
@@ -53,12 +60,13 @@ class SignupServiceTest {
         assertThat(saved.getPasswordHash()).isEqualTo("encoded-password");
         assertThat(saved.getProvider()).isEqualTo(AuthProvider.LOCAL);
         assertThat(saved.isEmailVerified()).isFalse();
+        assertThat(saved.getAvatarColor()).isEqualTo(AvatarColor.WHITE);
     }
 
     @Test
     @DisplayName("이미 가입된 이메일이면 예외를 던지고 저장하지 않는다")
     void signup_duplicateEmail_throwsAndDoesNotSave() {
-        signupService = new SignupService(userRepository, passwordEncoder);
+        signupService = new SignupService(userRepository, passwordEncoder, eventPublisher);
         SignupRequest request = new SignupRequest("test@woojuin.com", "raw-password", "우주인");
         User existing = User.builder()
                 .email("test@woojuin.com")
@@ -75,5 +83,28 @@ class SignupServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
 
         verify(userRepository, never()).save(any(User.class));
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("가입에 성공하면 UserSignedUpEvent를 발행한다")
+    void signup_success_publishesUserSignedUpEvent() {
+        signupService = new SignupService(userRepository, passwordEncoder, eventPublisher);
+        SignupRequest request = new SignupRequest("test@woojuin.com", "raw-password", "우주인");
+
+        when(userRepository.findByEmailAndProvider("test@woojuin.com", AuthProvider.LOCAL))
+                .thenReturn(Optional.empty());
+        when(passwordEncoder.encode("raw-password")).thenReturn("encoded-password");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            ReflectionTestUtils.setField(user, "id", 1L);
+            return user;
+        });
+
+        signupService.signup(request);
+
+        ArgumentCaptor<UserSignedUpEvent> captor = ArgumentCaptor.forClass(UserSignedUpEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().userId()).isEqualTo(1L);
     }
 }
