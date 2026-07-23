@@ -54,4 +54,7 @@ woojuin:
 aws:
   region: ${AWS_REGION:ap-northeast-2}
   s3:
-    bucket: ${AWS_S3_BUCKET:}
+    bucket: ${AWS_S3_BUCKET:woojuin-items}
+    endpoint: ${AWS_S3_ENDPOINT:http://localhost:9000}   # 로컬 MinIO. 운영(AWS S3)에서는 빈 값으로 오버라이드
+    access-key: ${AWS_S3_ACCESS_KEY:woojuin}
+    secret-key: ${AWS_S3_SECRET_KEY:woojuin-local}

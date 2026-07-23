@@ -3,6 +3,7 @@ package com.ssafy.woojuin.domain.item.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -119,6 +120,58 @@ class ItemServiceTest {
 
         assertThat(response.status()).isEqualTo(ItemStatus.PROCESSING);
         verify(itemQueueProducer).publish(response.itemId(), 10L, ItemType.IMAGE);
+    }
+
+    @Test
+    void IMAGE_저장시_원본_파일명이_title_기본값으로_채워진다() {
+        MockMultipartFile file = new MockMultipartFile("file", "제주도_노을.jpg", "image/jpeg", new byte[] {1});
+        when(s3Uploader.upload(file, 10L)).thenReturn("items/10/uuid-제주도_노을.jpg");
+        ArgumentCaptor<Item> captor = ArgumentCaptor.forClass(Item.class);
+        when(itemRepository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        itemService.createFromImage(10L, 1L, file);
+
+        assertThat(captor.getValue().getTitle()).isEqualTo("제주도_노을.jpg");
+    }
+
+    @Test
+    void IMAGE_저장시_파일명이_없으면_title은_null() {
+        MockMultipartFile file = new MockMultipartFile("file", null, "image/png", new byte[] {1});
+        when(s3Uploader.upload(file, 10L)).thenReturn("items/10/uuid");
+        ArgumentCaptor<Item> captor = ArgumentCaptor.forClass(Item.class);
+        when(itemRepository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        itemService.createFromImage(10L, 1L, file);
+
+        assertThat(captor.getValue().getTitle()).isNull();
+    }
+
+    @Test
+    void IMAGE_저장시_DB저장이_실패하면_S3_원본을_정리하고_예외를_전파한다() {
+        MockMultipartFile file = new MockMultipartFile("file", "photo.png", "image/png", new byte[] {1});
+        when(s3Uploader.upload(file, 10L)).thenReturn("items/10/uuid-photo.png");
+        when(itemRepository.save(any(Item.class))).thenThrow(new RuntimeException("DB 장애"));
+
+        assertThatThrownBy(() -> itemService.createFromImage(10L, 1L, file))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("DB 장애");
+
+        verify(s3Uploader).deleteQuietly("items/10/uuid-photo.png");
+        verify(itemQueueProducer, never()).publish(any(), any(), any());
+    }
+
+    @Test
+    void IMAGE_저장시_큐_발행만_실패하면_S3_원본을_정리하지_않는다() {
+        MockMultipartFile file = new MockMultipartFile("file", "photo.png", "image/png", new byte[] {1});
+        when(s3Uploader.upload(file, 10L)).thenReturn("items/10/uuid-photo.png");
+        when(itemRepository.save(any(Item.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new RuntimeException("Redis 장애")).when(itemQueueProducer).publish(any(), any(), any());
+
+        // DB엔 이미 커밋된 뒤라 S3 원본을 지우면 참조가 끊긴 아이템이 되므로 지우면 안 된다.
+        assertThatThrownBy(() -> itemService.createFromImage(10L, 1L, file))
+                .isInstanceOf(RuntimeException.class);
+
+        verify(s3Uploader, never()).deleteQuietly(any());
     }
 
     @Test
