@@ -3,6 +3,10 @@ import { useMutation } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { signup } from '@/services/auth';
+import BrandMark from '@/components/ui/BrandMark';
+import BackButton from '@/components/ui/BackButton';
+import TextInput from '@/components/ui/TextInput';
+import SubmitButton from '@/components/ui/SubmitButton';
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -22,56 +26,53 @@ export default function SignupPage() {
     : null;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-6">
-      <h1 className="text-xl font-bold">회원가입</h1>
+    <div className="relative min-h-dvh bg-space">
+      <BackButton className="absolute left-4 top-4" />
 
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          signupMutation.mutate({ email, password, nickname });
-        }}
-      >
-        <input
-          type="email"
-          placeholder="이메일"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="rounded border px-3 py-2"
-          required
-        />
-        <input
-          type="password"
-          placeholder="비밀번호"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="rounded border px-3 py-2"
-          required
-        />
-        <input
-          type="text"
-          placeholder="닉네임"
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-          className="rounded border px-3 py-2"
-          required
-        />
-        {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
-        <button
-          type="submit"
-          disabled={signupMutation.isPending}
-          className="rounded bg-slate-900 px-3 py-2 text-white disabled:opacity-50"
+      <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
+        <BrandMark className="justify-center" />
+
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            signupMutation.mutate({ email, password, nickname });
+          }}
         >
-          {signupMutation.isPending ? '가입 중...' : '회원가입'}
-        </button>
-      </form>
+          <TextInput
+            type="email"
+            placeholder="이메일"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <TextInput
+            type="password"
+            placeholder="비밀번호"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <TextInput
+            type="text"
+            placeholder="닉네임"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            required
+          />
+          {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
+          <SubmitButton pending={signupMutation.isPending} pendingLabel="가입 중...">
+            회원가입
+          </SubmitButton>
+        </form>
 
-      <p className="text-sm">
-        이미 계정이 있으신가요?{' '}
-        <Link to="/login" className="underline">
-          로그인
-        </Link>
-      </p>
-    </main>
+        <p className="text-center text-sm text-text-3">
+          이미 계정이 있으신가요?{' '}
+          <Link to="/login" className="font-semibold text-accent hover:text-accent-hover">
+            로그인
+          </Link>
+        </p>
+      </main>
+    </div>
   );
 }
