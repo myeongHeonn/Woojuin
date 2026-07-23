@@ -27,6 +27,16 @@ export function TrashIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** 왼쪽 화살표 — 뒤로 가기 */
+export function ArrowLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M19 12H5" />
+      <path d="m12 19-7-7 7-7" />
+    </svg>
+  );
+}
+
 /** 더하기 — 추가·새로 만들기 */
 export function PlusIcon(props: SVGProps<SVGSVGElement>) {
   return (
