@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.domain.auth.service;
 
 import com.ssafy.woojuin.domain.auth.entity.AuthProvider;
+import com.ssafy.woojuin.domain.auth.entity.AvatarColor;
 import com.ssafy.woojuin.domain.auth.entity.User;
 import com.ssafy.woojuin.domain.auth.event.UserSignedUpEvent;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
@@ -72,6 +73,7 @@ class OAuthAccountServiceTest {
         assertThat(saved.getNickname()).isEqualTo("우주인");
         assertThat(saved.getPasswordHash()).isNull();
         assertThat(saved.isEmailVerified()).isTrue();
+        assertThat(saved.getAvatarColor()).isEqualTo(AvatarColor.WHITE);
     }
 
     @Test

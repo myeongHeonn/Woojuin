@@ -2,6 +2,7 @@ package com.ssafy.woojuin.domain.auth.service;
 
 import com.ssafy.woojuin.domain.auth.dto.SignupRequest;
 import com.ssafy.woojuin.domain.auth.entity.AuthProvider;
+import com.ssafy.woojuin.domain.auth.entity.AvatarColor;
 import com.ssafy.woojuin.domain.auth.entity.User;
 import com.ssafy.woojuin.domain.auth.event.UserSignedUpEvent;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
@@ -59,6 +60,7 @@ class SignupServiceTest {
         assertThat(saved.getPasswordHash()).isEqualTo("encoded-password");
         assertThat(saved.getProvider()).isEqualTo(AuthProvider.LOCAL);
         assertThat(saved.isEmailVerified()).isFalse();
+        assertThat(saved.getAvatarColor()).isEqualTo(AvatarColor.WHITE);
     }
 
     @Test

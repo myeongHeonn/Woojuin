@@ -55,6 +55,11 @@ public class User extends BaseTimeEntity {
     @Column(name = "personal_workspace_id")
     private Long personalWorkspaceId;
 
+    /** 프로필 아바타 색상. 가입 시 기본값은 WHITE, 나중에 프로필 설정에서 바꿀 수 있게 할 예정. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "avatar_color", nullable = false, columnDefinition = "varchar(20) default 'WHITE'")
+    private AvatarColor avatarColor = AvatarColor.WHITE;
+
     @Builder
     public User(String email, String passwordHash, AuthProvider provider, String providerId,
                 boolean emailVerified, String nickname, String profileImageUrl) {

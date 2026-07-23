@@ -3,6 +3,7 @@ package com.ssafy.woojuin.domain.auth.service;
 import com.ssafy.woojuin.domain.auth.dto.UpdateProfileRequest;
 import com.ssafy.woojuin.domain.auth.dto.UserProfileResponse;
 import com.ssafy.woojuin.domain.auth.entity.AuthProvider;
+import com.ssafy.woojuin.domain.auth.entity.AvatarColor;
 import com.ssafy.woojuin.domain.auth.entity.User;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -52,6 +53,7 @@ class UserProfileServiceTest {
         assertThat(response.email()).isEqualTo("test@woojuin.com");
         assertThat(response.nickname()).isEqualTo("우주인");
         assertThat(response.personalSpaceId()).isEqualTo(99L);
+        assertThat(response.avatarColor()).isEqualTo(AvatarColor.WHITE);
     }
 
     @Test
