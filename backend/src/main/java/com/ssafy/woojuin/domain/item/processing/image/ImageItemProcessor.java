@@ -10,6 +10,7 @@ import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.service.S3Uploader;
+import com.ssafy.woojuin.global.common.ItemStatus;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -57,6 +58,12 @@ public class ImageItemProcessor implements ItemProcessor {
         Item item = itemRepository.findById(message.itemId()).orElse(null);
         if (item == null) {
             log.warn("가공할 아이템이 없음(삭제됨?): itemId={}", message.itemId());
+            return;
+        }
+        if (item.getStatus() != ItemStatus.PROCESSING) {
+            // at-least-once 큐 특성상 이미 끝난 메시지가 재배달될 수 있다.
+            // AI를 또 호출하지 않도록 여기서 막는다.
+            log.info("이미 처리된 아이템, 재처리 스킵: itemId={}, status={}", item.getId(), item.getStatus());
             return;
         }
 

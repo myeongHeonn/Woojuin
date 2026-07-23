@@ -130,4 +130,15 @@ class ImageItemProcessorTest {
         assertThat(item.getSummary()).isEqualTo("요약문");
         verify(categoryAssignmentService).assign(eq(item.getId()), eq(1L), eq(List.of("문화·콘텐츠")));
     }
+
+    @Test
+    void 이미_처리된_아이템은_재처리하지_않는다() {
+        newProcessor();
+        Item item = imageItem();
+        item.markPartial();   // at-least-once 큐 재배달 시나리오 시뮬레이션
+
+        processor.process(message());
+
+        verifyNoInteractions(s3Uploader, imageTextExtractor, aiAnalyzer, categoryAssignmentService);
+    }
 }

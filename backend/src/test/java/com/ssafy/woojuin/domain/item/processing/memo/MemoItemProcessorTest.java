@@ -87,4 +87,15 @@ class MemoItemProcessorTest {
 
         assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
     }
+
+    @Test
+    void 이미_처리된_아이템은_재처리하지_않는다() {
+        processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService);
+        Item item = memoItem();
+        item.markDone();   // at-least-once 큐 재배달 시나리오 시뮬레이션
+
+        processor.process(message());
+
+        verifyNoInteractions(aiAnalyzer, categoryAssignmentService);
+    }
 }

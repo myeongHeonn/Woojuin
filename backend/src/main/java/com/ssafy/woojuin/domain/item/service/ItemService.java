@@ -78,7 +78,9 @@ public class ItemService {
                 .s3Key(s3Key)
                 .build();
 
-        return save(item, workspaceId);
+        // DB 저장이 실패하면 방금 올린 S3 원본이 고아로 남는다 — 저장 실패 시에만
+        // 보상 삭제한다(publish 실패는 이미 커밋된 뒤라 대상이 아님, save(Item,Long,Runnable) 참고).
+        return save(item, workspaceId, () -> s3Uploader.deleteQuietly(s3Key));
     }
 
     /**
@@ -99,7 +101,22 @@ public class ItemService {
      * 미뤄주므로 순서는 계속 안전하다.
      */
     private ItemCreateResponse save(Item item, Long workspaceId) {
-        Item saved = itemRepository.save(item);
+        return save(item, workspaceId, () -> { });
+    }
+
+    /**
+     * onSaveFailure는 DB 저장 자체가 실패했을 때만 실행된다(예: IMAGE의 S3 원본 정리).
+     * 저장은 됐는데 큐 발행이 실패한 경우는 이미 행이 커밋된 뒤라 여기서 건드리면 안
+     * 된다 — DB엔 아이템이 있는데 참조하는 S3 원본이 지워지는 더 나쁜 상태가 된다.
+     */
+    private ItemCreateResponse save(Item item, Long workspaceId, Runnable onSaveFailure) {
+        Item saved;
+        try {
+            saved = itemRepository.save(item);
+        } catch (RuntimeException e) {
+            onSaveFailure.run();
+            throw e;
+        }
         itemQueueProducer.publish(saved.getId(), workspaceId, saved.getType());
         return ItemCreateResponse.from(saved);
     }

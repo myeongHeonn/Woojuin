@@ -28,25 +28,34 @@ public class S3Uploader {
 
     private final S3Client s3Client;
     private final String bucket;
+    private final boolean localMode;
 
-    public S3Uploader(S3Client s3Client, @Value("${aws.s3.bucket}") String bucket) {
+    public S3Uploader(S3Client s3Client, @Value("${aws.s3.bucket}") String bucket,
+            @Value("${aws.s3.endpoint:}") String endpoint) {
         this.s3Client = s3Client;
         this.bucket = bucket;
+        this.localMode = endpoint != null && !endpoint.isBlank();
     }
 
     /**
-     * MinIO는 AWS S3와 달리 버킷을 미리 만들어주지 않아 로컬에선 기동 시점에 직접
-     * 보장해야 한다. 운영(AWS S3)에서도 그대로 동작한다 — 버킷이 이미 있으면
-     * headBucket이 성공해 아무 일도 안 하고, 없으면 생성을 시도한다. 그 외 예외
-     * (권한 부족 등)는 그대로 던져 잘못된 설정이 첫 업로드 실패 시점까지 숨겨지지
-     * 않고 기동 시점에 바로 드러나게 한다.
+     * 로컬(MinIO)은 버킷을 미리 만들어주지 않아 기동 시점에 직접 보장해야 한다.
+     * 운영(AWS S3)에서는 버킷이 없다고 자동으로 만들면 안 된다 — AWS_S3_BUCKET 설정을
+     * 깜빡했을 때 실제 계정에 의도치 않은 버킷이 생기는 사고로 이어질 수 있어서,
+     * 대신 기동을 실패시켜 설정 실수를 바로 드러낸다. 버킷이 이미 있으면 두 경우 다
+     * headBucket이 성공해 아무 일도 안 한다.
      */
     @PostConstruct
     void ensureBucketExists() {
         try {
             s3Client.headBucket(HeadBucketRequest.builder().bucket(bucket).build());
         } catch (NoSuchBucketException e) {
-            createBucketIfMissing();
+            if (localMode) {
+                createBucketIfMissing();
+            } else {
+                throw new IllegalStateException(
+                        "S3 버킷이 존재하지 않습니다: " + bucket
+                                + " — 운영에서는 자동 생성하지 않으니 미리 만들어두세요", e);
+            }
         }
     }
 

@@ -159,4 +159,14 @@ class UrlItemProcessorTest {
 
         verifyNoInteractions(oEmbedClient, htmlFetcher, contentExtractor, aiAnalyzer, categoryAssignmentService);
     }
+
+    @Test
+    void 이미_처리된_아이템은_재처리하지_않는다() {
+        Item item = urlItem();
+        item.markDone();   // at-least-once 큐 재배달 시나리오 시뮬레이션
+
+        processor.process(message());
+
+        verifyNoInteractions(oEmbedClient, htmlFetcher, contentExtractor, aiAnalyzer, categoryAssignmentService);
+    }
 }
