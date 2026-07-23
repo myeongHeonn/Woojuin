@@ -1,5 +1,7 @@
 package com.ssafy.woojuin.domain.item.service;
 
+import jakarta.annotation.PostConstruct;
+import java.io.IOException;
 import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +10,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @Slf4j
@@ -24,6 +30,23 @@ public class S3Uploader {
     public S3Uploader(S3Client s3Client, @Value("${aws.s3.bucket}") String bucket) {
         this.s3Client = s3Client;
         this.bucket = bucket;
+    }
+
+    /**
+     * MinIO는 AWS S3와 달리 버킷을 미리 만들어주지 않아 로컬에선 기동 시점에 직접
+     * 보장해야 한다. 운영(AWS S3)에서도 그대로 동작한다 — 버킷이 이미 있으면
+     * headBucket이 성공해 아무 일도 안 하고, 없으면 생성을 시도한다. 그 외 예외
+     * (권한 부족 등)는 그대로 던져 잘못된 설정이 첫 업로드 실패 시점까지 숨겨지지
+     * 않고 기동 시점에 바로 드러나게 한다.
+     */
+    @PostConstruct
+    void ensureBucketExists() {
+        try {
+            s3Client.headBucket(HeadBucketRequest.builder().bucket(bucket).build());
+        } catch (NoSuchBucketException e) {
+            s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
+            log.info("S3 버킷 생성: {}", bucket);
+        }
     }
 
     public String upload(MultipartFile file, Long workspaceId) {
@@ -47,6 +70,15 @@ public class S3Uploader {
         }
 
         return key;
+    }
+
+    /** IMAGE 아이템 가공(OCR) 시 원본 바이트를 읽어온다. 실패는 호출부가 판단한다. */
+    public byte[] download(String key) {
+        try (var obj = s3Client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())) {
+            return obj.readAllBytes();
+        } catch (IOException e) {
+            throw new IllegalStateException("이미지 다운로드에 실패했습니다: key=" + key, e);
+        }
     }
 
     /**
