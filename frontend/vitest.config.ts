@@ -23,6 +23,9 @@ export default defineConfig({
       enabled: true,
       provider: playwright(),
       headless: true,
+      // 기본은 데스크톱(>= lg). 사이드바 300px·팝오버 앵커처럼 lg 이상을 전제한 검증이 많다.
+      // 모바일 동작은 각 테스트에서 page.viewport() 로 줄여서 확인한다.
+      viewport: { width: 1280, height: 800 },
       instances: [
         {
           browser: 'chromium',
