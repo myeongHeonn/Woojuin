@@ -45,7 +45,11 @@ public class ScraplingHtmlFetcher implements HtmlFetcher {
         this.objectMapper = objectMapper;
         this.renderEndpoint = baseUrl.replaceAll("/+$", "") + "/render";
         this.requestTimeout = Duration.ofMillis(timeoutMs);
+        // HTTP/1.1 고정. 기본값 HTTP/2는 cleartext(http)에서 h2c 업그레이드를 시도하는데
+        // uvicorn이 이를 거부하며("Unsupported upgrade request") 요청 본문이 유실돼
+        // FastAPI가 422(body missing)를 낸다. 크롤러는 HTTP/1.1만 쓰므로 명시한다.
         this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofSeconds(3))
                 .build();
     }
