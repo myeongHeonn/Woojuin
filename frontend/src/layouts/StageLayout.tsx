@@ -1,6 +1,7 @@
 import { Outlet, useParams } from 'react-router-dom';
 import { useAtomValue } from 'jotai';
 import StageHeader from '@/components/domain/stage/StageHeader';
+import AddBtn from '@/components/domain/header/AddBtn';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { stageMetaAtom } from '@/stores/stageAtoms';
 
@@ -24,7 +25,7 @@ const StageLayout = () => {
   return (
     <div className="relative h-full w-full">
       <Outlet />
-      <StageHeader title={current?.name ?? 'My Universe'} meta={meta} />
+      <StageHeader title={current?.name ?? 'My Universe'} meta={meta} actions={<AddBtn />} />
     </div>
   );
 };
