@@ -74,10 +74,20 @@ public class ItemService {
                 .workspaceId(workspaceId)
                 .createdBy(userId)
                 .type(ItemType.IMAGE)
+                .title(originalFilenameOrNull(file))
                 .s3Key(s3Key)
                 .build();
 
         return save(item, workspaceId);
+    }
+
+    /**
+     * OCR로 텍스트를 못 뽑으면(풍경 사진 등) AiAnalyzer에 넘길 게 아무것도 없어 계속
+     * "기타"로만 분류된다. 원본 파일명을 title 기본값으로 채워 최소한의 분류 힌트를 준다.
+     */
+    private String originalFilenameOrNull(MultipartFile file) {
+        String name = file.getOriginalFilename();
+        return (name != null && !name.isBlank()) ? name : null;
     }
 
     /**

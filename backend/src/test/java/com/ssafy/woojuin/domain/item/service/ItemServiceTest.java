@@ -122,6 +122,30 @@ class ItemServiceTest {
     }
 
     @Test
+    void IMAGE_저장시_원본_파일명이_title_기본값으로_채워진다() {
+        MockMultipartFile file = new MockMultipartFile("file", "제주도_노을.jpg", "image/jpeg", new byte[] {1});
+        when(s3Uploader.upload(file, 10L)).thenReturn("items/10/uuid-제주도_노을.jpg");
+        ArgumentCaptor<Item> captor = ArgumentCaptor.forClass(Item.class);
+        when(itemRepository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        itemService.createFromImage(10L, 1L, file);
+
+        assertThat(captor.getValue().getTitle()).isEqualTo("제주도_노을.jpg");
+    }
+
+    @Test
+    void IMAGE_저장시_파일명이_없으면_title은_null() {
+        MockMultipartFile file = new MockMultipartFile("file", null, "image/png", new byte[] {1});
+        when(s3Uploader.upload(file, 10L)).thenReturn("items/10/uuid");
+        ArgumentCaptor<Item> captor = ArgumentCaptor.forClass(Item.class);
+        when(itemRepository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        itemService.createFromImage(10L, 1L, file);
+
+        assertThat(captor.getValue().getTitle()).isNull();
+    }
+
+    @Test
     void 상세조회는_존재하는_아이템을_반환() {
         Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.URL)
                 .url("https://example.com").build();

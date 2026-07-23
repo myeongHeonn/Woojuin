@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
+import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -44,8 +46,22 @@ public class S3Uploader {
         try {
             s3Client.headBucket(HeadBucketRequest.builder().bucket(bucket).build());
         } catch (NoSuchBucketException e) {
+            createBucketIfMissing();
+        }
+    }
+
+    /**
+     * 인스턴스 여러 개가 동시에 기동하면 headBucket에서 둘 다 "없음"을 보고 동시에
+     * 여기 들어올 수 있다. 늦게 도착한 쪽은 상대가 이미 만든 버킷 때문에
+     * BucketAlreadyOwnedByYouException(같은 계정)이나 BucketAlreadyExistsException을
+     * 받는데, 버킷은 어차피 존재하게 됐으니 기동 실패로 취급하지 않고 무시한다.
+     */
+    private void createBucketIfMissing() {
+        try {
             s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
             log.info("S3 버킷 생성: {}", bucket);
+        } catch (BucketAlreadyOwnedByYouException | BucketAlreadyExistsException e) {
+            log.debug("S3 버킷이 이미 존재함(동시 기동 레이스로 추정): {}", bucket);
         }
     }
 
