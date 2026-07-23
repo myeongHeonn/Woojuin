@@ -51,6 +51,10 @@ public class User extends BaseTimeEntity {
     @Column(name = "profile_image_url", columnDefinition = "TEXT")
     private String profileImageUrl;
 
+    /** 가입 시 자동 생성되는 PERSONAL 워크스페이스의 id. 생성 전에는 null. */
+    @Column(name = "personal_workspace_id")
+    private Long personalWorkspaceId;
+
     @Builder
     public User(String email, String passwordHash, AuthProvider provider, String providerId,
                 boolean emailVerified, String nickname, String profileImageUrl) {
@@ -66,5 +70,9 @@ public class User extends BaseTimeEntity {
     public void updateProfile(String nickname, String profileImageUrl) {
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
+    }
+
+    public void assignPersonalWorkspace(Long workspaceId) {
+        this.personalWorkspaceId = workspaceId;
     }
 }

@@ -37,6 +37,7 @@ class UserProfileServiceTest {
                 .profileImageUrl("https://example.com/old.png")
                 .build();
         ReflectionTestUtils.setField(user, "id", 1L);
+        ReflectionTestUtils.setField(user, "personalWorkspaceId", 99L);
         return user;
     }
 
@@ -50,6 +51,7 @@ class UserProfileServiceTest {
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.email()).isEqualTo("test@woojuin.com");
         assertThat(response.nickname()).isEqualTo("우주인");
+        assertThat(response.personalSpaceId()).isEqualTo(99L);
     }
 
     @Test

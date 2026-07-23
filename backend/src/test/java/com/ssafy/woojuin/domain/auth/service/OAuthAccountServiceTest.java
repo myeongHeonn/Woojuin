@@ -2,6 +2,7 @@ package com.ssafy.woojuin.domain.auth.service;
 
 import com.ssafy.woojuin.domain.auth.entity.AuthProvider;
 import com.ssafy.woojuin.domain.auth.entity.User;
+import com.ssafy.woojuin.domain.auth.event.UserSignedUpEvent;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -24,6 +27,9 @@ class OAuthAccountServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private OAuthAccountService oAuthAccountService;
@@ -45,6 +51,7 @@ class OAuthAccountServiceTest {
 
         assertThat(result).isSameAs(existing);
         verify(userRepository, never()).save(any(User.class));
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -65,5 +72,23 @@ class OAuthAccountServiceTest {
         assertThat(saved.getNickname()).isEqualTo("우주인");
         assertThat(saved.getPasswordHash()).isNull();
         assertThat(saved.isEmailVerified()).isTrue();
+    }
+
+    @Test
+    @DisplayName("신규 계정을 생성하면 UserSignedUpEvent를 발행한다")
+    void findOrCreateUser_newAccount_publishesUserSignedUpEvent() {
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-456"))
+                .thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            ReflectionTestUtils.setField(user, "id", 5L);
+            return user;
+        });
+
+        oAuthAccountService.findOrCreateUser(AuthProvider.GOOGLE, "google-456", "test@google.com", "우주인");
+
+        ArgumentCaptor<UserSignedUpEvent> captor = ArgumentCaptor.forClass(UserSignedUpEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().userId()).isEqualTo(5L);
     }
 }

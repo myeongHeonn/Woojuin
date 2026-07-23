@@ -3,7 +3,9 @@ package com.ssafy.woojuin.domain.auth.service;
 import com.ssafy.woojuin.domain.auth.dto.SignupRequest;
 import com.ssafy.woojuin.domain.auth.entity.AuthProvider;
 import com.ssafy.woojuin.domain.auth.entity.User;
+import com.ssafy.woojuin.domain.auth.event.UserSignedUpEvent;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -12,10 +14,13 @@ public class SignupService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public SignupService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public SignupService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                          ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.eventPublisher = eventPublisher;
     }
 
     public User signup(SignupRequest request) {
@@ -31,6 +36,8 @@ public class SignupService {
                 .emailVerified(false)
                 .nickname(request.nickname())
                 .build();
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        eventPublisher.publishEvent(new UserSignedUpEvent(saved.getId()));
+        return saved;
     }
 }
