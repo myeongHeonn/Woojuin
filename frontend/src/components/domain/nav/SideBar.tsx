@@ -16,7 +16,8 @@ const SideBar = () => {
     <SideBarProvider value={{ sideBarClosed, toggleSideBar }}>
       <aside
         className={classNames(
-          'flex flex-col shrink-0 h-screen z-20 transition-[width] duration-200 overflow-y-scroll scrollbar-none',
+          // 모바일(< lg)에서는 하단 탭바가 대신하므로 감춘다
+          'hidden lg:flex flex-col shrink-0 h-dvh z-20 transition-[width] duration-200 overflow-y-scroll scrollbar-none',
           'bg-sidebar border-r border-border-soft pt-[18px] pb-3.5',
           sideBarClosed ? 'w-sidebar-collapsed px-2.5' : 'w-sidebar px-3.5',
         )}

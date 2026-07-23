@@ -34,7 +34,9 @@ const FALLBACK: SpacemanColor = 'white';
 
 /**
  * 색상 이름으로 우주인 이미지 경로를 얻는다.
- * 모르는 색이면 흰색으로 대체한다 (서버가 새 색을 보내도 깨지지 않게).
+ *
+ * 서버는 대문자("WHITE"), 목업은 소문자('red')로 주므로 여기서 맞춘다.
+ * 모르는 색이거나 값이 없으면 흰색으로 대체한다 (서버가 새 색을 보내도 깨지지 않게).
  */
-export const getSpacemanImage = (color: string): string =>
-  SPACEMAN_BY_COLOR[color as SpacemanColor] ?? SPACEMAN_BY_COLOR[FALLBACK];
+export const getSpacemanImage = (color: string | null | undefined): string =>
+  SPACEMAN_BY_COLOR[color?.toLowerCase() as SpacemanColor] ?? SPACEMAN_BY_COLOR[FALLBACK];

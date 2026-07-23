@@ -13,9 +13,14 @@ export interface UserProfile {
   provider: 'LOCAL' | 'KAKAO' | 'GOOGLE';
   emailVerified: boolean;
   /**
+   * 아바타 색 — 서버는 대문자로 준다("WHITE").
+   * 이미지 매핑은 getSpacemanImage 가 대소문자를 맞춰 처리하므로 그대로 넘긴다.
+   * 좁은 유니온 대신 string 인 이유: 서버가 새 색을 추가해도 화면이 깨지지 않아야 한다.
+   */
+  avatarColor: string;
+  /**
    * 가입할 때 서버가 만들어준 개인 워크스페이스 id.
    * 클라이언트가 알 방법이 없어서 프로필에 실려 온다.
-   * TODO: 백엔드에 아직 없는 필드 — 응답에 추가되면 이 주석을 지운다
    */
   personalSpaceId: number;
 }

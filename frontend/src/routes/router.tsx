@@ -8,6 +8,8 @@ import ShareTargetPage from '@/pages/ShareTargetPage';
 import LandingPage from '@/pages/LandingPage';
 import UniversePage from '@/pages/UniversePage';
 import LibraryPage from '@/pages/LibraryPage';
+import MyPage from '@/pages/MyPage';
+import TrashPage from '@/pages/TrashPage';
 import MapPage from '@/pages/MapPage';
 import CanvasPage from '@/pages/CanvasPage';
 import LoginPage from '@/pages/LoginPage';
@@ -32,6 +34,9 @@ export const router = createBrowserRouter([
         children: [
           // 로그인 직후 도착지 — 개인 워크스페이스 성좌로 넘긴다
           { path: '/home', element: <PersonalSpacePage /> },
+          // 워크스페이스에 속하지 않는 화면들 (모바일 탭바에서 진입)
+          { path: '/my', element: <MyPage /> },
+          { path: '/trash', element: <TrashPage /> },
           {
             path: '/workspace/:workspaceId',
             children: [
