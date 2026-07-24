@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AuthLayout from '@/layouts/AuthLayout';
 import Layout from '@/layouts/Layout';
 import StageLayout from '@/layouts/StageLayout';
+import DesktopOnly from '@/layouts/DesktopOnly';
 import PersonalSpacePage from '@/pages/PersonalSpacePage';
 import WorkspacePage from '@/pages/WorkspacePage';
 import ShareTargetPage from '@/pages/ShareTargetPage';
@@ -49,7 +50,11 @@ export const router = createBrowserRouter([
                   { path: 'universe', element: <UniversePage /> },
                   { path: 'library', element: <LibraryPage /> },
                   { path: 'map', element: <MapPage /> },
-                  { path: 'canvas', element: <CanvasPage /> },
+                  // 한눈에 보기는 넓은 화면이 전제라 모바일에서는 성좌로 돌려보낸다
+                  {
+                    element: <DesktopOnly />,
+                    children: [{ path: 'canvas', element: <CanvasPage /> }],
+                  },
                 ],
               },
               // 저장 API 확인용 임시 화면 — CommandBar 가 생기면 이 줄만 지운다

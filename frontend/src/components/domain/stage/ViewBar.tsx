@@ -32,7 +32,7 @@ const ViewBar = () => {
     <nav
       aria-label="보기 방식"
       // 모바일에서는 하단 탭바가 뷰 전환을 대신하므로 중복이다
-      className="hidden lg:flex gap-[3px] rounded-[11px] border border-border bg-sidebar/60 p-1 backdrop-blur-md"
+      className="hidden desktop:flex gap-[3px] rounded-[11px] border border-border bg-sidebar/60 p-1 backdrop-blur-md"
     >
       {VIEWS.map(({ label, Icon, segment }) => {
         const to = `/workspace/${workspaceId}/${segment}`;

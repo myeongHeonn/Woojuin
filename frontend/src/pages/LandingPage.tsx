@@ -15,13 +15,13 @@ import BrandMark from '@/components/ui/BrandMark';
 const LandingPage = () => (
   <div className="min-h-dvh bg-space text-text-1">
     {/* ── 모바일: 로고 + 로그인 폼 ───────────────────────── */}
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-8 px-6 sm:hidden">
+    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-8 px-6 desktop:hidden">
       <BrandMark size={40} className="justify-center" />
       <LoginForm />
     </main>
 
     {/* ── 데스크톱: 헤더 + 소개 ──────────────────────────── */}
-    <div className="hidden sm:block">
+    <div className="hidden desktop:block">
       <LandingHeader />
 
       {/* TODO: 목업 v3.5/landing.html 본문(히어로·기능·둘러보기) 이식 */}

@@ -47,7 +47,12 @@ const TabBar = ({ className }: { className?: string }) => {
   return (
     <nav
       aria-label="주요 화면"
-      className={classNames('px-3.5 pb-[calc(14px+env(safe-area-inset-bottom))]', className)}
+      className={classNames(
+        // 데스크톱(>= breakpoint-desktop)에서는 사이드바가 대신하므로 감춘다.
+        // SideBar 가 hidden desktop:flex 를 자기 안에 두는 것과 짝을 이룬다
+        'desktop:hidden px-3.5 pb-[calc(14px+env(safe-area-inset-bottom))]',
+        className,
+      )}
     >
       <div className="flex gap-1 rounded-[20px] border border-border bg-sidebar/70 p-1.5 backdrop-blur-lg">
         {TABS.map(({ label, Icon, segment, path }) => {

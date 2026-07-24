@@ -20,6 +20,19 @@
   /* ── 정적 토큰 (테마 무관) ─────────────────────────── */
   --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', sans-serif;
 
+  /*
+   * 모바일/데스크톱을 가르는 유일한 분기점 — 여기가 원본이다.
+   *
+   * `desktop:` 프리픽스가 이 값을 쓰고(예: `desktop:hidden`), JS 는
+   * constants/breakpoints.ts 가 이 변수를 읽어 같은 경계를 본다.
+   * 분기점을 옮길 일이 생기면 바꿀 곳은 여기 한 줄뿐이다.
+   *
+   * Tailwind 기본 sm/md/lg 를 쓰지 않는 이유: 그건 범용 눈금이라
+   * 글자 크기 같은 무관한 규칙들도 함께 쓴다. 셸 분기를 옮기려다
+   * 그것들까지 끌려가지 않도록 전용 이름을 둔다.
+   */
+  --breakpoint-desktop: 640px;
+
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;

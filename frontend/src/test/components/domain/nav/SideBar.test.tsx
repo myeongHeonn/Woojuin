@@ -138,5 +138,21 @@ describe('SideBar (통합)', () => {
       expect(rowByText(container, 'Workspaces').tagName).toBe('BUTTON');
       expect(rowByText(container, 'New workspace').tagName).toBe('BUTTON');
     });
+
+    it('휴지통은 워크스페이스와 무관한 /trash 로 간다', async () => {
+      // 모바일 탭바와 같은 경로다 — 한쪽만 바뀌면 두 내비가 다른 곳을 가리킨다
+      const { container } = await renderSideBar();
+      const trash = rowByText(container, '휴지통');
+
+      expect(trash.tagName).toBe('A');
+      expect(trash).toHaveAttribute('href', '/trash');
+    });
+
+    it('휴지통 화면에서는 휴지통에만 선택 표시가 뜬다', async () => {
+      const { container } = await renderSideBar('/trash');
+
+      expect(dotIn(rowByText(container, '휴지통'))).not.toBeNull();
+      expect(dotIn(rowByText(container, 'Personal Space'))).toBeNull();
+    });
   });
 });

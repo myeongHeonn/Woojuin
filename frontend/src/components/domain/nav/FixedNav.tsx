@@ -23,8 +23,8 @@ const FixedNav = () => {
         collapsed={sideBarClosed}
       />
 
-      {/* TODO: /trash 화면이 생기면 to 를 연결한다 */}
-      <NavItem icon={<TrashIcon />} label="휴지통" collapsed={sideBarClosed} />
+      {/* 휴지통은 워크스페이스에 속하지 않는다 — 모바일 탭바와 같은 경로를 쓴다 */}
+      <NavItem icon={<TrashIcon />} label="휴지통" to="/trash" collapsed={sideBarClosed} />
     </>
   );
 };
