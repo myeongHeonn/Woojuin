@@ -21,12 +21,12 @@ interface StageHeaderProps {
  * 별을 드래그해 우주를 돌릴 수 있다.
  */
 const StageHeader = ({ title, meta, actions }: StageHeaderProps) => (
-  <header className="pointer-events-none absolute inset-x-0 top-0 z-[5] flex items-start justify-between gap-4 px-5 pt-5 lg:px-[34px] lg:pt-[26px]">
+  <header className="pointer-events-none absolute inset-x-0 top-0 z-[5] flex items-start justify-between gap-4 px-5 pt-5 desktop:px-[34px] desktop:pt-[26px]">
     <div className="min-w-0">
-      <h1 className="truncate text-2xl font-extrabold tracking-[-0.01em] text-text-1 lg:text-[30px]">
+      <h1 className="truncate text-2xl font-extrabold tracking-[-0.01em] text-text-1 desktop:text-[30px]">
         {title}
       </h1>
-      {meta && <p className="mt-[3px] truncate text-xs text-text-2 lg:text-sm">{meta}</p>}
+      {meta && <p className="mt-[3px] truncate text-xs text-text-2 desktop:text-sm">{meta}</p>}
     </div>
 
     <div className="pointer-events-auto flex shrink-0 items-center gap-2">

@@ -27,6 +27,16 @@ export function TrashIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** 사람 — 마이페이지 */
+export function UserIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="8" r="3.6" />
+      <path d="M4.5 20c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6" />
+    </svg>
+  );
+}
+
 /** 왼쪽 화살표 — 뒤로 가기 */
 export function ArrowLeftIcon(props: SVGProps<SVGSVGElement>) {
   return (
