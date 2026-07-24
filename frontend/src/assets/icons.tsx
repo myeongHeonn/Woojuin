@@ -7,6 +7,45 @@ const base: SVGProps<SVGSVGElement> = {
   strokeWidth: 1.8,
 };
 
+/** 별 — 즐겨찾기 */
+export function StarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />
+    </svg>
+  );
+}
+
+/** 슬라이더 — 관리 */
+export function ManageIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <line x1="4" y1="8" x2="20" y2="8" />
+      <line x1="4" y1="16" x2="20" y2="16" />
+      <circle cx="9" cy="8" r="2.2" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="16" r="2.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** 홑화살표 왼쪽 — 가로 스크롤 이전 */
+export function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m15 6-6 6 6 6" />
+    </svg>
+  );
+}
+
+/** 홑화살표 오른쪽 — 가로 스크롤 다음 */
+export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
 /** 행성(토성) — Personal Space·워크스페이스 항목 */
 export function PlanetIcon(props: SVGProps<SVGSVGElement>) {
   return (
