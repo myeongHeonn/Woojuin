@@ -26,12 +26,13 @@ const MapPlacePanel = ({
       aria-label="저장한 장소"
       data-testid="map-place-panel"
       className={classNames(
-        'absolute z-[9] flex flex-col overflow-hidden border border-border bg-sidebar/95 shadow-float backdrop-blur-lg',
-        'inset-x-3 bottom-[calc(88px+env(safe-area-inset-bottom))] max-h-[48%] rounded-lg',
-        'desktop:inset-x-auto desktop:bottom-[26px] desktop:right-[26px] desktop:top-[84px] desktop:max-h-none desktop:w-[290px] desktop:rounded-lg',
+        'absolute z-[9] flex flex-col overflow-hidden border border-border/55 shadow-float',
+        'bg-sidebar/84 backdrop-blur-[14px] desktop:bg-sidebar/42 desktop:backdrop-blur-[8px]',
+        'inset-x-3 bottom-[calc(88px+env(safe-area-inset-bottom))] max-h-[50%] rounded-lg',
+        'desktop:inset-x-auto desktop:bottom-[26px] desktop:right-[26px] desktop:top-[84px] desktop:max-h-none desktop:w-[320px] desktop:rounded-lg',
       )}
     >
-      <header className="flex items-center px-4 pb-2 pt-3.5">
+      <header className="flex items-center bg-gradient-to-b from-sidebar/35 to-transparent px-4 pb-2 pt-3.5">
         <h2 className="text-sm font-extrabold text-text-1">저장한 장소</h2>
         <span className="ml-1.5 text-xs font-semibold text-text-3">{places.length}곳</span>
       </header>
@@ -47,8 +48,8 @@ const MapPlacePanel = ({
           className={classNames(
             'inline-flex shrink-0 items-center gap-1.5 rounded-pill border px-3 py-1.5 text-xs font-bold transition-colors',
             allSelected
-              ? 'border-surface-3 bg-surface-3 text-text-1'
-              : 'border-border bg-surface-2 text-text-3 hover:text-text-1',
+              ? 'border-surface-3/90 bg-surface-3/90 text-text-1'
+              : 'border-border/80 bg-surface/55 text-text-3 hover:bg-surface-2/75 hover:text-text-1',
           )}
         >
           <span aria-hidden="true" className="h-[7px] w-[7px] rounded-full bg-text-2" />
@@ -67,8 +68,8 @@ const MapPlacePanel = ({
               className={classNames(
                 'inline-flex shrink-0 items-center gap-1.5 rounded-pill border px-3 py-1.5 text-xs font-bold transition-colors',
                 active
-                  ? 'border-surface-3 bg-surface-3 text-text-1'
-                  : 'border-border bg-surface-2 text-text-3 hover:text-text-1',
+                  ? 'border-surface-3/90 bg-surface-3/90 text-text-1'
+                  : 'border-border/80 bg-surface/55 text-text-3 hover:bg-surface-2/75 hover:text-text-1',
               )}
             >
               <span
@@ -102,8 +103,10 @@ const MapPlacePanel = ({
                 onClick={() => onSelectPlace(place.id)}
                 aria-pressed={selected}
                 className={classNames(
-                  'flex w-full cursor-pointer items-center gap-3 rounded-[11px] px-2.5 py-2.5 text-left transition-colors',
-                  selected ? 'bg-surface-2' : 'hover:bg-surface-2',
+                  'flex w-full cursor-pointer items-center gap-3 rounded-[11px] border px-2.5 py-2.5 text-left transition-colors',
+                  selected
+                    ? 'border-border/90 bg-surface-2/90'
+                    : 'border-transparent bg-sidebar/10 hover:border-border/60 hover:bg-surface-2/65',
                 )}
               >
                 <span
@@ -116,7 +119,7 @@ const MapPlacePanel = ({
                     {place.title}
                   </strong>
                   <span className="mt-0.5 block truncate text-[11px] text-text-3">
-                    #{category?.label} · {MAP_ITEM_TYPE_LABEL[place.type]} · {place.description}
+                    #{category?.label} · {MAP_ITEM_TYPE_LABEL[place.type]} · {place.address}
                   </span>
                 </span>
               </button>

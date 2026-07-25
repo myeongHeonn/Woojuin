@@ -1,6 +1,6 @@
-export type MapCategoryId = 'seongsu' | 'jeju' | 'coffee' | 'travel';
+import type { ItemType } from '@/types/item';
 
-export type MapItemType = 'LINK' | 'IMAGE' | 'MEMO';
+export type MapCategoryId = number;
 
 export interface MapCategory {
   id: MapCategoryId;
@@ -11,11 +11,10 @@ export interface MapCategory {
 export interface MapPlace {
   id: number;
   categoryId: MapCategoryId;
-  type: MapItemType;
+  type: ItemType;
   title: string;
-  description: string;
-  position: {
-    x: number;
-    y: number;
-  };
+  url?: string;
+  lat: number;
+  lng: number;
+  address: string;
 }

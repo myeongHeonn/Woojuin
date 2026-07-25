@@ -1,109 +1,63 @@
-import type { MapCategory, MapItemType, MapPlace } from '@/types/map';
+import { MOCK_UNIVERSE } from '@/stores/mock/universe';
+import type { ItemType } from '@/types/item';
+import type { MapCategory, MapPlace } from '@/types/map';
 
-export const MAP_CATEGORIES: MapCategory[] = [
-  { id: 'seongsu', label: 'Seongsu', color: 'var(--color-star-orange)' },
-  { id: 'jeju', label: 'Jeju', color: 'var(--color-star-green)' },
-  { id: 'coffee', label: 'Coffee', color: 'var(--color-star-yellow)' },
-  { id: 'travel', label: 'Travel', color: 'var(--color-star-blue)' },
-];
-
-export const MAP_ITEM_TYPE_LABEL: Record<MapItemType, string> = {
-  LINK: '링크',
+export const MAP_ITEM_TYPE_LABEL: Record<ItemType, string> = {
+  URL: '링크',
   IMAGE: '사진',
   MEMO: '메모',
 };
 
 /**
- * 지도 API가 정해지기 전까지 쓰는 화면용 데이터.
- * position은 실제 위경도가 아니라 현재 지도 자리 안에서의 백분율 좌표다.
+ * 지도 API가 구현되기 전까지 우주뷰 아이템에 지도 전용 목업 위치만 합성한다.
+ * item의 id/type/title/url은 MOCK_UNIVERSE를 단일 원본으로 사용한다.
  */
-export const MAP_PLACES: MapPlace[] = [
-  {
-    id: 1,
-    categoryId: 'seongsu',
-    type: 'IMAGE',
-    title: '성수 플레이스 팝업',
-    description: '7/20–8/3 · 11:00–20:00',
-    position: { x: 34, y: 28 },
-  },
-  {
-    id: 2,
-    categoryId: 'seongsu',
-    type: 'LINK',
-    title: '성수 편집샵',
-    description: '인스타 공유로 저장',
-    position: { x: 47, y: 37 },
-  },
-  {
-    id: 3,
-    categoryId: 'seongsu',
-    type: 'MEMO',
-    title: '우주인 쇼룸',
-    description: '주말 방문 예정',
-    position: { x: 62, y: 25 },
-  },
-  {
-    id: 4,
-    categoryId: 'coffee',
-    type: 'MEMO',
-    title: '로우키 성수',
-    description: '예가체프 핸드드립',
-    position: { x: 55, y: 53 },
-  },
-  {
-    id: 5,
-    categoryId: 'coffee',
-    type: 'LINK',
-    title: '센터커피 서울숲',
-    description: '플랫화이트 추천 메모',
-    position: { x: 26, y: 48 },
-  },
-  {
-    id: 6,
-    categoryId: 'coffee',
-    type: 'IMAGE',
-    title: '블루보틀 성수',
-    description: '싱글오리진 원두 구매',
-    position: { x: 69, y: 43 },
-  },
-  {
-    id: 7,
-    categoryId: 'travel',
-    type: 'IMAGE',
-    title: '서울숲',
-    description: '피크닉 스팟 저장',
-    position: { x: 20, y: 66 },
-  },
-  {
-    id: 8,
-    categoryId: 'travel',
-    type: 'LINK',
-    title: '뚝섬한강공원',
-    description: '야경 사진 스크랩',
-    position: { x: 43, y: 72 },
-  },
-  {
-    id: 9,
-    categoryId: 'jeju',
-    type: 'IMAGE',
-    title: '성산일출봉',
-    description: '매표소 07:00 오픈',
-    position: { x: 60, y: 68 },
-  },
-  {
-    id: 10,
-    categoryId: 'jeju',
-    type: 'LINK',
-    title: '애월 카페거리',
-    description: '제주 3박4일 코스',
-    position: { x: 15, y: 38 },
-  },
-  {
-    id: 11,
-    categoryId: 'jeju',
-    type: 'MEMO',
-    title: '새별오름',
-    description: '억새 시즌 메모',
-    position: { x: 72, y: 61 },
-  },
-];
+const MAP_CATEGORY_IDS = new Set([6, 7, 8, 9]);
+
+const LOCATION_BY_ITEM_ID: Record<number, Pick<MapPlace, 'lat' | 'lng' | 'address'>> = {
+  20: { lat: 37.5796, lng: 126.977, address: '서울특별시 종로구 사직로 161' },
+  21: { lat: 35.1587, lng: 129.1604, address: '부산광역시 해운대구 우동' },
+  22: { lat: 37.7519, lng: 128.8761, address: '강원특별자치도 강릉시 경강로' },
+  23: { lat: 35.8151, lng: 127.153, address: '전북특별자치도 전주시 완산구' },
+  24: { lat: 34.7604, lng: 127.6622, address: '전라남도 여수시 중앙동' },
+  25: { lat: 33.4584, lng: 126.9425, address: '제주특별자치도 서귀포시 성산읍' },
+  26: { lat: 33.3938, lng: 126.2398, address: '제주특별자치도 제주시 한림읍' },
+  27: { lat: 33.4623, lng: 126.9356, address: '제주특별자치도 서귀포시 성산읍' },
+  28: { lat: 37.5446, lng: 127.0559, address: '서울특별시 성동구 성수이로' },
+  29: { lat: 37.5467, lng: 127.0436, address: '서울특별시 성동구 서울숲길' },
+  30: { lat: 37.5429, lng: 127.0522, address: '서울특별시 성동구 연무장길' },
+  31: { lat: 37.5481, lng: 127.0611, address: '서울특별시 성동구 아차산로' },
+  32: { lat: 37.5475, lng: 127.0418, address: '서울특별시 성동구 왕십리로' },
+  33: { lat: 37.5172, lng: 127.0473, address: '서울특별시 강남구 도산대로' },
+  34: { lat: 37.5662, lng: 126.983, address: '서울특별시 중구 을지로' },
+  35: { lat: 37.5563, lng: 126.922, address: '서울특별시 마포구 동교로' },
+  36: { lat: 37.5788, lng: 126.9707, address: '서울특별시 종로구 자하문로' },
+};
+
+const mapConstellations = MOCK_UNIVERSE.constellations.filter((constellation) =>
+  MAP_CATEGORY_IDS.has(constellation.categoryId),
+);
+
+export const MAP_CATEGORIES: MapCategory[] = mapConstellations.map((constellation) => ({
+  id: constellation.categoryId,
+  label: constellation.categoryName.replace(/^#/, ''),
+  color: `#${constellation.color.toString(16).padStart(6, '0')}`,
+}));
+
+export const MAP_PLACES: MapPlace[] = mapConstellations.flatMap((constellation) =>
+  constellation.items.flatMap((item) => {
+    const location = LOCATION_BY_ITEM_ID[item.id];
+    if (!location) return [];
+
+    return [
+      {
+        id: item.id,
+        categoryId: constellation.categoryId,
+        type: item.type,
+        title: item.title,
+        url: item.url,
+        ...location,
+      },
+    ];
+  }),
+);
