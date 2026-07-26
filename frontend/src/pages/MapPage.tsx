@@ -15,6 +15,7 @@ const MapPage = () => {
   const [activeCategories, setActiveCategories] = useState<Set<MapCategoryId>>(
     () => new Set(MAP_CATEGORIES.map((category) => category.id)),
   );
+  const [isMapPanelCollapsed, setIsMapPanelCollapsed] = useState(false);
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
 
   const visiblePlaces = useMemo(
@@ -55,7 +56,10 @@ const MapPage = () => {
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-space">
+    <div
+      data-map-panel-collapsed={isMapPanelCollapsed}
+      className="relative h-full w-full overflow-hidden bg-space"
+    >
       <MapCanvas
         places={visiblePlaces}
         selectedPlaceId={selectedPlaceId}
@@ -64,7 +68,9 @@ const MapPage = () => {
       <MapPlacePanel
         places={visiblePlaces}
         activeCategories={activeCategories}
+        collapsed={isMapPanelCollapsed}
         selectedPlaceId={selectedPlaceId}
+        onCollapsedChange={setIsMapPanelCollapsed}
         onToggleCategory={toggleCategory}
         onSelectPlace={selectPlace}
       />

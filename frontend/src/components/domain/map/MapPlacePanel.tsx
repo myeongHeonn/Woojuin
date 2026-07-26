@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { MAP_CATEGORIES, MAP_ITEM_TYPE_LABEL } from '@/stores/mock/map';
 import type { MapCategoryId, MapPlace } from '@/types/map';
 import { classNames } from '@/utils/classNames';
@@ -5,7 +6,9 @@ import { classNames } from '@/utils/classNames';
 interface MapPlacePanelProps {
   places: MapPlace[];
   activeCategories: Set<MapCategoryId>;
+  collapsed: boolean;
   selectedPlaceId: number | null;
+  onCollapsedChange: (collapsed: boolean) => void;
   onToggleCategory: (categoryId: MapCategoryId | 'all') => void;
   onSelectPlace: (placeId: number) => void;
 }
@@ -15,11 +18,40 @@ const categoryById = new Map(MAP_CATEGORIES.map((category) => [category.id, cate
 const MapPlacePanel = ({
   places,
   activeCategories,
+  collapsed,
   selectedPlaceId,
+  onCollapsedChange,
   onToggleCategory,
   onSelectPlace,
 }: MapPlacePanelProps) => {
+  const dragStartYRef = useRef<number | null>(null);
+  const ignoreClickRef = useRef(false);
   const allSelected = activeCategories.size === MAP_CATEGORIES.length;
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    dragStartYRef.current = event.clientY;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const startY = dragStartYRef.current;
+    dragStartYRef.current = null;
+    if (startY === null) return;
+
+    const distance = event.clientY - startY;
+    if (Math.abs(distance) < 24) return;
+
+    ignoreClickRef.current = true;
+    onCollapsedChange(distance > 0);
+  };
+
+  const handleToggle = () => {
+    if (ignoreClickRef.current) {
+      ignoreClickRef.current = false;
+      return;
+    }
+    onCollapsedChange(!collapsed);
+  };
 
   return (
     <aside
@@ -28,10 +60,30 @@ const MapPlacePanel = ({
       className={classNames(
         'absolute z-[9] flex flex-col overflow-hidden border border-border/55 shadow-float',
         'bg-sidebar/84 backdrop-blur-[14px] desktop:bg-sidebar/42 desktop:backdrop-blur-[8px]',
-        'inset-x-3 bottom-[calc(88px+env(safe-area-inset-bottom))] max-h-[50%] rounded-lg',
-        'desktop:inset-x-auto desktop:bottom-[26px] desktop:right-[26px] desktop:top-[84px] desktop:max-h-none desktop:w-[320px] desktop:rounded-lg',
+        'inset-x-3 bottom-[calc(88px+env(safe-area-inset-bottom))] rounded-lg transition-[height] duration-200 ease-out',
+        collapsed ? 'h-[112px]' : 'h-[50%]',
+        'desktop:inset-x-auto desktop:bottom-[26px] desktop:right-[26px] desktop:top-[84px] desktop:h-auto desktop:max-h-none desktop:w-[320px] desktop:rounded-lg',
       )}
     >
+      <button
+        type="button"
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? '장소 목록 펼치기' : '장소 목록 접기'}
+        onClick={handleToggle}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={() => {
+          dragStartYRef.current = null;
+          ignoreClickRef.current = false;
+        }}
+        className="flex h-7 shrink-0 touch-none items-center justify-center desktop:hidden"
+      >
+        <span
+          aria-hidden="true"
+          className="h-1 w-10 rounded-pill bg-text-3/70 transition-colors hover:bg-text-2"
+        />
+      </button>
+
       <header className="flex items-center bg-gradient-to-b from-sidebar/35 to-transparent px-4 pb-2 pt-3.5">
         <h2 className="text-sm font-extrabold text-text-1">저장한 장소</h2>
         <span className="ml-1.5 text-xs font-semibold text-text-3">{places.length}곳</span>
@@ -86,7 +138,12 @@ const MapPlacePanel = ({
         })}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+      <div
+        className={classNames(
+          'min-h-0 flex-1 overflow-y-auto px-2 pb-3',
+          collapsed && 'hidden desktop:block',
+        )}
+      >
         {places.length === 0 ? (
           <div className="grid h-full min-h-24 place-items-center px-5 text-center text-xs text-text-3">
             표시할 카테고리를 선택해 주세요.

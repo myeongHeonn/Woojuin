@@ -12,6 +12,7 @@ export interface MapPlace {
   id: number;
   categoryId: MapCategoryId;
   type: ItemType;
+  position: [number, number, number];
   title: string;
   url?: string;
   lat: number;

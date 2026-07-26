@@ -12,8 +12,6 @@ export const MAP_ITEM_TYPE_LABEL: Record<ItemType, string> = {
  * 지도 API가 구현되기 전까지 우주뷰 아이템에 지도 전용 목업 위치만 합성한다.
  * item의 id/type/title/url은 MOCK_UNIVERSE를 단일 원본으로 사용한다.
  */
-const MAP_CATEGORY_IDS = new Set([6, 7, 8, 9]);
-
 const LOCATION_BY_ITEM_ID: Record<number, Pick<MapPlace, 'lat' | 'lng' | 'address'>> = {
   20: { lat: 37.5796, lng: 126.977, address: '서울특별시 종로구 사직로 161' },
   21: { lat: 35.1587, lng: 129.1604, address: '부산광역시 해운대구 우동' },
@@ -35,7 +33,7 @@ const LOCATION_BY_ITEM_ID: Record<number, Pick<MapPlace, 'lat' | 'lng' | 'addres
 };
 
 const mapConstellations = MOCK_UNIVERSE.constellations.filter((constellation) =>
-  MAP_CATEGORY_IDS.has(constellation.categoryId),
+  constellation.items.some((item) => LOCATION_BY_ITEM_ID[item.id] !== undefined),
 );
 
 export const MAP_CATEGORIES: MapCategory[] = mapConstellations.map((constellation) => ({
@@ -51,11 +49,8 @@ export const MAP_PLACES: MapPlace[] = mapConstellations.flatMap((constellation) 
 
     return [
       {
-        id: item.id,
+        ...item,
         categoryId: constellation.categoryId,
-        type: item.type,
-        title: item.title,
-        url: item.url,
         ...location,
       },
     ];
