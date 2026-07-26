@@ -1,8 +1,18 @@
 import { api, type ApiResponse } from './client';
 import type { ItemCreateResponse, ItemListResponse } from '@/types/item';
 
-export async function fetchItems(workspaceId: number) {
-  const res = await api.get<ApiResponse<ItemListResponse>>(`/workspaces/${workspaceId}/items`);
+//워크스페이스 아이템 받아오기
+//이후 선호도를 추가해야하므로 interface로 만들어둔다.
+export interface workspaceProps {
+  size: number;
+  page?: number;
+  workspaceId: number;
+}
+
+export async function fetchItems({ size, page, workspaceId }: workspaceProps) {
+  const res = await api.get<ApiResponse<ItemListResponse>>(
+    `/workspaces/${workspaceId}/items?page=${page}&size=${size}`,
+  );
   return res.data.data;
 }
 
