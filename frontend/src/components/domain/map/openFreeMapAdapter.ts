@@ -103,15 +103,34 @@ export const createOpenFreeMapAdapter = ({
   const fitPoints = () => {
     if (points.length === 0) return;
 
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (width < 2 || height < 2) return;
+
     if (points.length === 1) {
       map.easeTo({ center: [points[0].lng, points[0].lat], zoom: 13, duration: 500 });
       return;
     }
 
+    const isDesktop = width >= 640;
+    const requestedPadding = isDesktop
+      ? { top: 96, right: 390, bottom: 96, left: 72 }
+      : { top: 72, right: 24, bottom: Math.round(height * 0.5), left: 24 };
+    const horizontalBudget = width - 1;
+    const verticalBudget = height - 1;
+    const left = Math.min(requestedPadding.left, Math.floor(horizontalBudget / 2));
+    const top = Math.min(requestedPadding.top, Math.floor(verticalBudget / 2));
+    const padding = {
+      top,
+      right: Math.min(requestedPadding.right, horizontalBudget - left),
+      bottom: Math.min(requestedPadding.bottom, verticalBudget - top),
+      left,
+    };
+
     const bounds = new LngLatBounds();
     points.forEach((point) => bounds.extend([point.lng, point.lat]));
     map.fitBounds(bounds, {
-      padding: { top: 96, right: 390, bottom: 96, left: 72 },
+      padding,
       maxZoom: 14,
       duration: 650,
     });
@@ -124,14 +143,18 @@ export const createOpenFreeMapAdapter = ({
       points = nextPoints;
 
       points.forEach((point) => {
+        const markerAnchor = document.createElement('div');
+        markerAnchor.className = 'woojuin-map-marker-anchor';
+
         const element = document.createElement('button');
         element.type = 'button';
         element.className = 'woojuin-map-marker';
         element.style.setProperty('--marker-color', point.color);
         element.setAttribute('aria-label', `${point.title} 지도 위치`);
         element.addEventListener('click', () => onSelectPoint(point.id));
+        markerAnchor.append(element);
 
-        const marker = new Marker({ element, anchor: 'center' })
+        const marker = new Marker({ element: markerAnchor, anchor: 'center' })
           .setLngLat([point.lng, point.lat])
           .addTo(map);
 

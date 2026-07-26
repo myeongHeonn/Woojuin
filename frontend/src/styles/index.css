@@ -2,6 +2,7 @@
 @import './theme.css';
 
 .woojuin-map-marker {
+  display: block;
   width: 20px;
   height: 20px;
   padding: 0;
