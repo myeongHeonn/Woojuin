@@ -9,8 +9,7 @@ import {
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { MapAdapter, MapAdapterOptions, MapPoint } from '@/components/domain/map/mapAdapter';
 
-// const OPEN_FREE_MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
-const OPEN_FREE_MAP_STYLE = 'https://tiles.openfreemap.org/styles/bright';
+const OPEN_FREE_MAP_STYLE = 'https://tiles.openfreemap.org/styles/fiord';
 const DEFAULT_CENTER: [number, number] = [127.7669, 35.9078];
 
 setWorkerUrl(maplibreWorkerUrl);

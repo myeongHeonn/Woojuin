@@ -1,6 +1,32 @@
 @import 'tailwindcss';
 @import './theme.css';
 
+@media (max-width: 639px) {
+  [data-map-panel-collapsed='false'] .woojuin-open-free-map .maplibregl-ctrl-bottom-right {
+    bottom: calc(50% + 100px + env(safe-area-inset-bottom));
+  }
+
+  [data-map-panel-collapsed='true'] .woojuin-open-free-map .maplibregl-ctrl-bottom-right {
+    bottom: calc(212px + env(safe-area-inset-bottom));
+  }
+
+  .woojuin-open-free-map .maplibregl-ctrl-bottom-right {
+    transition: bottom 200ms ease-out;
+  }
+}
+
+@media (min-width: 640px) {
+  .woojuin-open-free-map .maplibregl-ctrl-bottom-right {
+    right: calc(26px + 320px + 12px);
+    bottom: 26px;
+  }
+}
+
+.woojuin-map-marker-anchor {
+  width: 20px;
+  height: 20px;
+}
+
 .woojuin-map-marker {
   display: block;
   width: 20px;
