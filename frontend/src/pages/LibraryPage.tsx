@@ -1,26 +1,21 @@
 import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
 import { STAGE_PX } from '@/constants/stage';
-import CategoryChipBar, { type CategoryChip } from '@/components/domain/library/CategoryChipBar';
-
-// 임시 목업 — 화살표 스크롤이 보이도록 넉넉히 둔다. 실제로는 useCategories 로 교체
-const MOCK_CHIPS: CategoryChip[] = [
-  { categoryId: 1, name: '카페', count: 12 },
-  { categoryId: 2, name: '여행', count: 9 },
-  { categoryId: 3, name: '개발', count: 21 },
-  { categoryId: 4, name: '디자인', count: 7 },
-  { categoryId: 5, name: '음식', count: 15 },
-  { categoryId: 6, name: '운동', count: 4 },
-  { categoryId: 7, name: '음악', count: 8 },
-  { categoryId: 8, name: '영화', count: 6 },
-  { categoryId: 9, name: '독서', count: 11 },
-];
+import CategoryChipBar from '@/components/domain/library/CategoryChipBar';
+import { useCategories } from '@/hooks/useCategories';
 
 /**
  * 대시보드(보관함) — 상단 필터 바 + 아이템 리스트.
  * TODO: 아이템 리스트(무한 스크롤) 이어서
  */
 const LibraryPage = () => {
+  const { workspaceId } = useParams<{ workspaceId: string }>();
+
+  // 카테고리는 서버 상태 — useState 가 아니라 useQuery(useCategories)로 받는다.
+  // 로딩 전이나 실패 시에도 화면이 비지 않게 빈 배열로 시작한다
+  const { data: chips = [] } = useCategories(Number(workspaceId));
+
   // 필터는 이 화면에서만 의미 있고 기억할 필요 없어 지역 상태로 둔다
   const [selected, setSelected] = useState<number[]>([]);
   const [favoriteActive, setFavoriteActive] = useState(false);
@@ -31,8 +26,7 @@ const LibraryPage = () => {
     // 시작시킨다. 여유를 둬 제목과 필터 사이 간격도 준다
     <div className={classNames('h-full w-full bg-space pt-16 desktop:pt-[72px]', STAGE_PX)}>
       <CategoryChipBar
-        chips={MOCK_CHIPS}
-        totalCount={93}
+        chips={chips}
         selected={selected}
         onSelectAll={() => setSelected([])}
         onToggle={(id) =>

@@ -4,17 +4,14 @@ import Dot from '@/components/ui/Dot';
 import FilterChip from '@/components/ui/FilterChip';
 import { ChevronLeftIcon, ChevronRightIcon, ManageIcon } from '@/assets/icons';
 
-/** 칩 하나가 그리는 데 필요한 것 — 개수는 아이템 목록에서 파생된 값이다 */
+/** 칩 하나가 그리는 데 필요한 것 — 서버 카테고리는 id·이름만 준다(개수 없음) */
 export interface CategoryChip {
   categoryId: number;
   name: string;
-  count: number;
 }
 
 interface CategoryChipBarProps {
   chips: CategoryChip[];
-  /** 전체 아이템 수 — [전체] 칩에 붙는다 */
-  totalCount: number;
   /** 선택된 카테고리 id 들. 비어 있으면 [전체]가 켜진 상태 */
   selected: number[];
   /** 카테고리 칩 토글 (다중 선택, 클라이언트 필터) */
@@ -70,7 +67,6 @@ const ScrollButton = ({
  */
 const CategoryChipBar = ({
   chips,
-  totalCount,
   selected,
   onToggle,
   onSelectAll,
@@ -129,15 +125,14 @@ const CategoryChipBar = ({
         aria-label="카테고리 필터"
         className="scrollbar-none flex min-w-0 flex-1 items-center gap-2 overflow-x-auto"
       >
-        <FilterChip active={selected.length === 0} count={totalCount} onClick={onSelectAll}>
+        <FilterChip active={selected.length === 0} onClick={onSelectAll}>
           전체
         </FilterChip>
 
-        {chips.map(({ categoryId, name, count }) => (
+        {chips.map(({ categoryId, name }) => (
           <FilterChip
             key={categoryId}
             active={selected.includes(categoryId)}
-            count={count}
             leading={<Dot />}
             onClick={() => onToggle(categoryId)}
           >
