@@ -21,6 +21,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
     // 루트의 .env를 자동으로 읽어 환경변수로 주입 (별도 export 없이 bootRun 가능).
     // spring-dotenv(코어)는 수동 등록이 필요해 Boot 3 auto-registration이 되는
