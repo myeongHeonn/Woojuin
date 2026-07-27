@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 브라우저 바이너리(camoufox 등) 다운로드. 빌드 타임에 받아둬 런타임 지연을 없앤다.
 RUN scrapling install
 
-COPY main.py .
+COPY main.py parsing.py ./
 
 EXPOSE 8001
 

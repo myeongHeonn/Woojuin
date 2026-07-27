@@ -4,3 +4,6 @@ scrapling[fetchers]>=0.2.9
 fastapi>=0.115,<1.0
 uvicorn[standard]>=0.30,<1.0
 pydantic>=2.7,<3.0
+
+# 테스트 (순수 헬퍼용 — 브라우저 없이 실행)
+pytest>=8.0,<9.0
