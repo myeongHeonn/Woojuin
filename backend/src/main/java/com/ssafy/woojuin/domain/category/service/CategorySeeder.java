@@ -1,5 +1,6 @@
 package com.ssafy.woojuin.domain.category.service;
 
+import com.ssafy.woojuin.domain.category.CategoryColors;
 import com.ssafy.woojuin.domain.category.CategoryDefaults;
 import com.ssafy.woojuin.domain.category.entity.Category;
 import com.ssafy.woojuin.domain.category.repository.CategoryRepository;
@@ -31,8 +32,15 @@ public class CategorySeeder {
         if (categoryRepository.existsByWorkspaceId(workspaceId)) {
             return;
         }
-        CategoryDefaults.NAMES.forEach(name ->
-                categoryRepository.save(Category.builder().workspaceId(workspaceId).name(name).build()));
+        // 별자리 팔레트를 순환 배정하고 "기타"만 미분류 색(white)으로 시드한다.
+        int ordinal = 0;
+        for (String name : CategoryDefaults.NAMES) {
+            String color = CategoryDefaults.ETC.equals(name)
+                    ? CategoryColors.UNCATEGORIZED
+                    : CategoryColors.forOrdinal(ordinal++);
+            categoryRepository.save(
+                    Category.builder().workspaceId(workspaceId).name(name).color(color).build());
+        }
         log.info("기본 카테고리 {}개 시드 완료: workspaceId={}", CategoryDefaults.NAMES.size(), workspaceId);
     }
 }

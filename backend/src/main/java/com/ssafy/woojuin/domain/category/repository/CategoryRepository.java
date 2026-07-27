@@ -19,6 +19,9 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     boolean existsByWorkspaceId(Long workspaceId);
 
+    /** 색상 백필 대상(color 미설정 카테고리) 조회. */
+    List<Category> findByColorIsNull();
+
     /** 같은 워크스페이스 안 이름 중복 검사. */
     boolean existsByWorkspaceIdAndName(Long workspaceId, String name);
 }
