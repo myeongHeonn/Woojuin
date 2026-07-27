@@ -1,4 +1,5 @@
 import {
+  LngLat,
   LngLatBounds,
   Map as MapLibreMap,
   Marker,
@@ -11,6 +12,15 @@ import type { MapAdapter, MapAdapterOptions, MapPoint } from '@/components/domai
 
 const OPEN_FREE_MAP_STYLE = 'https://tiles.openfreemap.org/styles/fiord';
 const DEFAULT_CENTER: [number, number] = [127.7669, 35.9078];
+const CLUSTER_RADIUS_PX = 36;
+const CLUSTER_ZOOM_STEP = 2;
+const MAX_CLUSTER_ZOOM = 18;
+const MIN_CLUSTER_SIZE_PX = 28;
+const MAX_CLUSTER_SIZE_PX = 52;
+const CLUSTER_SIZE_STEP_PX = 4;
+const LARGE_CLUSTER_COUNT = 5;
+const DISTANT_PLACE_THRESHOLD_METERS = 500_000;
+const SELECTED_PLACE_ZOOM = 17.5;
 
 setWorkerUrl(maplibreWorkerUrl);
 
@@ -25,8 +35,8 @@ const createPopupContent = (point: MapPoint) => {
   dot.className = 'woojuin-map-popup-dot';
   dot.style.backgroundColor = point.color;
 
-  const category = document.createElement('span');
-  category.textContent = `#${point.categoryLabel} · ${point.typeLabel}`;
+  const type = document.createElement('span');
+  type.textContent = `#${point.categoryLabel} · ${point.typeLabel}`;
 
   const title = document.createElement('strong');
   title.textContent = point.title;
@@ -35,7 +45,7 @@ const createPopupContent = (point: MapPoint) => {
   address.className = 'woojuin-map-popup-address';
   address.textContent = point.address;
 
-  meta.append(dot, category);
+  meta.append(dot, type);
   content.append(meta, title, address);
   return content;
 };
@@ -75,7 +85,8 @@ export const createOpenFreeMapAdapter = ({
   );
 
   let points: MapPoint[] = [];
-  let markers = new Map<number, { marker: Marker; element: HTMLButtonElement }>();
+  let markers: Marker[] = [];
+  let markerElements = new Map<number, HTMLButtonElement>();
   let popup: Popup | null = null;
   let selectedPointId: number | null = null;
 
@@ -84,13 +95,16 @@ export const createOpenFreeMapAdapter = ({
     popup = null;
   };
 
-  const updateSelection = () => {
-    markers.forEach(({ element }, id) => {
+  const updateMarkerSelection = () => {
+    markerElements.forEach((element, id) => {
       const selected = id === selectedPointId;
       element.classList.toggle('is-selected', selected);
       element.setAttribute('aria-pressed', String(selected));
     });
+  };
 
+  const updateSelection = () => {
+    updateMarkerSelection();
     removePopup();
     if (selectedPointId === null) return;
 
@@ -107,11 +121,110 @@ export const createOpenFreeMapAdapter = ({
       .setDOMContent(createPopupContent(point))
       .addTo(map);
 
-    map.easeTo({
-      center: [point.lng, point.lat],
-      zoom: Math.max(map.getZoom(), 15),
-      duration: 450,
+    const destination = new LngLat(point.lng, point.lat);
+    const isDistant = map.getCenter().distanceTo(destination) >= DISTANT_PLACE_THRESHOLD_METERS;
+
+    if (isDistant) {
+      map.flyTo({
+        center: destination,
+        zoom: SELECTED_PLACE_ZOOM,
+        curve: 1.6,
+        speed: 1.8,
+        minZoom: 7,
+      });
+    } else {
+      map.easeTo({
+        center: destination,
+        zoom: Math.max(map.getZoom(), SELECTED_PLACE_ZOOM),
+        duration: 450,
+      });
+    }
+  };
+
+  const removeMarkers = () => {
+    markers.forEach((marker) => marker.remove());
+    markers = [];
+    markerElements = new Map();
+  };
+
+  const createMarker = (clusterPoints: MapPoint[]) => {
+    const isCluster = clusterPoints.length > 1;
+    const lat = clusterPoints.reduce((sum, point) => sum + point.lat, 0) / clusterPoints.length;
+    const lng = clusterPoints.reduce((sum, point) => sum + point.lng, 0) / clusterPoints.length;
+    const markerAnchor = document.createElement('div');
+    markerAnchor.className = 'woojuin-map-marker-anchor';
+
+    const element = document.createElement('button');
+    element.type = 'button';
+    element.className = 'woojuin-map-marker';
+
+    if (isCluster) {
+      const clusterSize = Math.min(
+        MIN_CLUSTER_SIZE_PX + (clusterPoints.length - 2) * CLUSTER_SIZE_STEP_PX,
+        MAX_CLUSTER_SIZE_PX,
+      );
+      markerAnchor.classList.add('has-cluster');
+      markerAnchor.style.setProperty('--cluster-size', `${clusterSize}px`);
+      element.classList.add('is-cluster');
+      if (clusterPoints.length >= LARGE_CLUSTER_COUNT) {
+        element.classList.add('is-large');
+      }
+      element.textContent = String(clusterPoints.length);
+      element.setAttribute('aria-label', `가까운 장소 ${clusterPoints.length}곳 확대`);
+      element.addEventListener('click', () => {
+        const anchor = map.project([clusterPoints[0].lng, clusterPoints[0].lat]);
+        const farthestDistance = clusterPoints.reduce((maximum, point) => {
+          const projected = map.project([point.lng, point.lat]);
+          return Math.max(maximum, Math.hypot(projected.x - anchor.x, projected.y - anchor.y));
+        }, 0);
+        const zoomDelta =
+          farthestDistance > 0
+            ? Math.max(Math.log2((CLUSTER_RADIUS_PX + 4) / farthestDistance), 0.5)
+            : CLUSTER_ZOOM_STEP;
+
+        map.easeTo({
+          center: [lng, lat],
+          zoom: Math.min(map.getZoom() + zoomDelta, MAX_CLUSTER_ZOOM),
+          duration: 450,
+        });
+      });
+    } else {
+      const [point] = clusterPoints;
+      element.style.setProperty('--marker-color', point.color);
+      element.setAttribute('aria-label', `${point.title} 지도 위치`);
+      element.addEventListener('click', () => onSelectPoint(point.id));
+      markerElements.set(point.id, element);
+    }
+
+    markerAnchor.append(element);
+    markers.push(
+      new Marker({ element: markerAnchor, anchor: 'center' }).setLngLat([lng, lat]).addTo(map),
+    );
+  };
+
+  const renderMarkers = () => {
+    removeMarkers();
+    const clusters: MapPoint[][] = [];
+
+    points.forEach((point) => {
+      const projectedPoint = map.project([point.lng, point.lat]);
+      const cluster = clusters.find(([anchor]) => {
+        const projectedAnchor = map.project([anchor.lng, anchor.lat]);
+        return (
+          Math.hypot(projectedPoint.x - projectedAnchor.x, projectedPoint.y - projectedAnchor.y) <=
+          CLUSTER_RADIUS_PX
+        );
+      });
+
+      if (cluster) {
+        cluster.push(point);
+      } else {
+        clusters.push([point]);
+      }
     });
+
+    clusters.forEach(createMarker);
+    updateMarkerSelection();
   };
 
   const fitPoints = () => {
@@ -150,31 +263,12 @@ export const createOpenFreeMapAdapter = ({
     });
   };
 
+  map.on('moveend', renderMarkers);
+
   return {
     setPoints(nextPoints) {
-      markers.forEach(({ marker }) => marker.remove());
-      markers = new Map();
       points = nextPoints;
-
-      points.forEach((point) => {
-        const markerAnchor = document.createElement('div');
-        markerAnchor.className = 'woojuin-map-marker-anchor';
-
-        const element = document.createElement('button');
-        element.type = 'button';
-        element.className = 'woojuin-map-marker';
-        element.style.setProperty('--marker-color', point.color);
-        element.setAttribute('aria-label', `${point.title} 지도 위치`);
-        element.addEventListener('click', () => onSelectPoint(point.id));
-        markerAnchor.append(element);
-
-        const marker = new Marker({ element: markerAnchor, anchor: 'center' })
-          .setLngLat([point.lng, point.lat])
-          .addTo(map);
-
-        markers.set(point.id, { marker, element });
-      });
-
+      renderMarkers();
       updateSelection();
       fitPoints();
     },
@@ -187,8 +281,8 @@ export const createOpenFreeMapAdapter = ({
     },
     destroy() {
       removePopup();
-      markers.forEach(({ marker }) => marker.remove());
-      markers.clear();
+      map.off('moveend', renderMarkers);
+      removeMarkers();
       map.remove();
     },
   };

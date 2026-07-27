@@ -27,6 +27,11 @@
   height: 20px;
 }
 
+.woojuin-map-marker-anchor.has-cluster {
+  width: var(--cluster-size);
+  height: var(--cluster-size);
+}
+
 .woojuin-map-marker {
   display: block;
   width: 20px;
@@ -48,6 +53,22 @@
   box-shadow:
     0 0 0 6px color-mix(in srgb, var(--marker-color) 28%, transparent),
     0 4px 18px rgba(0, 0, 0, 0.6);
+}
+
+.woojuin-map-marker.is-cluster {
+  --marker-color: #747b8f;
+  display: grid;
+  width: var(--cluster-size);
+  height: var(--cluster-size);
+  place-items: center;
+  color: #fff;
+  font-size: clamp(11px, calc(var(--cluster-size) * 0.38), 14px);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.woojuin-map-marker.is-cluster.is-large {
+  border: 0;
 }
 
 .woojuin-map-popup .maplibregl-popup-content {
