@@ -61,6 +61,15 @@ export interface UniverseResponse {
    서버 연동 전까지 쓰는 고정 데이터.
    TODO: GET /workspaces/{id}/universe 응답으로 교체 */
 
+/** 지도 모바일 카테고리 스크롤과 다중 카테고리 병합을 확인하기 위한 공통 아이템 */
+const MULTI_CATEGORY_MAP_ITEM: Star = {
+  id: 21,
+  type: 'URL',
+  position: [10.13, -1.75, -2.37],
+  title: 'OG 미리보기',
+  url: 'https://example.com',
+};
+
 export const MOCK_UNIVERSE: UniverseResponse = {
   constellations: [
     {
@@ -68,6 +77,7 @@ export const MOCK_UNIVERSE: UniverseResponse = {
       categoryName: '#Ideas',
       color: 0xc9b8ff,
       items: [
+        { ...MULTI_CATEGORY_MAP_ITEM },
         {
           id: 1,
           type: 'URL',
@@ -84,6 +94,7 @@ export const MOCK_UNIVERSE: UniverseResponse = {
       categoryName: '#Architecture',
       color: 0x8fb4ff,
       items: [
+        { ...MULTI_CATEGORY_MAP_ITEM },
         { id: 4, type: 'IMAGE', position: [7, 20.5, -3], title: '카톡 나에게 보내기' },
         { id: 5, type: 'MEMO', position: [3.87, 18.5, -0.13], title: 'OG 미리보기' },
         {
@@ -101,6 +112,7 @@ export const MOCK_UNIVERSE: UniverseResponse = {
       categoryName: '#OperatingSystem',
       color: 0x8fb4ff,
       items: [
+        { ...MULTI_CATEGORY_MAP_ITEM },
         { id: 8, type: 'MEMO', position: [18, 12.5, -7], title: 'OCR 텍스트' },
         {
           id: 9,
@@ -125,6 +137,7 @@ export const MOCK_UNIVERSE: UniverseResponse = {
       categoryName: '#SpringBoot',
       color: 0x8fb4ff,
       items: [
+        { ...MULTI_CATEGORY_MAP_ITEM },
         {
           id: 13,
           type: 'URL',
@@ -141,6 +154,7 @@ export const MOCK_UNIVERSE: UniverseResponse = {
       categoryName: '#Backend',
       color: 0x8fb4ff,
       items: [
+        { ...MULTI_CATEGORY_MAP_ITEM },
         { id: 16, type: 'IMAGE', position: [4, 1.5, 7], title: '크롬 익스텐션 저장' },
         { id: 17, type: 'MEMO', position: [0.87, -0.5, 9.87], title: '인스타 공유 링크' },
         {
@@ -159,13 +173,7 @@ export const MOCK_UNIVERSE: UniverseResponse = {
       color: 0xb8e6a3,
       items: [
         { id: 20, type: 'MEMO', position: [13, -0.5, -5], title: '카톡 나에게 보내기' },
-        {
-          id: 21,
-          type: 'URL',
-          position: [10.13, -1.75, -2.37],
-          title: 'OG 미리보기',
-          url: 'https://example.com',
-        },
+        { ...MULTI_CATEGORY_MAP_ITEM },
         { id: 22, type: 'IMAGE', position: [13.48, -4, -10.48], title: 'OCR 텍스트' },
         { id: 23, type: 'MEMO', position: [14.84, -5.75, -2.59], title: '카카오맵 좌표' },
         {
@@ -198,6 +206,7 @@ export const MOCK_UNIVERSE: UniverseResponse = {
       categoryName: '#Seongsu',
       color: 0xf5b08a,
       items: [
+        { ...MULTI_CATEGORY_MAP_ITEM },
         { id: 28, type: 'IMAGE', position: [-19, -4.5, -2], title: 'oEmbed 카드' },
         { id: 29, type: 'MEMO', position: [-22.13, -6.5, 0.87], title: '요약본 v2' },
         {
@@ -239,6 +248,7 @@ export const MOCK_UNIVERSE: UniverseResponse = {
       categoryName: '#Study',
       color: 0xc9b8ff,
       items: [
+        { ...MULTI_CATEGORY_MAP_ITEM },
         {
           id: 37,
           type: 'URL',

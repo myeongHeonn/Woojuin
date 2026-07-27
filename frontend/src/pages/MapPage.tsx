@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import MapCanvas from '@/components/domain/map/MapCanvas';
 import MapPlacePanel from '@/components/domain/map/MapPlacePanel';
 import { useStageMeta } from '@/hooks/useStageMeta';
-import { MAP_CATEGORIES, MAP_PLACES } from '@/stores/mock/map';
+import { MAP_CATEGORIES, MAP_PLACES, selectVisibleMapPlaces } from '@/stores/mock/map';
 import type { MapCategoryId } from '@/types/map';
 
 const isMobileViewport = () =>
@@ -24,34 +24,31 @@ const MapPage = () => {
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
 
   const visiblePlaces = useMemo(
-    () => MAP_PLACES.filter((place) => activeCategories.has(place.categoryId)),
+    () => selectVisibleMapPlaces(MAP_PLACES, activeCategories),
     [activeCategories],
   );
 
   useStageMeta(`${visiblePlaces.length} places · ${activeCategories.size} categories`);
 
   const toggleCategory = (categoryId: MapCategoryId | 'all') => {
-    setActiveCategories((current) => {
-      if (categoryId === 'all') {
-        return current.size === MAP_CATEGORIES.length
+    let next: Set<MapCategoryId>;
+    if (categoryId === 'all') {
+      next =
+        activeCategories.size === MAP_CATEGORIES.length
           ? new Set<MapCategoryId>()
           : new Set(MAP_CATEGORIES.map((category) => category.id));
-      }
-
-      const next = new Set(current);
+    } else {
+      next = new Set(activeCategories);
       if (next.has(categoryId)) {
         next.delete(categoryId);
       } else {
         next.add(categoryId);
       }
-      return next;
-    });
+    }
+    setActiveCategories(next);
 
-    if (
-      selectedPlaceId !== null &&
-      categoryId !== 'all' &&
-      MAP_PLACES.find((place) => place.id === selectedPlaceId)?.categoryId === categoryId
-    ) {
+    const selectedPlace = MAP_PLACES.find((place) => place.id === selectedPlaceId);
+    if (selectedPlace && !selectedPlace.categoryIds.some((id) => next.has(id))) {
       setSelectedPlaceId(null);
     }
   };

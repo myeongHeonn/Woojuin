@@ -1,11 +1,19 @@
 import { MOCK_UNIVERSE } from '@/stores/mock/universe';
 import type { ItemType } from '@/types/item';
-import type { MapCategory, MapPlace } from '@/types/map';
+import type { MapCategory, MapCategoryId, MapPlace } from '@/types/map';
 
 export const MAP_ITEM_TYPE_LABEL: Record<ItemType, string> = {
   URL: '링크',
   IMAGE: '사진',
   MEMO: '메모',
+};
+
+export const MAP_ITEM_TYPES: ItemType[] = ['MEMO', 'IMAGE', 'URL'];
+
+export const MAP_ITEM_TYPE_COLOR: Record<ItemType, string> = {
+  URL: '#8fb4ff',
+  IMAGE: '#f5b08a',
+  MEMO: '#b8e6a3',
 };
 
 /**
@@ -42,17 +50,33 @@ export const MAP_CATEGORIES: MapCategory[] = mapConstellations.map((constellatio
   color: `#${constellation.color.toString(16).padStart(6, '0')}`,
 }));
 
-export const MAP_PLACES: MapPlace[] = mapConstellations.flatMap((constellation) =>
-  constellation.items.flatMap((item) => {
-    const location = LOCATION_BY_ITEM_ID[item.id];
-    if (!location) return [];
+const placesByItemId = new Map<number, MapPlace>();
 
-    return [
-      {
-        ...item,
-        categoryId: constellation.categoryId,
-        ...location,
-      },
-    ];
-  }),
-);
+mapConstellations.forEach((constellation) => {
+  constellation.items.forEach((item) => {
+    const location = LOCATION_BY_ITEM_ID[item.id];
+    if (!location) return;
+
+    const existing = placesByItemId.get(item.id);
+    const categoryIds = [
+      ...new Set([...(existing?.categoryIds ?? []), constellation.categoryId]),
+    ].sort((left, right) => left - right);
+
+    placesByItemId.set(item.id, {
+      ...(existing ?? item),
+      categoryIds,
+      ...location,
+    });
+  });
+});
+
+export const MAP_PLACES: MapPlace[] = [...placesByItemId.values()];
+
+export const selectVisibleMapPlaces = (
+  places: MapPlace[],
+  activeCategories: ReadonlySet<MapCategoryId>,
+): MapPlace[] =>
+  places.flatMap((place) => {
+    const categoryIds = place.categoryIds.filter((categoryId) => activeCategories.has(categoryId));
+    return categoryIds.length > 0 ? [{ ...place, categoryIds }] : [];
+  });

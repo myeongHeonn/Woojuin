@@ -10,7 +10,7 @@ export interface MapCategory {
 
 export interface MapPlace {
   id: number;
-  categoryId: MapCategoryId;
+  categoryIds: MapCategoryId[];
   type: ItemType;
   position: [number, number, number];
   title: string;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { MapAdapter } from '@/components/domain/map/mapAdapter';
 import { createOpenFreeMapAdapter } from '@/components/domain/map/openFreeMapAdapter';
-import { MAP_CATEGORIES, MAP_ITEM_TYPE_LABEL } from '@/stores/mock/map';
+import { MAP_CATEGORIES, MAP_ITEM_TYPE_COLOR, MAP_ITEM_TYPE_LABEL } from '@/stores/mock/map';
 import type { MapPlace } from '@/types/map';
 
 interface MapCanvasProps {
@@ -22,16 +22,20 @@ const MapCanvas = ({ places, selectedPlaceId, onSelectPlace }: MapCanvasProps) =
   const points = useMemo(
     () =>
       places.map((place) => {
-        const category = categoryById.get(place.categoryId);
+        const categoryLabel = place.categoryIds
+          .map((categoryId) => categoryById.get(categoryId)?.label)
+          .filter((label): label is string => Boolean(label))
+          .join(' · #');
+
         return {
           id: place.id,
           lat: place.lat,
           lng: place.lng,
           title: place.title,
           address: place.address,
-          categoryLabel: category?.label ?? '미분류',
+          categoryLabel: categoryLabel || '미분류',
           typeLabel: MAP_ITEM_TYPE_LABEL[place.type],
-          color: category?.color ?? 'var(--color-star-white)',
+          color: MAP_ITEM_TYPE_COLOR[place.type],
         };
       }),
     [places],
