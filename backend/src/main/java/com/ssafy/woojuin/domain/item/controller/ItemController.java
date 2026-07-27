@@ -69,11 +69,13 @@ public class ItemController {
             @RequestParam(required = false) ItemType type,
             @RequestParam(required = false) ItemStatus status,
             @RequestParam(required = false) Boolean favorite,
+            @RequestParam(required = false) Long categoryId,
             @RequestParam(defaultValue = "latest") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "28") int size) {
         Long userId = currentUserResolver.resolveUserId();
-        ItemListResponse response = itemService.list(workspaceId, userId, type, status, favorite, sort, page, size);
+        ItemListResponse response =
+                itemService.list(workspaceId, userId, type, status, favorite, categoryId, sort, page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

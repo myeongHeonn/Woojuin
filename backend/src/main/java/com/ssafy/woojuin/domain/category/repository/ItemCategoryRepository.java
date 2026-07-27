@@ -4,6 +4,7 @@ import com.ssafy.woojuin.domain.category.entity.ItemCategory;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 public interface ItemCategoryRepository extends JpaRepository<ItemCategory, Long> {
 
@@ -11,6 +12,16 @@ public interface ItemCategoryRepository extends JpaRepository<ItemCategory, Long
 
     /** 목록 응답에서 여러 아이템의 카테고리를 한 번에 읽어 N+1을 피한다. */
     List<ItemCategory> findByItemIdIn(Collection<Long> itemIds);
+
+    /** 카테고리 필터용 — 그 카테고리에 연결된 아이템 id들. */
+    @Query("select ic.itemId from ItemCategory ic where ic.categoryId = :categoryId")
+    List<Long> findItemIdsByCategoryId(Long categoryId);
+
+    /** 그 워크스페이스에서 '활성(휴지통 제외) 아이템이 하나라도 연결된' 카테고리 id들. */
+    @Query("select distinct ic.categoryId from ItemCategory ic "
+            + "where ic.itemId in (select i.id from Item i "
+            + "where i.workspaceId = :workspaceId and i.deletedAt is null)")
+    List<Long> findCategoryIdsWithActiveItems(Long workspaceId);
 
     boolean existsByItemIdAndCategoryId(Long itemId, Long categoryId);
 

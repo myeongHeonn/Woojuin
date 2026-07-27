@@ -66,7 +66,7 @@ class CategoryControllerTest {
     @Test
     void 카테고리_목록_조회() throws Exception {
         authenticateAs(1L);
-        when(categoryService.list(1L, 1L)).thenReturn(List.of(new CategoryResponse(10L, "학습·지식", "#8FB4FF")));
+        when(categoryService.list(1L, 1L, false)).thenReturn(List.of(new CategoryResponse(10L, "학습·지식", "#8FB4FF")));
 
         mockMvc.perform(get("/api/workspaces/1/categories"))
                 .andExpect(status().isOk())
