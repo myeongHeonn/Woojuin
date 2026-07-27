@@ -73,6 +73,7 @@ const MapPage = () => {
         places={visiblePlaces}
         selectedPlaceId={selectedPlaceId}
         onSelectPlace={selectPlaceAndCollapsePanel}
+        onDeselectPlace={() => setSelectedPlaceId(null)}
       />
       <MapPlacePanel
         places={visiblePlaces}

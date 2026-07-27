@@ -19,7 +19,7 @@ const MIN_CLUSTER_SIZE_PX = 28;
 const MAX_CLUSTER_SIZE_PX = 52;
 const CLUSTER_SIZE_STEP_PX = 4;
 const LARGE_CLUSTER_COUNT = 5;
-const DISTANT_PLACE_THRESHOLD_METERS = 500_000;
+const DISTANT_PLACE_THRESHOLD_METERS = 800_000;
 const SELECTED_PLACE_ZOOM = 17.5;
 
 setWorkerUrl(maplibreWorkerUrl);
@@ -53,6 +53,7 @@ const createPopupContent = (point: MapPoint) => {
 export const createOpenFreeMapAdapter = ({
   container,
   onSelectPoint,
+  onDeselectPoint,
 }: MapAdapterOptions): MapAdapter => {
   const map = new MapLibreMap({
     container,
@@ -147,6 +148,10 @@ export const createOpenFreeMapAdapter = ({
     markerElements = new Map();
   };
 
+  const handleMapClick = () => {
+    onDeselectPoint();
+  };
+
   const createMarker = (clusterPoints: MapPoint[]) => {
     const isCluster = clusterPoints.length > 1;
     const lat = clusterPoints.reduce((sum, point) => sum + point.lat, 0) / clusterPoints.length;
@@ -171,7 +176,8 @@ export const createOpenFreeMapAdapter = ({
       }
       element.textContent = String(clusterPoints.length);
       element.setAttribute('aria-label', `가까운 장소 ${clusterPoints.length}곳 확대`);
-      element.addEventListener('click', () => {
+      element.addEventListener('click', (event) => {
+        event.stopPropagation();
         const anchor = map.project([clusterPoints[0].lng, clusterPoints[0].lat]);
         const farthestDistance = clusterPoints.reduce((maximum, point) => {
           const projected = map.project([point.lng, point.lat]);
@@ -192,7 +198,10 @@ export const createOpenFreeMapAdapter = ({
       const [point] = clusterPoints;
       element.style.setProperty('--marker-color', point.color);
       element.setAttribute('aria-label', `${point.title} 지도 위치`);
-      element.addEventListener('click', () => onSelectPoint(point.id));
+      element.addEventListener('click', (event) => {
+        event.stopPropagation();
+        onSelectPoint(point.id);
+      });
       markerElements.set(point.id, element);
     }
 
@@ -264,6 +273,7 @@ export const createOpenFreeMapAdapter = ({
   };
 
   map.on('moveend', renderMarkers);
+  map.on('click', handleMapClick);
 
   return {
     setPoints(nextPoints) {
@@ -282,6 +292,7 @@ export const createOpenFreeMapAdapter = ({
     destroy() {
       removePopup();
       map.off('moveend', renderMarkers);
+      map.off('click', handleMapClick);
       removeMarkers();
       map.remove();
     },
