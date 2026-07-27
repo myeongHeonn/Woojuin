@@ -7,6 +7,15 @@ const base: SVGProps<SVGSVGElement> = {
   strokeWidth: 1.8,
 };
 
+/** 링크(사선 화살표) — 카드 우상단 링크 배지 */
+export function LinkArrowIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} strokeWidth={2.4} {...props}>
+      <path d="M7 17 17 7M9 7h8v8" />
+    </svg>
+  );
+}
+
 /** 별 — 즐겨찾기 */
 export function StarIcon(props: SVGProps<SVGSVGElement>) {
   return (

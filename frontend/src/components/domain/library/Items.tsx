@@ -2,6 +2,8 @@ import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 import { useItems } from '@/hooks/useItems';
 import { useParams } from 'react-router-dom';
 import { useCallback } from 'react';
+import ItemCard from './ItemCard';
+import Spinner from '@/components/ui/Spinner';
 
 const Items = () => {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -23,12 +25,24 @@ const Items = () => {
   const ref = useIntersectionObserver(onIntersect);
 
   return (
-    <div>
-      {/* {여기에 items들이 온다.} */}
-      {items.map((item) => (
-        <div key={item.itemId}>{/* 아이템 카드 */}</div>
-      ))}
-      <div ref={ref} />
+    <div className="pt-8 pb-24">
+      {/* 목업 그리드: 124px 카드가 auto-fill, 가운데 정렬 */}
+      <div
+        className="grid justify-center gap-x-[22px] gap-y-[30px]"
+        style={{ gridTemplateColumns: 'repeat(auto-fill, 124px)' }}
+      >
+        {items.map((item) => (
+          <ItemCard key={item.itemId} item={item} />
+        ))}
+      </div>
+
+      {/* 바닥 감지용 요소 + 로딩/끝 표시 */}
+      <div ref={ref} className="grid place-items-center py-6">
+        {isFetchingNextPage && <Spinner className="h-6 w-6" />}
+        {!hasNextPage && items.length > 0 && (
+          <span className="text-sm text-text-3">모두 불러왔어요</span>
+        )}
+      </div>
     </div>
   );
 };

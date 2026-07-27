@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
 import { STAGE_PX } from '@/constants/stage';
 import CategoryChipBar from '@/components/domain/library/CategoryChipBar';
+import Items from '@/components/domain/library/Items';
 import { useCategories } from '@/hooks/useCategories';
 
 /**
@@ -22,9 +23,16 @@ const LibraryPage = () => {
 
   return (
     // 좌우 여백(STAGE_PX)은 헤더 제목과 같은 값을 공유해 칩 바·리스트가 한 선에 맞는다.
-    // StageHeader 가 absolute 로 떠 있어(모바일 58·데스크톱 66px) 콘텐츠를 그 아래에서
-    // 시작시킨다. 여유를 둬 제목과 필터 사이 간격도 준다
-    <div className={classNames('h-full w-full bg-space pt-16 desktop:pt-[72px]', STAGE_PX)}>
+    // StageHeader 가 absolute 로 떠 있어(모바일 58·데스크톱 66px) 콘텐츠를 그 아래에서 시작.
+    //
+    // 세로 flex 로 칩 바는 고정하고 아래 리스트만 스크롤한다.
+    // main 이 overflow-hidden(성좌 캔버스용)이라 스크롤은 이 안에서 일어난다.
+    <div
+      className={classNames(
+        'flex h-full w-full flex-col overflow-hidden bg-space pt-16 desktop:pt-[72px]',
+        STAGE_PX,
+      )}
+    >
       <CategoryChipBar
         chips={chips}
         selected={selected}
@@ -36,6 +44,12 @@ const LibraryPage = () => {
         onToggleFavorite={() => setFavoriteActive((v) => !v)}
         onManage={() => {}}
       />
+
+      {/* 칩 바 아래만 스크롤 — flex-1 로 남은 높이를 채우고 min-h-0 이라야 넘칠 때 줄어든다 */}
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none">
+        {/* TODO: selected(카테고리)·favoriteActive 필터를 Items 로 내려보내기 (지금은 전체) */}
+        <Items />
+      </div>
     </div>
   );
 };

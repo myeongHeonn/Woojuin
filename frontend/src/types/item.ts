@@ -4,6 +4,13 @@ export type ItemStatus = 'PROCESSING' | 'DONE' | 'PARTIAL' | 'FAILED';
 /** 저장 항목 유형 */
 export type ItemType = 'URL' | 'IMAGE' | 'MEMO';
 
+/** 카드·라벨에 쓰는 한글 이름 */
+export const TYPE_LABEL: Record<ItemType, string> = {
+  URL: '링크',
+  IMAGE: '사진',
+  MEMO: '메모',
+};
+
 export interface ItemPreview {
   thumbnailUrl: string | null;
   description: string | null;
@@ -17,6 +24,8 @@ export interface Item {
   url: string | null;
   content: string | null;
   s3Key: string | null;
+  /** 사진(IMAGE) 접근 URL — 서버가 만들어 준다. 분석 전이면 null */
+  imageUrl: string | null;
   preview: ItemPreview;
   favorite: boolean;
   createdAt: string;

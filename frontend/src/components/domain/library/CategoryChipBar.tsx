@@ -93,7 +93,7 @@ const CategoryChipBar = ({
     scrollRef.current?.scrollBy({ left: dir * 220, behavior: 'smooth' });
 
   return (
-    <div className="flex items-center gap-2 pt-10">
+    <div className="flex items-center gap-2 pt-10 pb-10">
       {/* ── 고정 왼쪽 ─────────────────────────── */}
       <button
         type="button"
