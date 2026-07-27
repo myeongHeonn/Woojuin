@@ -41,15 +41,15 @@ public class ItemCategoryQueryService {
             return Map.of();
         }
         Set<Long> categoryIds = links.stream().map(ItemCategory::getCategoryId).collect(Collectors.toSet());
-        Map<Long, String> nameById = categoryRepository.findAllById(categoryIds).stream()
-                .collect(Collectors.toMap(Category::getId, Category::getName));
+        Map<Long, Category> categoryById = categoryRepository.findAllById(categoryIds).stream()
+                .collect(Collectors.toMap(Category::getId, category -> category));
 
         Map<Long, List<CategoryResponse>> byItem = new HashMap<>();
         for (ItemCategory link : links) {
-            String name = nameById.get(link.getCategoryId());
-            if (name != null) {   // 조회 사이에 삭제됐으면 건너뛴다
+            Category category = categoryById.get(link.getCategoryId());
+            if (category != null) {   // 조회 사이에 삭제됐으면 건너뛴다
                 byItem.computeIfAbsent(link.getItemId(), k -> new ArrayList<>())
-                        .add(new CategoryResponse(link.getCategoryId(), name));
+                        .add(CategoryResponse.from(category));
             }
         }
         return byItem;

@@ -37,13 +37,26 @@ public class Category extends BaseTimeEntity {
     @Column(nullable = false, length = 50)
     private String name;
 
+    // 카드/별자리 색(hex, 예 "#C9B8FF"). 기존 데이터 호환을 위해 nullable로 두고,
+    // 시드·생성 시 채우며 기존 행은 CategoryColorBackfill이 기동 시 채운다.
+    @Column(length = 20)
+    private String color;
+
     @Builder
-    private Category(Long workspaceId, String name) {
+    private Category(Long workspaceId, String name, String color) {
         this.workspaceId = workspaceId;
         this.name = name;
+        this.color = color;
     }
 
     public void rename(String name) {
         this.name = name;
+    }
+
+    /** null 인자는 "값 없음"이라 무시한다(기존 색을 지우지 않음). */
+    public void applyColor(String color) {
+        if (color != null) {
+            this.color = color;
+        }
     }
 }

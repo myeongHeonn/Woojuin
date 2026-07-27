@@ -64,6 +64,8 @@ class CategoryServiceTest {
         CategoryResponse response = service.create(1L, 1L, "새카테고리");
 
         assertThat(response.name()).isEqualTo("새카테고리");
+        // 기존 별자리가 없으니 팔레트 첫 색(lavender)이 자동 배정된다.
+        assertThat(response.color()).isEqualTo("#C9B8FF");
     }
 
     @Test
