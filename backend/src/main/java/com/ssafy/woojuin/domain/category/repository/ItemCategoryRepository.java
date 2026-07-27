@@ -17,6 +17,12 @@ public interface ItemCategoryRepository extends JpaRepository<ItemCategory, Long
     @Query("select ic.itemId from ItemCategory ic where ic.categoryId = :categoryId")
     List<Long> findItemIdsByCategoryId(Long categoryId);
 
+    /** 그 워크스페이스에서 '활성(휴지통 제외) 아이템이 하나라도 연결된' 카테고리 id들. */
+    @Query("select distinct ic.categoryId from ItemCategory ic "
+            + "where ic.itemId in (select i.id from Item i "
+            + "where i.workspaceId = :workspaceId and i.deletedAt is null)")
+    List<Long> findCategoryIdsWithActiveItems(Long workspaceId);
+
     boolean existsByItemIdAndCategoryId(Long itemId, Long categoryId);
 
     /** 카테고리 삭제 시 연결 정리용. */
