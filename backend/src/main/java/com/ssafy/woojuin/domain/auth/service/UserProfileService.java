@@ -23,7 +23,7 @@ public class UserProfileService {
     @Transactional
     public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request) {
         User user = findUser(userId);
-        user.updateProfile(request.nickname(), request.profileImageUrl());
+        user.updateProfile(request.nickname(), request.profileImageUrl(), request.avatarColor());
         return UserProfileResponse.from(user);
     }
 
