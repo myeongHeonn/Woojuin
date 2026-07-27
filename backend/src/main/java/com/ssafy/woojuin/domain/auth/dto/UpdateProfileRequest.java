@@ -1,4 +1,6 @@
 package com.ssafy.woojuin.domain.auth.dto;
 
-public record UpdateProfileRequest(String nickname, String profileImageUrl) {
+import com.ssafy.woojuin.domain.auth.entity.AvatarColor;
+
+public record UpdateProfileRequest(String nickname, String profileImageUrl, AvatarColor avatarColor) {
 }

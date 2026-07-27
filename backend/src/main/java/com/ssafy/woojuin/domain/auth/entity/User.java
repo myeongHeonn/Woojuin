@@ -72,9 +72,10 @@ public class User extends BaseTimeEntity {
         this.profileImageUrl = profileImageUrl;
     }
 
-    public void updateProfile(String nickname, String profileImageUrl) {
+    public void updateProfile(String nickname, String profileImageUrl, AvatarColor avatarColor) {
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
+        this.avatarColor = avatarColor;
     }
 
     public void assignPersonalWorkspace(Long workspaceId) {
