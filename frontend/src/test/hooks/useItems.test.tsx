@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { userEvent } from 'vitest/browser';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useItems } from '@/hooks/useItems';
+import { useItems, processingPollInterval } from '@/hooks/useItems';
 import { fetchItems } from '@/services/items';
-import type { Item, ItemListResponse } from '@/types/item';
+import type { Item, ItemListResponse, ItemStatus } from '@/types/item';
 
 // 서버는 막는다 — 검증 대상은 getNextPageParam(다음 페이지 있나) 판단이지 통신이 아니다
 vi.mock('@/services/items', () => ({ fetchItems: vi.fn() }));
@@ -24,6 +24,15 @@ const pageOf = (ids: number[], page: number, totalElements: number): ItemListRes
 });
 
 const range = (from: number, count: number) => Array.from({ length: count }, (_, i) => from + i);
+
+/** 상태가 있는 최소 아이템 — 폴링 판단(processingPollInterval) 검증용 */
+const withStatus = (status: ItemStatus) => ({ itemId: 1, status }) as Item;
+const pageWith = (...statuses: ItemStatus[]): ItemListResponse => ({
+  content: statuses.map(withStatus),
+  page: 0,
+  size: SIZE,
+  totalElements: statuses.length,
+});
 
 /** useItems 를 부르고 값을 DOM 에 노출하는 프로브 — 훅만 테스트하려고 얇게 둔다 */
 function Probe() {
@@ -125,5 +134,24 @@ describe('useItems 무한 스크롤', () => {
       // 0·1·2 세 페이지만 받았어야 한다
       expect(mockFetch).toHaveBeenCalledTimes(3);
     });
+  });
+});
+
+describe('processingPollInterval — 처리 중일 때만 폴링', () => {
+  it('PROCESSING 이 하나라도 있으면 간격(ms)을 돌려준다', () => {
+    expect(processingPollInterval([pageWith('DONE', 'PROCESSING')], 3000)).toBe(3000);
+  });
+
+  it('다른 페이지에 PROCESSING 이 있어도 잡는다', () => {
+    expect(processingPollInterval([pageWith('DONE'), pageWith('PROCESSING')], 3000)).toBe(3000);
+  });
+
+  it('전부 완료면 false — 폴링 정지', () => {
+    // DONE·PARTIAL·FAILED 는 더 안 바뀌므로 폴링할 이유가 없다
+    expect(processingPollInterval([pageWith('DONE', 'PARTIAL', 'FAILED')])).toBe(false);
+  });
+
+  it('데이터가 아직 없으면 false', () => {
+    expect(processingPollInterval(undefined)).toBe(false);
   });
 });

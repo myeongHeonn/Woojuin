@@ -4,10 +4,12 @@ import Dot from '@/components/ui/Dot';
 import FilterChip from '@/components/ui/FilterChip';
 import { ChevronLeftIcon, ChevronRightIcon, ManageIcon } from '@/assets/icons';
 
-/** 칩 하나가 그리는 데 필요한 것 — 서버 카테고리는 id·이름만 준다(개수 없음) */
+/** 칩 하나가 그리는 데 필요한 것 — 서버 CategoryResponse(id·이름·hex 색) */
 export interface CategoryChip {
   categoryId: number;
   name: string;
+  /** 카드/별자리 표시용 hex 색 (예 "#C9B8FF") */
+  color: string;
 }
 
 interface CategoryChipBarProps {
@@ -61,8 +63,7 @@ const ScrollButton = ({
  * 필터가 두 종류다: 즐겨찾기는 서버(queryKey)로, 카테고리 선택은 받은 목록에
  * 얹는 클라이언트 필터다. 그래서 콜백이 서로 다른 상태로 흐른다.
  *
- * 색 점은 지금 전부 같은 색이다 — 카테고리 색이 곧 서버 응답에 들어올 예정이라
- * chips 에 color 를 받아 Dot 에 넘기면 된다 (categoryId 로 파생하지 않는다).
+ * 색 점은 서버가 준 hex 색(CategoryResponse.color)을 그대로 쓴다 — 성좌 별자리와 같은 팔레트.
  * 선택 상태를 직접 들지 않는다(controlled) — 필터 주인은 페이지다.
  */
 const CategoryChipBar = ({
@@ -129,11 +130,11 @@ const CategoryChipBar = ({
           전체
         </FilterChip>
 
-        {chips.map(({ categoryId, name }) => (
+        {chips.map(({ categoryId, name, color }) => (
           <FilterChip
             key={categoryId}
             active={selected.includes(categoryId)}
-            leading={<Dot />}
+            leading={<Dot hex={color} />}
             onClick={() => onToggle(categoryId)}
           >
             {name}
