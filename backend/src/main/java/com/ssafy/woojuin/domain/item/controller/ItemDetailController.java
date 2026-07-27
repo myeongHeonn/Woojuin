@@ -1,6 +1,6 @@
 package com.ssafy.woojuin.domain.item.controller;
 
-import com.ssafy.woojuin.domain.item.dto.ItemResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemDetailResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.domain.item.service.ItemService;
@@ -36,7 +36,7 @@ public class ItemDetailController {
 
     @AuthenticatedUser
     @GetMapping
-    public ResponseEntity<ApiResponse<ItemResponse>> detail(@PathVariable Long itemId) {
+    public ResponseEntity<ApiResponse<ItemDetailResponse>> detail(@PathVariable Long itemId) {
         Long userId = currentUserResolver.resolveUserId();
         return ResponseEntity.ok(ApiResponse.success(itemService.getDetail(itemId, userId)));
     }
@@ -50,7 +50,7 @@ public class ItemDetailController {
 
     @AuthenticatedUser
     @PatchMapping
-    public ResponseEntity<ApiResponse<ItemResponse>> update(
+    public ResponseEntity<ApiResponse<ItemDetailResponse>> update(
             @PathVariable Long itemId,
             @Valid @RequestBody ItemUpdateRequest request) {
         Long userId = currentUserResolver.resolveUserId();
@@ -68,7 +68,7 @@ public class ItemDetailController {
 
     @AuthenticatedUser
     @PostMapping("/restore")
-    public ResponseEntity<ApiResponse<ItemResponse>> restore(@PathVariable Long itemId) {
+    public ResponseEntity<ApiResponse<ItemDetailResponse>> restore(@PathVariable Long itemId) {
         Long userId = currentUserResolver.resolveUserId();
         return ResponseEntity.ok(ApiResponse.success(itemService.restore(itemId, userId)));
     }

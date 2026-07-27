@@ -14,7 +14,7 @@ import static org.mockito.Mockito.when;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
-import com.ssafy.woojuin.domain.item.dto.ItemResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemDetailResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.domain.item.entity.Item;
@@ -180,7 +180,7 @@ class ItemServiceTest {
                 .url("https://example.com").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
 
-        ItemResponse response = itemService.getDetail(1L, 1L);
+        ItemDetailResponse response = itemService.getDetail(1L, 1L);
 
         assertThat(response.type()).isEqualTo(ItemType.URL);
         assertThat(response.url()).isEqualTo("https://example.com");
@@ -196,7 +196,7 @@ class ItemServiceTest {
         when(s3Uploader.presignGet("items/1/uuid-photo.png"))
                 .thenReturn("http://localhost:9000/woojuin-items/items/1/uuid-photo.png?sig=abc");
 
-        ItemResponse response = itemService.getDetail(1L, 1L);
+        ItemDetailResponse response = itemService.getDetail(1L, 1L);
 
         assertThat(response.type()).isEqualTo(ItemType.IMAGE);
         assertThat(response.imageUrl())
@@ -234,6 +234,35 @@ class ItemServiceTest {
 
         assertThat(response.totalElements()).isEqualTo(1);
         assertThat(response.content()).hasSize(1);
+    }
+
+    @Test
+    void IMAGE_목록조회는_썸네일이_있으면_썸네일_presigned_URL을_쓴다() {
+        Item image = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.IMAGE)
+                .s3Key("items/1/photo.png").build();
+        image.applyThumbnail("items/1/photo.png.thumb.webp");
+        ReflectionTestUtils.setField(image, "id", 1L);
+        when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(image), PageRequest.of(0, 20), 1));
+        when(s3Uploader.presignGet("items/1/photo.png.thumb.webp")).thenReturn("http://minio/thumb?sig=1");
+
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, "latest", 0, 20);
+
+        assertThat(response.content().get(0).imageUrl()).isEqualTo("http://minio/thumb?sig=1");
+    }
+
+    @Test
+    void IMAGE_목록조회는_썸네일이_없으면_원본으로_폴백한다() {
+        Item image = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.IMAGE)
+                .s3Key("items/1/photo.png").build();   // 썸네일 미생성(PROCESSING 등)
+        ReflectionTestUtils.setField(image, "id", 1L);
+        when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(image), PageRequest.of(0, 20), 1));
+        when(s3Uploader.presignGet("items/1/photo.png")).thenReturn("http://minio/original?sig=1");
+
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, "latest", 0, 20);
+
+        assertThat(response.content().get(0).imageUrl()).isEqualTo("http://minio/original?sig=1");
     }
 
     @Test
@@ -284,7 +313,7 @@ class ItemServiceTest {
                 .title("원래 제목").content("원래 내용").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
 
-        ItemResponse response = itemService.update(1L, 1L, new ItemUpdateRequest("바뀐 제목", null));
+        ItemDetailResponse response = itemService.update(1L, 1L, new ItemUpdateRequest("바뀐 제목", null));
 
         assertThat(response.title()).isEqualTo("바뀐 제목");
         assertThat(response.content()).isEqualTo("원래 내용");
@@ -297,7 +326,7 @@ class ItemServiceTest {
                 .url("https://example.com").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(urlItem));
 
-        ItemResponse response = itemService.update(1L, 1L, new ItemUpdateRequest(null, "직접 남긴 메모"));
+        ItemDetailResponse response = itemService.update(1L, 1L, new ItemUpdateRequest(null, "직접 남긴 메모"));
 
         assertThat(response.content()).isEqualTo("직접 남긴 메모");
         assertThat(response.url()).isEqualTo("https://example.com");
@@ -347,7 +376,7 @@ class ItemServiceTest {
         Item trashed = trashedItem();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(trashed));
 
-        ItemResponse response = itemService.restore(1L, 1L);
+        ItemDetailResponse response = itemService.restore(1L, 1L);
 
         assertThat(trashed.isTrashed()).isFalse();
         assertThat(response.deletedAt()).isNull();
@@ -375,6 +404,20 @@ class ItemServiceTest {
 
         verify(itemRepository).delete(trashed);
         verify(s3Uploader).deleteQuietly("items/1/uuid-photo.png");
+    }
+
+    @Test
+    void 이미지_영구삭제는_썸네일도_함께_지운다() {
+        Item trashed = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.IMAGE)
+                .s3Key("items/1/photo.png").build();
+        trashed.applyThumbnail("items/1/photo.png.thumb.webp");
+        ReflectionTestUtils.setField(trashed, "deletedAt", OffsetDateTime.now());
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(trashed));
+
+        itemService.deletePermanently(1L, 1L);
+
+        verify(s3Uploader).deleteQuietly("items/1/photo.png");
+        verify(s3Uploader).deleteQuietly("items/1/photo.png.thumb.webp");
     }
 
     @Test
