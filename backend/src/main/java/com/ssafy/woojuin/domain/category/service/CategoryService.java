@@ -1,5 +1,6 @@
 package com.ssafy.woojuin.domain.category.service;
 
+import com.ssafy.woojuin.domain.category.CategoryColors;
 import com.ssafy.woojuin.domain.category.CategoryDefaults;
 import com.ssafy.woojuin.domain.category.dto.CategoryResponse;
 import com.ssafy.woojuin.domain.category.entity.Category;
@@ -49,8 +50,10 @@ public class CategoryService {
         if (categoryRepository.existsByWorkspaceIdAndName(workspaceId, trimmed)) {
             throw new IllegalArgumentException("이미 같은 이름의 카테고리가 있습니다: " + trimmed);
         }
+        // 색은 서버가 자동 배정한다 — 기존 별자리(기타 제외) 수를 기준으로 팔레트를 순환한다.
         Category saved = categoryRepository.save(
-                Category.builder().workspaceId(workspaceId).name(trimmed).build());
+                Category.builder().workspaceId(workspaceId).name(trimmed)
+                        .color(CategoryColors.forOrdinal(constellationCount(workspaceId))).build());
         return CategoryResponse.from(saved);
     }
 
@@ -91,6 +94,13 @@ public class CategoryService {
             throw new CategoryNotFoundException(categoryId);
         }
         return category;
+    }
+
+    /** 색상 순환 배정 기준 — 그 워크스페이스의 별자리(기타 제외) 수. */
+    private int constellationCount(Long workspaceId) {
+        return (int) categoryRepository.findByWorkspaceId(workspaceId).stream()
+                .filter(c -> !CategoryDefaults.ETC.equals(c.getName()))
+                .count();
     }
 
     private void verifyMembership(Long workspaceId, Long userId) {
