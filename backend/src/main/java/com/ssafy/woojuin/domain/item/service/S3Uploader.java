@@ -2,6 +2,7 @@ package com.ssafy.woojuin.domain.item.service;
 
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,8 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 @Slf4j
 @Component
@@ -26,13 +29,19 @@ public class S3Uploader {
     private static final Set<String> ALLOWED_CONTENT_TYPES =
             Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
 
+    /** presigned GET URL 유효시간. 조회 시점마다 새로 발급하므로 짧게 잡아도 무방하다. */
+    private static final Duration PRESIGN_TTL = Duration.ofMinutes(60);
+
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
     private final String bucket;
     private final boolean localMode;
 
-    public S3Uploader(S3Client s3Client, @Value("${aws.s3.bucket}") String bucket,
+    public S3Uploader(S3Client s3Client, S3Presigner s3Presigner,
+            @Value("${aws.s3.bucket}") String bucket,
             @Value("${aws.s3.endpoint:}") String endpoint) {
         this.s3Client = s3Client;
+        this.s3Presigner = s3Presigner;
         this.bucket = bucket;
         this.localMode = endpoint != null && !endpoint.isBlank();
     }
@@ -95,6 +104,20 @@ public class S3Uploader {
         }
 
         return key;
+    }
+
+    /**
+     * IMAGE 아이템 원본을 브라우저가 직접 읽을 수 있는 presigned GET URL을 만든다.
+     * URL엔 만료 시각이 서명돼 있어 컬럼에 저장하면 안 되고(만료되면 죽은 링크), 조회
+     * 응답을 만들 때마다 새로 발급해야 한다. presign은 순수 서명 연산이라 네트워크 호출이
+     * 없어 목록에서 아이템마다 호출해도 부담이 없다.
+     */
+    public String presignGet(String key) {
+        GetObjectPresignRequest request = GetObjectPresignRequest.builder()
+                .signatureDuration(PRESIGN_TTL)
+                .getObjectRequest(GetObjectRequest.builder().bucket(bucket).key(key).build())
+                .build();
+        return s3Presigner.presignGetObject(request).url().toString();
     }
 
     /** IMAGE 아이템 가공(OCR) 시 원본 바이트를 읽어온다. 실패는 호출부가 판단한다. */

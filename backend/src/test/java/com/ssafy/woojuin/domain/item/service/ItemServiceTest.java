@@ -184,6 +184,23 @@ class ItemServiceTest {
 
         assertThat(response.type()).isEqualTo(ItemType.URL);
         assertThat(response.url()).isEqualTo("https://example.com");
+        assertThat(response.imageUrl()).isNull();
+        verify(s3Uploader, never()).presignGet(any());
+    }
+
+    @Test
+    void IMAGE_상세조회는_presigned_이미지URL을_채운다() {
+        Item image = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.IMAGE)
+                .s3Key("items/1/uuid-photo.png").build();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(image));
+        when(s3Uploader.presignGet("items/1/uuid-photo.png"))
+                .thenReturn("http://localhost:9000/woojuin-items/items/1/uuid-photo.png?sig=abc");
+
+        ItemResponse response = itemService.getDetail(1L, 1L);
+
+        assertThat(response.type()).isEqualTo(ItemType.IMAGE);
+        assertThat(response.imageUrl())
+                .isEqualTo("http://localhost:9000/woojuin-items/items/1/uuid-photo.png?sig=abc");
     }
 
     @Test

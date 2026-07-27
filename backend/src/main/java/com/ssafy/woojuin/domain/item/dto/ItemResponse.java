@@ -9,7 +9,8 @@ import java.util.List;
 
 /**
  * 아이템 상세/목록 카드 공통 응답. summary는 AI 요약(본문이 있을 때만 채워짐), categories는
- * 그 아이템에 연결된 카테고리들(AI 분류 + 사용자 지정, 다대다)이다.
+ * 그 아이템에 연결된 카테고리들(AI 분류 + 사용자 지정, 다대다)이다. imageUrl은 IMAGE
+ * 아이템 원본을 브라우저가 바로 읽을 수 있는 presigned URL로, IMAGE가 아니면 null이다.
  */
 public record ItemResponse(
         Long itemId,
@@ -19,8 +20,8 @@ public record ItemResponse(
         String url,
         String content,
         String summary,
-        String s3Key,
         Preview preview,
+        String imageUrl,
         List<CategoryResponse> categories,
         boolean favorite,
         OffsetDateTime createdAt,
@@ -29,12 +30,12 @@ public record ItemResponse(
     public record Preview(String thumbnailUrl, String description) {
     }
 
-    /** 카테고리를 채우지 않는 응답(상태 조회 등 카테고리가 불필요한 경로용). */
+    /** 카테고리·이미지 URL을 채우지 않는 응답(카테고리/이미지가 불필요한 경로용). */
     public static ItemResponse from(Item item) {
-        return from(item, List.of());
+        return from(item, List.of(), null);
     }
 
-    public static ItemResponse from(Item item, List<CategoryResponse> categories) {
+    public static ItemResponse from(Item item, List<CategoryResponse> categories, String imageUrl) {
         return new ItemResponse(
                 item.getId(),
                 item.getType(),
@@ -43,8 +44,8 @@ public record ItemResponse(
                 item.getUrl(),
                 item.getContent(),
                 item.getSummary(),
-                item.getS3Key(),
                 new Preview(item.getPreviewThumbnailUrl(), item.getPreviewDescription()),
+                imageUrl,
                 categories,
                 item.isFavorite(),
                 item.getCreatedAt(),
