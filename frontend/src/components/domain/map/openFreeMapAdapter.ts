@@ -52,6 +52,20 @@ export const createOpenFreeMapAdapter = ({
     attributionControl: { compact: true },
   });
 
+  const collapseInitialAttribution = () => {
+    const attribution = container.querySelector<HTMLDetailsElement>(
+      '.maplibregl-ctrl-attrib.maplibregl-compact',
+    );
+    if (!attribution) return;
+
+    attribution.classList.remove('maplibregl-compact-show');
+    attribution.setAttribute('open', '');
+    map.off('styledata', collapseInitialAttribution);
+  };
+
+  map.on('styledata', collapseInitialAttribution);
+  collapseInitialAttribution();
+
   map.addControl(
     new NavigationControl({
       showCompass: false,
@@ -95,6 +109,7 @@ export const createOpenFreeMapAdapter = ({
 
     map.easeTo({
       center: [point.lng, point.lat],
+      zoom: Math.max(map.getZoom(), 15),
       duration: 450,
     });
   };
@@ -107,7 +122,7 @@ export const createOpenFreeMapAdapter = ({
     if (width < 2 || height < 2) return;
 
     if (points.length === 1) {
-      map.easeTo({ center: [points[0].lng, points[0].lat], zoom: 13, duration: 500 });
+      map.easeTo({ center: [points[0].lng, points[0].lat], zoom: 15, duration: 500 });
       return;
     }
 

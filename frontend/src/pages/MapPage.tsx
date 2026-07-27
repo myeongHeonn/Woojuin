@@ -5,6 +5,11 @@ import { useStageMeta } from '@/hooks/useStageMeta';
 import { MAP_CATEGORIES, MAP_PLACES } from '@/stores/mock/map';
 import type { MapCategoryId } from '@/types/map';
 
+const isMobileViewport = () =>
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(max-width: 639px)').matches;
+
 /**
  * 지도 뷰 — 지도 자리 + 저장 장소 목록.
  *
@@ -15,7 +20,7 @@ const MapPage = () => {
   const [activeCategories, setActiveCategories] = useState<Set<MapCategoryId>>(
     () => new Set(MAP_CATEGORIES.map((category) => category.id)),
   );
-  const [isMapPanelCollapsed, setIsMapPanelCollapsed] = useState(false);
+  const [isMapPanelCollapsed, setIsMapPanelCollapsed] = useState(isMobileViewport);
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
 
   const visiblePlaces = useMemo(
@@ -55,6 +60,13 @@ const MapPage = () => {
     setSelectedPlaceId((current) => (current === placeId ? null : placeId));
   };
 
+  const selectPlaceAndCollapsePanel = (placeId: number) => {
+    selectPlace(placeId);
+    if (isMobileViewport()) {
+      setIsMapPanelCollapsed(true);
+    }
+  };
+
   return (
     <div
       data-map-panel-collapsed={isMapPanelCollapsed}
@@ -63,7 +75,7 @@ const MapPage = () => {
       <MapCanvas
         places={visiblePlaces}
         selectedPlaceId={selectedPlaceId}
-        onSelectPlace={selectPlace}
+        onSelectPlace={selectPlaceAndCollapsePanel}
       />
       <MapPlacePanel
         places={visiblePlaces}
@@ -72,7 +84,7 @@ const MapPage = () => {
         selectedPlaceId={selectedPlaceId}
         onCollapsedChange={setIsMapPanelCollapsed}
         onToggleCategory={toggleCategory}
-        onSelectPlace={selectPlace}
+        onSelectPlace={selectPlaceAndCollapsePanel}
       />
     </div>
   );
