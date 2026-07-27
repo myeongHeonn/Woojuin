@@ -2,8 +2,9 @@ package com.ssafy.woojuin.domain.item.service;
 
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemDetailResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
-import com.ssafy.woojuin.domain.item.dto.ItemResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemSummaryResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.domain.item.entity.Item;
@@ -144,9 +145,9 @@ public class ItemService {
     }
 
     @Transactional(readOnly = true)
-    public ItemResponse getDetail(Long itemId, Long userId) {
+    public ItemDetailResponse getDetail(Long itemId, Long userId) {
         Item item = findActiveItem(itemId, userId);
-        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
+        return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
     @Transactional(readOnly = true)
@@ -161,13 +162,13 @@ public class ItemService {
      * 태그·카테고리 수정(API 명세서)은 해당 도메인이 아직 없어 이번 범위 밖.
      */
     @Transactional
-    public ItemResponse update(Long itemId, Long userId, ItemUpdateRequest request) {
+    public ItemDetailResponse update(Long itemId, Long userId, ItemUpdateRequest request) {
         if (request.title() == null && request.content() == null) {
             throw new IllegalArgumentException("수정할 내용이 없습니다 (title 또는 content 필요)");
         }
         Item item = findActiveItem(itemId, userId);
         item.update(request.title(), request.content());
-        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
+        return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
     /** 삭제는 항상 휴지통 이동이 먼저다 (AGENTS.md 도메인 규칙). */
@@ -190,18 +191,18 @@ public class ItemService {
     }
 
     @Transactional
-    public ItemResponse restore(Long itemId, Long userId) {
+    public ItemDetailResponse restore(Long itemId, Long userId) {
         Item item = findTrashedItem(itemId, userId);
         item.restore();
-        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
+        return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
-    /** 페이지의 아이템들에 카테고리를 배치로 채워 응답으로 변환한다(N+1 방지). */
+    /** 페이지의 아이템들에 카테고리를 배치로 채워 목록 응답으로 변환한다(N+1 방지). */
     private ItemListResponse toListResponse(Page<Item> items) {
         Map<Long, List<CategoryResponse>> categoriesByItem = itemCategoryQueryService.categoriesByItemIds(
                 items.getContent().stream().map(Item::getId).toList());
-        Page<ItemResponse> mapped = items.map(item ->
-                ItemResponse.from(item, categoriesByItem.getOrDefault(item.getId(), List.of()), imageUrlOf(item)));
+        Page<ItemSummaryResponse> mapped = items.map(item ->
+                ItemSummaryResponse.from(item, categoriesByItem.getOrDefault(item.getId(), List.of()), imageUrlOf(item)));
         return ItemListResponse.from(mapped);
     }
 

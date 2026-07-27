@@ -8,43 +8,34 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
- * 아이템 상세/목록 카드 공통 응답. summary는 AI 요약(본문이 있을 때만 채워짐), categories는
- * 그 아이템에 연결된 카테고리들(AI 분류 + 사용자 지정, 다대다)이다. imageUrl은 IMAGE
- * 아이템 원본을 브라우저가 바로 읽을 수 있는 presigned URL로, IMAGE가 아니면 null이다.
+ * 목록/휴지통 카드용 응답. 상세({@link ItemDetailResponse})에서 본문 전문(content)만 뺀
+ * 형태다 — 카드엔 본문이 필요 없고, text 컬럼이 목록 N건에 실리면 페이로드가 커지기 때문.
+ * 카드 설명은 summary가 있으면 summary를, 없으면 preview.description을 쓰는 폴백을 상정한다.
+ * imageUrl은 IMAGE 원본 presigned URL(IMAGE 아닐 시 null)이다.
  */
-public record ItemResponse(
+public record ItemSummaryResponse(
         Long itemId,
         ItemType type,
         ItemStatus status,
         String title,
         String url,
-        String content,
         String summary,
-        Preview preview,
+        ItemPreview preview,
         String imageUrl,
         List<CategoryResponse> categories,
         boolean favorite,
         OffsetDateTime createdAt,
         OffsetDateTime deletedAt) {
 
-    public record Preview(String thumbnailUrl, String description) {
-    }
-
-    /** 카테고리·이미지 URL을 채우지 않는 응답(카테고리/이미지가 불필요한 경로용). */
-    public static ItemResponse from(Item item) {
-        return from(item, List.of(), null);
-    }
-
-    public static ItemResponse from(Item item, List<CategoryResponse> categories, String imageUrl) {
-        return new ItemResponse(
+    public static ItemSummaryResponse from(Item item, List<CategoryResponse> categories, String imageUrl) {
+        return new ItemSummaryResponse(
                 item.getId(),
                 item.getType(),
                 item.getStatus(),
                 item.getTitle(),
                 item.getUrl(),
-                item.getContent(),
                 item.getSummary(),
-                new Preview(item.getPreviewThumbnailUrl(), item.getPreviewDescription()),
+                ItemPreview.from(item),
                 imageUrl,
                 categories,
                 item.isFavorite(),

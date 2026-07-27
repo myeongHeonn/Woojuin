@@ -14,7 +14,7 @@ import static org.mockito.Mockito.when;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
-import com.ssafy.woojuin.domain.item.dto.ItemResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemDetailResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.domain.item.entity.Item;
@@ -180,7 +180,7 @@ class ItemServiceTest {
                 .url("https://example.com").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
 
-        ItemResponse response = itemService.getDetail(1L, 1L);
+        ItemDetailResponse response = itemService.getDetail(1L, 1L);
 
         assertThat(response.type()).isEqualTo(ItemType.URL);
         assertThat(response.url()).isEqualTo("https://example.com");
@@ -196,7 +196,7 @@ class ItemServiceTest {
         when(s3Uploader.presignGet("items/1/uuid-photo.png"))
                 .thenReturn("http://localhost:9000/woojuin-items/items/1/uuid-photo.png?sig=abc");
 
-        ItemResponse response = itemService.getDetail(1L, 1L);
+        ItemDetailResponse response = itemService.getDetail(1L, 1L);
 
         assertThat(response.type()).isEqualTo(ItemType.IMAGE);
         assertThat(response.imageUrl())
@@ -284,7 +284,7 @@ class ItemServiceTest {
                 .title("원래 제목").content("원래 내용").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
 
-        ItemResponse response = itemService.update(1L, 1L, new ItemUpdateRequest("바뀐 제목", null));
+        ItemDetailResponse response = itemService.update(1L, 1L, new ItemUpdateRequest("바뀐 제목", null));
 
         assertThat(response.title()).isEqualTo("바뀐 제목");
         assertThat(response.content()).isEqualTo("원래 내용");
@@ -297,7 +297,7 @@ class ItemServiceTest {
                 .url("https://example.com").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(urlItem));
 
-        ItemResponse response = itemService.update(1L, 1L, new ItemUpdateRequest(null, "직접 남긴 메모"));
+        ItemDetailResponse response = itemService.update(1L, 1L, new ItemUpdateRequest(null, "직접 남긴 메모"));
 
         assertThat(response.content()).isEqualTo("직접 남긴 메모");
         assertThat(response.url()).isEqualTo("https://example.com");
@@ -347,7 +347,7 @@ class ItemServiceTest {
         Item trashed = trashedItem();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(trashed));
 
-        ItemResponse response = itemService.restore(1L, 1L);
+        ItemDetailResponse response = itemService.restore(1L, 1L);
 
         assertThat(trashed.isTrashed()).isFalse();
         assertThat(response.deletedAt()).isNull();
