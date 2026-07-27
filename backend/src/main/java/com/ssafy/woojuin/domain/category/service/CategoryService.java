@@ -9,7 +9,9 @@ import com.ssafy.woojuin.domain.category.repository.CategoryRepository;
 import com.ssafy.woojuin.domain.category.repository.ItemCategoryRepository;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,12 +37,23 @@ public class CategoryService {
         this.workspaceMemberRepository = workspaceMemberRepository;
     }
 
+    /**
+     * hasItems=true면 활성(휴지통 제외) 아이템이 하나라도 있는 카테고리만 반환한다 —
+     * 필터 칩처럼 "실제로 아이템이 있는 카테고리"만 보여줄 때 쓴다. 기본(false)은 전체
+     * 반환(카테고리 관리·수동 지정 등 빈 카테고리도 필요한 경로용).
+     */
     @Transactional(readOnly = true)
-    public List<CategoryResponse> list(Long workspaceId, Long userId) {
+    public List<CategoryResponse> list(Long workspaceId, Long userId, boolean hasItems) {
         verifyMembership(workspaceId, userId);
-        return categoryRepository.findByWorkspaceId(workspaceId).stream()
-                .map(CategoryResponse::from)
-                .toList();
+        List<Category> categories = categoryRepository.findByWorkspaceId(workspaceId);
+        if (hasItems) {
+            Set<Long> withItems = new HashSet<>(
+                    itemCategoryRepository.findCategoryIdsWithActiveItems(workspaceId));
+            categories = categories.stream()
+                    .filter(category -> withItems.contains(category.getId()))
+                    .toList();
+        }
+        return categories.stream().map(CategoryResponse::from).toList();
     }
 
     @Transactional

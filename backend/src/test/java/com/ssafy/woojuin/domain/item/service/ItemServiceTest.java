@@ -230,7 +230,7 @@ class ItemServiceTest {
         when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 20), 1));
 
-        ItemListResponse response = itemService.list(1L, 1L, null, null, null, "latest", 0, 20);
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, null, "latest", 0, 20);
 
         assertThat(response.totalElements()).isEqualTo(1);
         assertThat(response.content()).hasSize(1);
@@ -246,7 +246,7 @@ class ItemServiceTest {
                 .thenReturn(new PageImpl<>(List.of(image), PageRequest.of(0, 20), 1));
         when(s3Uploader.presignGet("items/1/photo.png.thumb.webp")).thenReturn("http://minio/thumb?sig=1");
 
-        ItemListResponse response = itemService.list(1L, 1L, null, null, null, "latest", 0, 20);
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, null, "latest", 0, 20);
 
         assertThat(response.content().get(0).imageUrl()).isEqualTo("http://minio/thumb?sig=1");
     }
@@ -260,7 +260,7 @@ class ItemServiceTest {
                 .thenReturn(new PageImpl<>(List.of(image), PageRequest.of(0, 20), 1));
         when(s3Uploader.presignGet("items/1/photo.png")).thenReturn("http://minio/original?sig=1");
 
-        ItemListResponse response = itemService.list(1L, 1L, null, null, null, "latest", 0, 20);
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, null, "latest", 0, 20);
 
         assertThat(response.content().get(0).imageUrl()).isEqualTo("http://minio/original?sig=1");
     }
@@ -271,10 +271,36 @@ class ItemServiceTest {
         when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
 
-        itemService.list(1L, 1L, null, null, null, "latest", 0, 100_000);
+        itemService.list(1L, 1L, null, null, null, null, "latest", 0, 100_000);
 
         verify(itemRepository).findAll(any(Specification.class), captor.capture());
         assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    void 카테고리로_필터하면_해당_카테고리_아이템만_반환한다() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO).content("메모").build();
+        ReflectionTestUtils.setField(item, "id", 7L);
+        when(itemCategoryQueryService.itemIdsInCategory(3L)).thenReturn(List.of(7L));
+        when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 28), 1));
+
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, 3L, "latest", 0, 28);
+
+        assertThat(response.totalElements()).isEqualTo(1);
+        assertThat(response.content().get(0).itemId()).isEqualTo(7L);
+        verify(itemCategoryQueryService).itemIdsInCategory(3L);
+    }
+
+    @Test
+    void 카테고리에_연결된_아이템이_없으면_조회없이_빈결과() {
+        when(itemCategoryQueryService.itemIdsInCategory(3L)).thenReturn(List.of());
+
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, 3L, "latest", 0, 28);
+
+        assertThat(response.totalElements()).isEqualTo(0);
+        assertThat(response.content()).isEmpty();
+        verify(itemRepository, never()).findAll(any(Specification.class), any(PageRequest.class));
     }
 
     @Test

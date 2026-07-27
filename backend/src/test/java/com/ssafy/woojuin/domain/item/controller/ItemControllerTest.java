@@ -107,7 +107,7 @@ class ItemControllerTest {
     @Test
     void 없는_아이템_조회는_공통형식_404() throws Exception {
         authenticateAs(1L);
-        when(itemService.list(any(), any(), any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(),
+        when(itemService.list(any(), any(), any(), any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyInt()))
                 .thenThrow(new ItemNotFoundException(999L));
 
