@@ -30,6 +30,12 @@ spring:
         # "clientId cannot be empty"로 부팅 자체가 실패하니 그 전엔 비워둔다.
 
 woojuin:
+  # 프론트 origin. FE/BE를 서브도메인으로 분리해 운영하므로(prod=woojuin.store,
+  # api=api.woojuin.store) 모든 API 호출이 CORS를 탄다. 이 값이 실제 프론트 주소와
+  # 다르면 브라우저가 응답을 버려서 상태코드도 안 남는다(SecurityConfig 주석 참고).
+  # 아래 oauth.redirect-base-url 과 **같은 origin**이어야 한다.
+  cors:
+    allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
   oauth:
     redirect-base-url: ${OAUTH_REDIRECT_BASE_URL:http://localhost:5173/oauth/callback}
   jwt:
