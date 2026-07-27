@@ -146,7 +146,7 @@ public class ItemService {
     @Transactional(readOnly = true)
     public ItemResponse getDetail(Long itemId, Long userId) {
         Item item = findActiveItem(itemId, userId);
-        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()));
+        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
     @Transactional(readOnly = true)
@@ -167,7 +167,7 @@ public class ItemService {
         }
         Item item = findActiveItem(itemId, userId);
         item.update(request.title(), request.content());
-        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()));
+        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
     /** 삭제는 항상 휴지통 이동이 먼저다 (AGENTS.md 도메인 규칙). */
@@ -193,7 +193,7 @@ public class ItemService {
     public ItemResponse restore(Long itemId, Long userId) {
         Item item = findTrashedItem(itemId, userId);
         item.restore();
-        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()));
+        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
     /** 페이지의 아이템들에 카테고리를 배치로 채워 응답으로 변환한다(N+1 방지). */
@@ -201,8 +201,19 @@ public class ItemService {
         Map<Long, List<CategoryResponse>> categoriesByItem = itemCategoryQueryService.categoriesByItemIds(
                 items.getContent().stream().map(Item::getId).toList());
         Page<ItemResponse> mapped = items.map(item ->
-                ItemResponse.from(item, categoriesByItem.getOrDefault(item.getId(), List.of())));
+                ItemResponse.from(item, categoriesByItem.getOrDefault(item.getId(), List.of()), imageUrlOf(item)));
         return ItemListResponse.from(mapped);
+    }
+
+    /**
+     * IMAGE 아이템만 원본 조회용 presigned URL을 발급한다. URL/MEMO는 S3 원본이 없어 null.
+     * 만료가 있는 URL이라 저장하지 않고 응답을 만들 때마다 새로 발급한다(S3Uploader.presignGet).
+     */
+    private String imageUrlOf(Item item) {
+        if (item.getType() == ItemType.IMAGE && item.getS3Key() != null) {
+            return s3Uploader.presignGet(item.getS3Key());
+        }
+        return null;
     }
 
     /**
