@@ -34,15 +34,17 @@ public class ImageItemProcessor implements ItemProcessor {
     private final ItemRepository itemRepository;
     private final S3Uploader s3Uploader;
     private final ImageTextExtractor imageTextExtractor;
+    private final ImageThumbnailGenerator thumbnailGenerator;
     private final AiAnalyzer aiAnalyzer;
     private final CategoryAssignmentService categoryAssignmentService;
 
     public ImageItemProcessor(ItemRepository itemRepository, S3Uploader s3Uploader,
-            ImageTextExtractor imageTextExtractor, AiAnalyzer aiAnalyzer,
-            CategoryAssignmentService categoryAssignmentService) {
+            ImageTextExtractor imageTextExtractor, ImageThumbnailGenerator thumbnailGenerator,
+            AiAnalyzer aiAnalyzer, CategoryAssignmentService categoryAssignmentService) {
         this.itemRepository = itemRepository;
         this.s3Uploader = s3Uploader;
         this.imageTextExtractor = imageTextExtractor;
+        this.thumbnailGenerator = thumbnailGenerator;
         this.aiAnalyzer = aiAnalyzer;
         this.categoryAssignmentService = categoryAssignmentService;
     }
@@ -67,28 +69,59 @@ public class ImageItemProcessor implements ItemProcessor {
             return;
         }
 
-        String text = downloadAndExtract(item.getS3Key());
+        // 원본을 한 번만 내려받아 OCR과 썸네일 생성에 함께 쓴다.
+        byte[] bytes = tryDownload(item.getS3Key());
+        String text = tryExtract(bytes);
         boolean textAcquired = text != null;
         if (textAcquired) {
             item.applyContent(text);
         }
 
+        tryGenerateThumbnail(item, bytes);
         enrichWithAi(item, text);
         finalizeStatus(item, textAcquired);
     }
 
-    /**
-     * S3에서 원본을 읽어 OCR로 텍스트를 뽑는다. 다운로드·OCR 어느 쪽이 실패해도
-     * 이미지 자체는 이미 S3에 있으므로 null만 반환하고 조용히 넘어간다.
-     */
-    private String downloadAndExtract(String s3Key) {
+    /** S3 원본 바이트를 읽는다. 실패해도 이미지 자체는 S3에 있으므로 null만 반환하고 넘어간다. */
+    private byte[] tryDownload(String s3Key) {
         try {
-            byte[] bytes = s3Uploader.download(s3Key);
+            return s3Uploader.download(s3Key);
+        } catch (Exception e) {
+            log.info("이미지 다운로드 실패: cause={}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** OCR로 텍스트를 뽑는다. 바이트가 없거나 OCR이 실패/빈 결과면 null. */
+    private String tryExtract(byte[] bytes) {
+        if (bytes == null) {
+            return null;
+        }
+        try {
             String text = imageTextExtractor.extract(bytes);
             return (text != null && !text.isBlank()) ? text : null;
         } catch (Exception e) {
-            log.info("이미지 다운로드/OCR 실패: cause={}", e.getMessage());
+            log.info("OCR 실패: cause={}", e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * 목록 카드용 webp 썸네일을 만들어 S3에 올리고 thumbnailS3Key를 저장한다. 최적화지
+     * 필수 경로가 아니므로 어떤 실패도(리사이즈·업로드) 조용히 흡수한다 — 썸네일이 없으면
+     * 목록은 원본 presigned로 폴백한다(ItemService.thumbnailImageUrlOf). 상태에는 영향 없다.
+     */
+    private void tryGenerateThumbnail(Item item, byte[] bytes) {
+        if (bytes == null) {
+            return;
+        }
+        try {
+            byte[] thumbnail = thumbnailGenerator.toThumbnail(bytes);
+            if (thumbnail != null) {
+                item.applyThumbnail(s3Uploader.uploadThumbnail(thumbnail, item.getS3Key()));
+            }
+        } catch (Exception e) {
+            log.warn("썸네일 생성 실패(무시), 목록은 원본으로 폴백: itemId={}, cause={}", item.getId(), e.toString());
         }
     }
 

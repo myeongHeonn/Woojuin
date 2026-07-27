@@ -202,12 +202,13 @@ public class ItemService {
         Map<Long, List<CategoryResponse>> categoriesByItem = itemCategoryQueryService.categoriesByItemIds(
                 items.getContent().stream().map(Item::getId).toList());
         Page<ItemSummaryResponse> mapped = items.map(item ->
-                ItemSummaryResponse.from(item, categoriesByItem.getOrDefault(item.getId(), List.of()), imageUrlOf(item)));
+                ItemSummaryResponse.from(item, categoriesByItem.getOrDefault(item.getId(), List.of()),
+                        thumbnailImageUrlOf(item)));
         return ItemListResponse.from(mapped);
     }
 
     /**
-     * IMAGE 아이템만 원본 조회용 presigned URL을 발급한다. URL/MEMO는 S3 원본이 없어 null.
+     * 상세용 IMAGE presigned URL — 항상 원본. URL/MEMO는 S3 원본이 없어 null.
      * 만료가 있는 URL이라 저장하지 않고 응답을 만들 때마다 새로 발급한다(S3Uploader.presignGet).
      */
     private String imageUrlOf(Item item) {
@@ -218,6 +219,19 @@ public class ItemService {
     }
 
     /**
+     * 목록용 IMAGE presigned URL — 저용량 썸네일을 우선 쓰고, 아직 생성 전(PROCESSING)이거나
+     * 생성이 실패해 없으면 원본으로 폴백한다. 목록 카드는 이미지를 작게 보여주므로 썸네일이면
+     * 충분하고 로딩도 빠르다.
+     */
+    private String thumbnailImageUrlOf(Item item) {
+        if (item.getType() != ItemType.IMAGE) {
+            return null;
+        }
+        String key = item.getThumbnailS3Key() != null ? item.getThumbnailS3Key() : item.getS3Key();
+        return key != null ? s3Uploader.presignGet(key) : null;
+    }
+
+    /**
      * 영구 삭제는 휴지통에 있는 것만 가능하다. DB를 먼저 지우고 S3 원본을 지우는데,
      * 순서를 바꾸면 S3만 지워지고 DB가 남아 "복구했더니 이미지가 없는" 상태가 될 수
      * 있다. 반대로 이 순서라면 최악이라도 S3에 고아 파일이 남을 뿐이다.
@@ -225,11 +239,16 @@ public class ItemService {
     public void deletePermanently(Long itemId, Long userId) {
         Item item = findTrashedItem(itemId, userId);
         String s3Key = item.getS3Key();
+        String thumbnailS3Key = item.getThumbnailS3Key();
 
         itemRepository.delete(item);
 
+        // 원본과 썸네일 둘 다 정리한다(썸네일은 IMAGE가 생성됐을 때만 존재).
         if (s3Key != null) {
             s3Uploader.deleteQuietly(s3Key);
+        }
+        if (thumbnailS3Key != null) {
+            s3Uploader.deleteQuietly(thumbnailS3Key);
         }
     }
 

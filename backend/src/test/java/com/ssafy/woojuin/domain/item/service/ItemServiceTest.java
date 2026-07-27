@@ -237,6 +237,35 @@ class ItemServiceTest {
     }
 
     @Test
+    void IMAGE_목록조회는_썸네일이_있으면_썸네일_presigned_URL을_쓴다() {
+        Item image = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.IMAGE)
+                .s3Key("items/1/photo.png").build();
+        image.applyThumbnail("items/1/photo.png.thumb.webp");
+        ReflectionTestUtils.setField(image, "id", 1L);
+        when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(image), PageRequest.of(0, 20), 1));
+        when(s3Uploader.presignGet("items/1/photo.png.thumb.webp")).thenReturn("http://minio/thumb?sig=1");
+
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, "latest", 0, 20);
+
+        assertThat(response.content().get(0).imageUrl()).isEqualTo("http://minio/thumb?sig=1");
+    }
+
+    @Test
+    void IMAGE_목록조회는_썸네일이_없으면_원본으로_폴백한다() {
+        Item image = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.IMAGE)
+                .s3Key("items/1/photo.png").build();   // 썸네일 미생성(PROCESSING 등)
+        ReflectionTestUtils.setField(image, "id", 1L);
+        when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(image), PageRequest.of(0, 20), 1));
+        when(s3Uploader.presignGet("items/1/photo.png")).thenReturn("http://minio/original?sig=1");
+
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, "latest", 0, 20);
+
+        assertThat(response.content().get(0).imageUrl()).isEqualTo("http://minio/original?sig=1");
+    }
+
+    @Test
     void 목록조회_size가_상한을_넘으면_잘린다() {
         ArgumentCaptor<PageRequest> captor = ArgumentCaptor.forClass(PageRequest.class);
         when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
@@ -375,6 +404,20 @@ class ItemServiceTest {
 
         verify(itemRepository).delete(trashed);
         verify(s3Uploader).deleteQuietly("items/1/uuid-photo.png");
+    }
+
+    @Test
+    void 이미지_영구삭제는_썸네일도_함께_지운다() {
+        Item trashed = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.IMAGE)
+                .s3Key("items/1/photo.png").build();
+        trashed.applyThumbnail("items/1/photo.png.thumb.webp");
+        ReflectionTestUtils.setField(trashed, "deletedAt", OffsetDateTime.now());
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(trashed));
+
+        itemService.deletePermanently(1L, 1L);
+
+        verify(s3Uploader).deleteQuietly("items/1/photo.png");
+        verify(s3Uploader).deleteQuietly("items/1/photo.png.thumb.webp");
     }
 
     @Test
