@@ -16,8 +16,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -45,8 +43,6 @@ class SignupServiceTest {
         signupService = new SignupService(userRepository, passwordEncoder, eventPublisher);
         SignupRequest request = new SignupRequest("test@woojuin.com", "raw-password", "우주인");
 
-        when(userRepository.findByEmailAndProvider("test@woojuin.com", AuthProvider.LOCAL))
-                .thenReturn(Optional.empty());
         when(passwordEncoder.encode("raw-password")).thenReturn("encoded-password");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -64,20 +60,13 @@ class SignupServiceTest {
     }
 
     @Test
-    @DisplayName("이미 가입된 이메일이면 예외를 던지고 저장하지 않는다")
-    void signup_duplicateEmail_throwsAndDoesNotSave() {
+    @DisplayName("다른 provider로라도 이미 가입된 이메일이면 예외를 던지고 저장하지 않는다")
+    void signup_emailAlreadyUsedByAnyProvider_throwsAndDoesNotSave() {
         signupService = new SignupService(userRepository, passwordEncoder, eventPublisher);
         SignupRequest request = new SignupRequest("test@woojuin.com", "raw-password", "우주인");
-        User existing = User.builder()
-                .email("test@woojuin.com")
-                .passwordHash("already-encoded")
-                .provider(AuthProvider.LOCAL)
-                .emailVerified(false)
-                .nickname("기존유저")
-                .build();
 
-        when(userRepository.findByEmailAndProvider("test@woojuin.com", AuthProvider.LOCAL))
-                .thenReturn(Optional.of(existing));
+        // 구글로 이미 가입된 이메일로 로컬 회원가입을 시도하는 시나리오
+        when(userRepository.existsByEmail("test@woojuin.com")).thenReturn(true);
 
         assertThatThrownBy(() -> signupService.signup(request))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -92,8 +81,6 @@ class SignupServiceTest {
         signupService = new SignupService(userRepository, passwordEncoder, eventPublisher);
         SignupRequest request = new SignupRequest("test@woojuin.com", "raw-password", "우주인");
 
-        when(userRepository.findByEmailAndProvider("test@woojuin.com", AuthProvider.LOCAL))
-                .thenReturn(Optional.empty());
         when(passwordEncoder.encode("raw-password")).thenReturn("encoded-password");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);

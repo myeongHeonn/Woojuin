@@ -24,10 +24,9 @@ public class SignupService {
     }
 
     public User signup(SignupRequest request) {
-        userRepository.findByEmailAndProvider(request.email(), AuthProvider.LOCAL)
-                .ifPresent(user -> {
-                    throw new IllegalArgumentException("이미 가입된 이메일입니다");
-                });
+        if (userRepository.existsByEmail(request.email())) {
+            throw new IllegalArgumentException("이미 가입된 이메일입니다");
+        }
 
         User user = User.builder()
                 .email(request.email())

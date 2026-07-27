@@ -29,6 +29,7 @@ class ImageItemProcessorTest {
     @Mock ItemRepository itemRepository;
     @Mock S3Uploader s3Uploader;
     @Mock ImageTextExtractor imageTextExtractor;
+    @Mock ImageThumbnailGenerator thumbnailGenerator;
     @Mock AiAnalyzer aiAnalyzer;
     @Mock CategoryAssignmentService categoryAssignmentService;
 
@@ -47,7 +48,7 @@ class ImageItemProcessorTest {
 
     private void newProcessor() {
         processor = new ImageItemProcessor(itemRepository, s3Uploader, imageTextExtractor,
-                aiAnalyzer, categoryAssignmentService);
+                thumbnailGenerator, aiAnalyzer, categoryAssignmentService);
     }
 
     @Test
@@ -57,7 +58,8 @@ class ImageItemProcessorTest {
 
         processor.process(message());
 
-        verifyNoInteractions(s3Uploader, imageTextExtractor, aiAnalyzer, categoryAssignmentService);
+        verifyNoInteractions(s3Uploader, imageTextExtractor, thumbnailGenerator, aiAnalyzer,
+                categoryAssignmentService);
     }
 
     @Test
@@ -139,6 +141,39 @@ class ImageItemProcessorTest {
 
         processor.process(message());
 
-        verifyNoInteractions(s3Uploader, imageTextExtractor, aiAnalyzer, categoryAssignmentService);
+        verifyNoInteractions(s3Uploader, imageTextExtractor, thumbnailGenerator, aiAnalyzer,
+                categoryAssignmentService);
+    }
+
+    @Test
+    void 썸네일_생성에_성공하면_thumbnailS3Key를_저장한다() {
+        newProcessor();
+        Item item = imageItem();
+        when(s3Uploader.download(any())).thenReturn(new byte[]{1});
+        when(imageTextExtractor.extract(any())).thenReturn("텍스트");
+        when(aiAnalyzer.analyze(any())).thenReturn(AiAnalysis.empty());
+        when(thumbnailGenerator.toThumbnail(any())).thenReturn(new byte[]{9, 9});
+        when(s3Uploader.uploadThumbnail(any(), eq("items/1/abc-photo.png")))
+                .thenReturn("items/1/abc-photo.png.thumb.webp");
+
+        processor.process(message());
+
+        assertThat(item.getThumbnailS3Key()).isEqualTo("items/1/abc-photo.png.thumb.webp");
+    }
+
+    @Test
+    void 썸네일_생성이_실패해도_상태와_본문에_영향없다() {
+        newProcessor();
+        Item item = imageItem();
+        when(s3Uploader.download(any())).thenReturn(new byte[]{1});
+        when(imageTextExtractor.extract(any())).thenReturn("텍스트");
+        when(aiAnalyzer.analyze(any())).thenReturn(AiAnalysis.empty());
+        when(thumbnailGenerator.toThumbnail(any())).thenThrow(new IllegalStateException("scrimage 실패"));
+
+        processor.process(message());
+
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
+        assertThat(item.getContent()).isEqualTo("텍스트");
+        assertThat(item.getThumbnailS3Key()).isNull();
     }
 }

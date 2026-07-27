@@ -71,7 +71,7 @@ public class ItemController {
             @RequestParam(required = false) Boolean favorite,
             @RequestParam(defaultValue = "latest") String sort,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "28") int size) {
         Long userId = currentUserResolver.resolveUserId();
         ItemListResponse response = itemService.list(workspaceId, userId, type, status, favorite, sort, page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -83,7 +83,7 @@ public class ItemController {
     public ResponseEntity<ApiResponse<ItemListResponse>> listTrash(
             @PathVariable Long workspaceId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "28") int size) {
         Long userId = currentUserResolver.resolveUserId();
         return ResponseEntity.ok(ApiResponse.success(itemService.listTrash(workspaceId, userId, page, size)));
     }

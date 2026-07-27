@@ -66,17 +66,19 @@ class UserProfileServiceTest {
     }
 
     @Test
-    @DisplayName("존재하는 유저면 닉네임/프로필 이미지를 수정하고 반영된 값을 반환한다")
+    @DisplayName("존재하는 유저면 닉네임/프로필 이미지/아바타 색상을 수정하고 반영된 값을 반환한다")
     void updateProfile_existingUser_updatesAndReturnsProfile() {
         User user = existingUser();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        UserProfileResponse response =
-                userProfileService.updateProfile(1L, new UpdateProfileRequest("새닉네임", "https://example.com/new.png"));
+        UserProfileResponse response = userProfileService.updateProfile(1L,
+                new UpdateProfileRequest("새닉네임", "https://example.com/new.png", AvatarColor.CRIMSON));
 
         assertThat(response.nickname()).isEqualTo("새닉네임");
         assertThat(response.profileImageUrl()).isEqualTo("https://example.com/new.png");
+        assertThat(response.avatarColor()).isEqualTo(AvatarColor.CRIMSON);
         assertThat(user.getNickname()).isEqualTo("새닉네임");
+        assertThat(user.getAvatarColor()).isEqualTo(AvatarColor.CRIMSON);
     }
 
     @Test
@@ -84,7 +86,8 @@ class UserProfileServiceTest {
     void updateProfile_missingUser_throwsException() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userProfileService.updateProfile(1L, new UpdateProfileRequest("새닉네임", null)))
+        assertThatThrownBy(() -> userProfileService.updateProfile(1L,
+                new UpdateProfileRequest("새닉네임", null, AvatarColor.WHITE)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }
