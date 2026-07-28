@@ -286,22 +286,37 @@ class ItemServiceTest {
     void 카테고리로_필터하면_해당_카테고리_아이템만_반환한다() {
         Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO).content("메모").build();
         ReflectionTestUtils.setField(item, "id", 7L);
-        when(itemCategoryQueryService.itemIdsInCategory(3L)).thenReturn(List.of(7L));
+        when(itemCategoryQueryService.itemIdsInCategories(List.of(3L))).thenReturn(List.of(7L));
         when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 28), 1));
 
-        ItemListResponse response = itemService.list(1L, 1L, null, null, null, 3L, "latest", 0, 28);
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, List.of(3L), "latest", 0, 28);
 
         assertThat(response.totalElements()).isEqualTo(1);
         assertThat(response.content().get(0).itemId()).isEqualTo(7L);
-        verify(itemCategoryQueryService).itemIdsInCategory(3L);
+        verify(itemCategoryQueryService).itemIdsInCategories(List.of(3L));
+    }
+
+    @Test
+    void 카테고리를_여러개_선택하면_그중_하나라도_연결된_아이템을_OR로_반환한다() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO).content("메모").build();
+        ReflectionTestUtils.setField(item, "id", 8L);
+        when(itemCategoryQueryService.itemIdsInCategories(List.of(3L, 5L))).thenReturn(List.of(8L));
+        when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 28), 1));
+
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, List.of(3L, 5L), "latest", 0, 28);
+
+        assertThat(response.totalElements()).isEqualTo(1);
+        assertThat(response.content().get(0).itemId()).isEqualTo(8L);
+        verify(itemCategoryQueryService).itemIdsInCategories(List.of(3L, 5L));
     }
 
     @Test
     void 카테고리에_연결된_아이템이_없으면_조회없이_빈결과() {
-        when(itemCategoryQueryService.itemIdsInCategory(3L)).thenReturn(List.of());
+        when(itemCategoryQueryService.itemIdsInCategories(List.of(3L))).thenReturn(List.of());
 
-        ItemListResponse response = itemService.list(1L, 1L, null, null, null, 3L, "latest", 0, 28);
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, List.of(3L), "latest", 0, 28);
 
         assertThat(response.totalElements()).isEqualTo(0);
         assertThat(response.content()).isEmpty();

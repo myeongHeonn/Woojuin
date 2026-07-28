@@ -6,6 +6,7 @@ import com.ssafy.woojuin.domain.auth.service.UserProfileService;
 import com.ssafy.woojuin.global.common.ApiResponse;
 import com.ssafy.woojuin.global.security.aop.AuthenticatedUser;
 import com.ssafy.woojuin.global.security.aop.CurrentUserResolver;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,7 +34,7 @@ public class UserController {
 
     @AuthenticatedUser
     @PatchMapping("/me")
-    public ApiResponse<UserProfileResponse> updateMyProfile(@RequestBody UpdateProfileRequest request) {
+    public ApiResponse<UserProfileResponse> updateMyProfile(@Valid @RequestBody UpdateProfileRequest request) {
         Long userId = currentUserResolver.resolveUserId();
         return ApiResponse.success(userProfileService.updateProfile(userId, request));
     }

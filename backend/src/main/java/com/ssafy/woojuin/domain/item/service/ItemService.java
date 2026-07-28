@@ -123,7 +123,7 @@ public class ItemService {
 
     @Transactional(readOnly = true)
     public ItemListResponse list(Long workspaceId, Long userId, ItemType type, ItemStatus status, Boolean favorite,
-            Long categoryId, String sort, int page, int size) {
+            List<Long> categoryIds, String sort, int page, int size) {
         verifyMembership(workspaceId, userId);
 
         Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE), resolveSort(sort));
@@ -140,10 +140,11 @@ public class ItemService {
         if (favorite != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("favorite"), favorite));
         }
-        if (categoryId != null) {
-            // 카테고리는 JPA 연관관계 없는 조인 테이블이라, 그 카테고리의 아이템 id를 먼저 뽑아
-            // id IN 조건으로 필터한다. 연결된 아이템이 없으면 빈 결과를 그대로 반환한다.
-            List<Long> itemIds = itemCategoryQueryService.itemIdsInCategory(categoryId);
+        if (categoryIds != null && !categoryIds.isEmpty()) {
+            // 카테고리는 JPA 연관관계 없는 조인 테이블이라, 선택된 카테고리들 중 하나라도(OR)
+            // 연결된 아이템 id를 먼저 뽑아 id IN 조건으로 필터한다. 연결된 아이템이 없으면
+            // 빈 결과를 그대로 반환한다.
+            List<Long> itemIds = itemCategoryQueryService.itemIdsInCategories(categoryIds);
             if (itemIds.isEmpty()) {
                 return toListResponse(Page.empty(pageable));
             }

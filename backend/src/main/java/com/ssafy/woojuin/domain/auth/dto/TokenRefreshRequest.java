@@ -1,4 +1,6 @@
 package com.ssafy.woojuin.domain.auth.dto;
 
-public record TokenRefreshRequest(String refreshToken) {
+import jakarta.validation.constraints.NotBlank;
+
+public record TokenRefreshRequest(@NotBlank(message = "refreshToken은 필수입니다") String refreshToken) {
 }

@@ -60,9 +60,9 @@ public class ItemCategoryQueryService {
         return categoriesByItemIds(List.of(itemId)).getOrDefault(itemId, List.of());
     }
 
-    /** 카테고리 필터용 — 그 카테고리에 연결된 아이템 id 목록(없으면 빈 리스트). */
+    /** 카테고리 필터용 — 그 카테고리들 중 하나라도(OR) 연결된 아이템 id 목록(없으면 빈 리스트). */
     @Transactional(readOnly = true)
-    public List<Long> itemIdsInCategory(Long categoryId) {
-        return itemCategoryRepository.findItemIdsByCategoryId(categoryId);
+    public List<Long> itemIdsInCategories(Collection<Long> categoryIds) {
+        return itemCategoryRepository.findItemIdsByCategoryIdIn(categoryIds);
     }
 }
