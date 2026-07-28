@@ -47,8 +47,33 @@ class CategoryServiceTest {
     void 멤버가_아니면_거부한다() {
         when(workspaceMemberRepository.findByWorkspaceIdAndUserId(1L, 1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.list(1L, 1L))
+        assertThatThrownBy(() -> service.list(1L, 1L, false))
                 .isInstanceOf(WorkspaceMemberRequiredException.class);
+    }
+
+    @Test
+    void hasItems면_활성_아이템_있는_카테고리만_반환한다() {
+        memberOf(1L);
+        Category withItems = category(10L, 1L, "학습·지식");
+        Category empty = category(11L, 1L, "여행·장소");
+        when(categoryRepository.findByWorkspaceId(1L)).thenReturn(java.util.List.of(withItems, empty));
+        when(itemCategoryRepository.findCategoryIdsWithActiveItems(1L)).thenReturn(java.util.List.of(10L));
+
+        java.util.List<CategoryResponse> result = service.list(1L, 1L, true);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).name()).isEqualTo("학습·지식");
+    }
+
+    @Test
+    void hasItems_false면_빈_카테고리도_전부_반환한다() {
+        memberOf(1L);
+        when(categoryRepository.findByWorkspaceId(1L))
+                .thenReturn(java.util.List.of(category(10L, 1L, "학습·지식"), category(11L, 1L, "여행·장소")));
+
+        java.util.List<CategoryResponse> result = service.list(1L, 1L, false);
+
+        assertThat(result).hasSize(2);
     }
 
     @Test
@@ -64,6 +89,8 @@ class CategoryServiceTest {
         CategoryResponse response = service.create(1L, 1L, "새카테고리");
 
         assertThat(response.name()).isEqualTo("새카테고리");
+        // 기존 별자리가 없으니 팔레트 첫 색(lavender)이 자동 배정된다.
+        assertThat(response.color()).isEqualTo("#C9B8FF");
     }
 
     @Test

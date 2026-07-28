@@ -1,5 +1,6 @@
 package com.ssafy.woojuin.domain.category.service;
 
+import com.ssafy.woojuin.domain.category.CategoryColors;
 import com.ssafy.woojuin.domain.category.CategoryDefaults;
 import com.ssafy.woojuin.domain.category.dto.CategoryResponse;
 import com.ssafy.woojuin.domain.category.entity.Category;
@@ -8,7 +9,9 @@ import com.ssafy.woojuin.domain.category.repository.CategoryRepository;
 import com.ssafy.woojuin.domain.category.repository.ItemCategoryRepository;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,12 +37,23 @@ public class CategoryService {
         this.workspaceMemberRepository = workspaceMemberRepository;
     }
 
+    /**
+     * hasItems=true면 활성(휴지통 제외) 아이템이 하나라도 있는 카테고리만 반환한다 —
+     * 필터 칩처럼 "실제로 아이템이 있는 카테고리"만 보여줄 때 쓴다. 기본(false)은 전체
+     * 반환(카테고리 관리·수동 지정 등 빈 카테고리도 필요한 경로용).
+     */
     @Transactional(readOnly = true)
-    public List<CategoryResponse> list(Long workspaceId, Long userId) {
+    public List<CategoryResponse> list(Long workspaceId, Long userId, boolean hasItems) {
         verifyMembership(workspaceId, userId);
-        return categoryRepository.findByWorkspaceId(workspaceId).stream()
-                .map(CategoryResponse::from)
-                .toList();
+        List<Category> categories = categoryRepository.findByWorkspaceId(workspaceId);
+        if (hasItems) {
+            Set<Long> withItems = new HashSet<>(
+                    itemCategoryRepository.findCategoryIdsWithActiveItems(workspaceId));
+            categories = categories.stream()
+                    .filter(category -> withItems.contains(category.getId()))
+                    .toList();
+        }
+        return categories.stream().map(CategoryResponse::from).toList();
     }
 
     @Transactional
@@ -49,8 +63,10 @@ public class CategoryService {
         if (categoryRepository.existsByWorkspaceIdAndName(workspaceId, trimmed)) {
             throw new IllegalArgumentException("이미 같은 이름의 카테고리가 있습니다: " + trimmed);
         }
+        // 색은 서버가 자동 배정한다 — 기존 별자리(기타 제외) 수를 기준으로 팔레트를 순환한다.
         Category saved = categoryRepository.save(
-                Category.builder().workspaceId(workspaceId).name(trimmed).build());
+                Category.builder().workspaceId(workspaceId).name(trimmed)
+                        .color(CategoryColors.forOrdinal(constellationCount(workspaceId))).build());
         return CategoryResponse.from(saved);
     }
 
@@ -91,6 +107,13 @@ public class CategoryService {
             throw new CategoryNotFoundException(categoryId);
         }
         return category;
+    }
+
+    /** 색상 순환 배정 기준 — 그 워크스페이스의 별자리(기타 제외) 수. */
+    private int constellationCount(Long workspaceId) {
+        return (int) categoryRepository.findByWorkspaceId(workspaceId).stream()
+                .filter(c -> !CategoryDefaults.ETC.equals(c.getName()))
+                .count();
     }
 
     private void verifyMembership(Long workspaceId, Long userId) {

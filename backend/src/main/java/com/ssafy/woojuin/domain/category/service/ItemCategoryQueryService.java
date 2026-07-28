@@ -41,15 +41,15 @@ public class ItemCategoryQueryService {
             return Map.of();
         }
         Set<Long> categoryIds = links.stream().map(ItemCategory::getCategoryId).collect(Collectors.toSet());
-        Map<Long, String> nameById = categoryRepository.findAllById(categoryIds).stream()
-                .collect(Collectors.toMap(Category::getId, Category::getName));
+        Map<Long, Category> categoryById = categoryRepository.findAllById(categoryIds).stream()
+                .collect(Collectors.toMap(Category::getId, category -> category));
 
         Map<Long, List<CategoryResponse>> byItem = new HashMap<>();
         for (ItemCategory link : links) {
-            String name = nameById.get(link.getCategoryId());
-            if (name != null) {   // 조회 사이에 삭제됐으면 건너뛴다
+            Category category = categoryById.get(link.getCategoryId());
+            if (category != null) {   // 조회 사이에 삭제됐으면 건너뛴다
                 byItem.computeIfAbsent(link.getItemId(), k -> new ArrayList<>())
-                        .add(new CategoryResponse(link.getCategoryId(), name));
+                        .add(CategoryResponse.from(category));
             }
         }
         return byItem;
@@ -58,5 +58,11 @@ public class ItemCategoryQueryService {
     @Transactional(readOnly = true)
     public List<CategoryResponse> categoriesOf(Long itemId) {
         return categoriesByItemIds(List.of(itemId)).getOrDefault(itemId, List.of());
+    }
+
+    /** 카테고리 필터용 — 그 카테고리들 중 하나라도(OR) 연결된 아이템 id 목록(없으면 빈 리스트). */
+    @Transactional(readOnly = true)
+    public List<Long> itemIdsInCategories(Collection<Long> categoryIds) {
+        return itemCategoryRepository.findItemIdsByCategoryIdIn(categoryIds);
     }
 }

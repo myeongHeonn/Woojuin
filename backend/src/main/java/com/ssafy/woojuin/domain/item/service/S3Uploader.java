@@ -107,6 +107,23 @@ public class S3Uploader {
     }
 
     /**
+     * IMAGE 목록 카드용 webp 썸네일을 올린다. 키는 원본 키에서 파생시켜(원본키 + ".thumb.webp")
+     * 한 이미지의 원본/썸네일이 같은 접두어로 묶이게 한다. 원본과 달리 이미 메모리에 있는
+     * 바이트라 InputStream이 아닌 fromBytes로 올린다.
+     */
+    public String uploadThumbnail(byte[] bytes, String originalKey) {
+        String key = originalKey + ".thumb.webp";
+        s3Client.putObject(
+                PutObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(key)
+                        .contentType("image/webp")
+                        .build(),
+                RequestBody.fromBytes(bytes));
+        return key;
+    }
+
+    /**
      * IMAGE 아이템 원본을 브라우저가 직접 읽을 수 있는 presigned GET URL을 만든다.
      * URL엔 만료 시각이 서명돼 있어 컬럼에 저장하면 안 되고(만료되면 죽은 링크), 조회
      * 응답을 만들 때마다 새로 발급해야 한다. presign은 순수 서명 연산이라 네트워크 호출이

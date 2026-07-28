@@ -39,7 +39,10 @@ public class SecurityConfig {
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
 
-    @Value("${woojuin.cors.allowed-origin:http://localhost:5173}")
+    // 기본값은 application.yml 한 곳에만 둔다(${CORS_ALLOWED_ORIGIN:...}).
+    // 여기에도 기본값을 적으면 yml 쪽이 항상 이겨서 죽은 값이 되는데, 코드만 읽은 사람은
+    // 그게 유효하다고 믿게 된다. 선언이 사라지면 기동 시점에 바로 실패하는 편이 낫다.
+    @Value("${woojuin.cors.allowed-origin}")
     private String allowedOrigin;
 
     public SecurityConfig(JwtTokenProvider jwtTokenProvider, CustomUserDetailsService userDetailsService,

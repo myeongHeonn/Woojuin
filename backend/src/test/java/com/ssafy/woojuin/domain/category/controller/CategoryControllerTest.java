@@ -66,19 +66,20 @@ class CategoryControllerTest {
     @Test
     void 카테고리_목록_조회() throws Exception {
         authenticateAs(1L);
-        when(categoryService.list(1L, 1L)).thenReturn(List.of(new CategoryResponse(10L, "학습·지식")));
+        when(categoryService.list(1L, 1L, false)).thenReturn(List.of(new CategoryResponse(10L, "학습·지식", "#8FB4FF")));
 
         mockMvc.perform(get("/api/workspaces/1/categories"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].categoryId").value(10))
-                .andExpect(jsonPath("$.data[0].name").value("학습·지식"));
+                .andExpect(jsonPath("$.data[0].name").value("학습·지식"))
+                .andExpect(jsonPath("$.data[0].color").value("#8FB4FF"));
     }
 
     @Test
     void 생성_성공하면_201() throws Exception {
         authenticateAs(1L);
         when(categoryService.create(eq(1L), eq(1L), eq("새것")))
-                .thenReturn(new CategoryResponse(20L, "새것"));
+                .thenReturn(new CategoryResponse(20L, "새것", "#C9B8FF"));
 
         mockMvc.perform(post("/api/workspaces/1/categories")
                         .contentType(MediaType.APPLICATION_JSON)

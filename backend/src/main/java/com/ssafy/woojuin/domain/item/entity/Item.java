@@ -59,6 +59,11 @@ public class Item extends BaseTimeEntity {
     @Column(length = 500)
     private String s3Key;
 
+    // IMAGE 썸네일(목록 카드용 저용량 webp)의 S3 키. 비동기 처리기가 생성하므로 생성 전/실패 시
+    // null이고, 그때 목록은 원본(s3Key)으로 폴백한다. IMAGE가 아닌 타입은 항상 null.
+    @Column(length = 500)
+    private String thumbnailS3Key;
+
     @Column(columnDefinition = "text")
     private String previewDescription;
 
@@ -117,6 +122,16 @@ public class Item extends BaseTimeEntity {
         }
     }
 
+    /**
+     * IMAGE 썸네일 생성(비동기) 결과 반영. 생성 실패 시엔 호출되지 않아 null로 남고,
+     * 목록 응답은 원본 s3Key로 폴백한다. null 인자는 "생성 못 함"이라 무시한다.
+     */
+    public void applyThumbnail(String thumbnailS3Key) {
+        if (thumbnailS3Key != null) {
+            this.thumbnailS3Key = thumbnailS3Key;
+        }
+    }
+
     /** 트랙 B(본문 확보) 결과 반영. AI 분석 입력이 되는 원문 텍스트다. */
     public void applyContent(String content) {
         if (content != null) {
@@ -144,6 +159,14 @@ public class Item extends BaseTimeEntity {
     /** 트랙 A까지 실패해 사용자에게 보여줄 게 URL밖에 없는 상태. */
     public void markFailed() {
         this.status = ItemStatus.FAILED;
+    }
+
+    /**
+     * 즐겨찾기 on/off. 토글이 아니라 원하는 상태를 그대로 반영한다 — POST/DELETE가 각각
+     * true/false를 보내므로, 연타나 재시도로 같은 요청이 두 번 와도 상태가 뒤집히지 않는다.
+     */
+    public void changeFavorite(boolean favorite) {
+        this.favorite = favorite;
     }
 
     public void moveToTrash() {

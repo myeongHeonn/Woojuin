@@ -4,7 +4,6 @@ import Layout from '@/layouts/Layout';
 import StageLayout from '@/layouts/StageLayout';
 import DesktopOnly from '@/layouts/DesktopOnly';
 import PersonalSpacePage from '@/pages/PersonalSpacePage';
-import WorkspacePage from '@/pages/WorkspacePage';
 import ShareTargetPage from '@/pages/ShareTargetPage';
 import LandingPage from '@/pages/LandingPage';
 import UniversePage from '@/pages/UniversePage';
@@ -57,8 +56,6 @@ export const router = createBrowserRouter([
                   },
                 ],
               },
-              // 저장 API 확인용 임시 화면 — CommandBar 가 생기면 이 줄만 지운다
-              { path: 'items', element: <WorkspacePage /> },
             ],
           },
         ],

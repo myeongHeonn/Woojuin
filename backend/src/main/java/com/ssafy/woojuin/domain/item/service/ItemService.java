@@ -2,8 +2,9 @@ package com.ssafy.woojuin.domain.item.service;
 
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemDetailResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemFavoriteResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
-import com.ssafy.woojuin.domain.item.dto.ItemResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.domain.item.entity.Item;
@@ -11,12 +12,11 @@ import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
-import com.ssafy.woojuin.domain.category.dto.CategoryResponse;
+import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.util.List;
-import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -37,15 +37,20 @@ public class ItemService {
     private final ItemQueueProducer itemQueueProducer;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final ItemCategoryQueryService itemCategoryQueryService;
+    private final CategoryAssignmentService categoryAssignmentService;
+    private final ItemSummaryAssembler itemSummaryAssembler;
 
     public ItemService(ItemRepository itemRepository, S3Uploader s3Uploader,
             ItemQueueProducer itemQueueProducer, WorkspaceMemberRepository workspaceMemberRepository,
-            ItemCategoryQueryService itemCategoryQueryService) {
+            ItemCategoryQueryService itemCategoryQueryService,
+            CategoryAssignmentService categoryAssignmentService, ItemSummaryAssembler itemSummaryAssembler) {
         this.itemRepository = itemRepository;
         this.s3Uploader = s3Uploader;
         this.itemQueueProducer = itemQueueProducer;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.itemCategoryQueryService = itemCategoryQueryService;
+        this.categoryAssignmentService = categoryAssignmentService;
+        this.itemSummaryAssembler = itemSummaryAssembler;
     }
 
     public ItemCreateResponse createFromRequest(Long workspaceId, Long userId, ItemCreateRequest request) {
@@ -123,8 +128,10 @@ public class ItemService {
 
     @Transactional(readOnly = true)
     public ItemListResponse list(Long workspaceId, Long userId, ItemType type, ItemStatus status, Boolean favorite,
-            String sort, int page, int size) {
+            List<Long> categoryIds, String sort, int page, int size) {
         verifyMembership(workspaceId, userId);
+
+        Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE), resolveSort(sort));
 
         Specification<Item> spec = (root, query, cb) -> cb.and(
                 cb.equal(root.get("workspaceId"), workspaceId),
@@ -138,15 +145,24 @@ public class ItemService {
         if (favorite != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("favorite"), favorite));
         }
+        if (categoryIds != null && !categoryIds.isEmpty()) {
+            // 카테고리는 JPA 연관관계 없는 조인 테이블이라, 선택된 카테고리들 중 하나라도(OR)
+            // 연결된 아이템 id를 먼저 뽑아 id IN 조건으로 필터한다. 연결된 아이템이 없으면
+            // 빈 결과를 그대로 반환한다.
+            List<Long> itemIds = itemCategoryQueryService.itemIdsInCategories(categoryIds);
+            if (itemIds.isEmpty()) {
+                return toListResponse(Page.empty(pageable));
+            }
+            spec = spec.and((root, query, cb) -> root.get("id").in(itemIds));
+        }
 
-        Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE), resolveSort(sort));
         return toListResponse(itemRepository.findAll(spec, pageable));
     }
 
     @Transactional(readOnly = true)
-    public ItemResponse getDetail(Long itemId, Long userId) {
+    public ItemDetailResponse getDetail(Long itemId, Long userId) {
         Item item = findActiveItem(itemId, userId);
-        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
+        return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
     @Transactional(readOnly = true)
@@ -155,19 +171,42 @@ public class ItemService {
     }
 
     /**
-     * 제목·메모 수정. 수정해도 AI 재처리 큐에는 발행하지 않는다 — 사용자가 직접 고친
-     * 내용을 AI가 다시 덮어쓰면 안 되기 때문. 재처리 정책은 AI 로직을 만드는
+     * 제목·메모·카테고리 수정. 수정해도 AI 재처리 큐에는 발행하지 않는다 — 사용자가 직접
+     * 고친 내용을 AI가 다시 덮어쓰면 안 되기 때문. 재처리 정책은 AI 로직을 만드는
      * 묶음 D/F와 합의해서 정할 것.
-     * 태그·카테고리 수정(API 명세서)은 해당 도메인이 아직 없어 이번 범위 밖.
+     *
+     * <p>categoryIds는 보낸 집합으로 교체한다(추가가 아니다). null이면 카테고리를 건드리지
+     * 않고, 빈 배열은 ItemUpdateRequest의 {@code @Size(min = 1)}에서 400으로 걸린다.
+     * 카테고리 교체가 제목·메모 수정과 한 트랜잭션에 묶여 있어, 카테고리 id가 하나라도
+     * 잘못되면 제목까지 함께 롤백된다(반쪽 저장 방지).
+     *
+     * <p>태그 수정은 태그 기능 자체를 구현하지 않기로 결정되어 대상에서 제외됐다.
      */
     @Transactional
-    public ItemResponse update(Long itemId, Long userId, ItemUpdateRequest request) {
-        if (request.title() == null && request.content() == null) {
-            throw new IllegalArgumentException("수정할 내용이 없습니다 (title 또는 content 필요)");
+    public ItemDetailResponse update(Long itemId, Long userId, ItemUpdateRequest request) {
+        if (request.title() == null && request.content() == null && request.categoryIds() == null) {
+            throw new IllegalArgumentException("수정할 내용이 없습니다 (title, content, categoryIds 중 하나 필요)");
         }
         Item item = findActiveItem(itemId, userId);
         item.update(request.title(), request.content());
-        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
+        if (request.categoryIds() != null) {
+            categoryAssignmentService.replace(item.getId(), item.getWorkspaceId(), request.categoryIds());
+        }
+        return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
+    }
+
+    /**
+     * 즐겨찾기 등록(favorite=true)/해제(false). 서버가 토글하지 않고 클라이언트가 원하는
+     * 상태를 메서드로 지정하는 방식이라 멱등하다 — 별을 연타해도 서버 상태가 요청 순서에
+     * 따라 뒤집히지 않는다.
+     * 휴지통에 있는 아이템은 findActiveItem에서 걸러 404다 — 목록에 안 보이는 것을
+     * 즐겨찾기해 두면 복구 전까지 어디에도 나타나지 않아 사용자가 이유를 알 수 없다.
+     */
+    @Transactional
+    public ItemFavoriteResponse changeFavorite(Long itemId, Long userId, boolean favorite) {
+        Item item = findActiveItem(itemId, userId);
+        item.changeFavorite(favorite);
+        return ItemFavoriteResponse.from(item);
     }
 
     /** 삭제는 항상 휴지통 이동이 먼저다 (AGENTS.md 도메인 규칙). */
@@ -190,23 +229,19 @@ public class ItemService {
     }
 
     @Transactional
-    public ItemResponse restore(Long itemId, Long userId) {
+    public ItemDetailResponse restore(Long itemId, Long userId) {
         Item item = findTrashedItem(itemId, userId);
         item.restore();
-        return ItemResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
+        return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
-    /** 페이지의 아이템들에 카테고리를 배치로 채워 응답으로 변환한다(N+1 방지). */
+    /** 검색과 카드 형태가 갈라지지 않도록 조립은 ItemSummaryAssembler에 위임한다. */
     private ItemListResponse toListResponse(Page<Item> items) {
-        Map<Long, List<CategoryResponse>> categoriesByItem = itemCategoryQueryService.categoriesByItemIds(
-                items.getContent().stream().map(Item::getId).toList());
-        Page<ItemResponse> mapped = items.map(item ->
-                ItemResponse.from(item, categoriesByItem.getOrDefault(item.getId(), List.of()), imageUrlOf(item)));
-        return ItemListResponse.from(mapped);
+        return itemSummaryAssembler.toListResponse(items);
     }
 
     /**
-     * IMAGE 아이템만 원본 조회용 presigned URL을 발급한다. URL/MEMO는 S3 원본이 없어 null.
+     * 상세용 IMAGE presigned URL — 항상 원본. URL/MEMO는 S3 원본이 없어 null.
      * 만료가 있는 URL이라 저장하지 않고 응답을 만들 때마다 새로 발급한다(S3Uploader.presignGet).
      */
     private String imageUrlOf(Item item) {
@@ -224,11 +259,16 @@ public class ItemService {
     public void deletePermanently(Long itemId, Long userId) {
         Item item = findTrashedItem(itemId, userId);
         String s3Key = item.getS3Key();
+        String thumbnailS3Key = item.getThumbnailS3Key();
 
         itemRepository.delete(item);
 
+        // 원본과 썸네일 둘 다 정리한다(썸네일은 IMAGE가 생성됐을 때만 존재).
         if (s3Key != null) {
             s3Uploader.deleteQuietly(s3Key);
+        }
+        if (thumbnailS3Key != null) {
+            s3Uploader.deleteQuietly(thumbnailS3Key);
         }
     }
 
