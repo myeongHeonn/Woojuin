@@ -14,7 +14,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemFavoriteResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.service.ItemService;
 import com.ssafy.woojuin.global.common.ItemStatus;
@@ -143,6 +145,73 @@ class ItemControllerTest {
                 .andExpect(jsonPath("$.status").value(400));
 
         verify(itemService, never()).update(any(), any(), any());
+    }
+
+    @Test
+    void 카테고리를_빈_배열로_보내면_400() throws Exception {
+        // 카테고리 0개인 아이템은 카테고리 필터 화면에서 다시 찾을 수 없어 최소 1개를 강제한다.
+        authenticateAs(1L);
+
+        mockMvc.perform(patch("/api/items/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"categoryIds\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(itemService, never()).update(any(), any(), any());
+    }
+
+    @Test
+    void 카테고리만_보내도_수정_요청이_전달된다() throws Exception {
+        // title/content 없이 카테고리만 바꾸는 게 막히면 안 된다(빈 배열 금지와 혼동하지 말 것).
+        authenticateAs(1L);
+
+        mockMvc.perform(patch("/api/items/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"categoryIds\":[3,5]}"))
+                .andExpect(status().isOk());
+
+        verify(itemService).update(eq(1L), eq(1L),
+                eq(new ItemUpdateRequest(null, null, List.of(3L, 5L))));
+    }
+
+    @Test
+    void 즐겨찾기_등록은_POST_해제는_같은_경로_DELETE() throws Exception {
+        authenticateAs(1L);
+        when(itemService.changeFavorite(1L, 1L, true)).thenReturn(new ItemFavoriteResponse(1L, true));
+        when(itemService.changeFavorite(1L, 1L, false)).thenReturn(new ItemFavoriteResponse(1L, false));
+
+        mockMvc.perform(post("/api/items/1/favorite"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data.itemId").value(1))
+                .andExpect(jsonPath("$.data.favorite").value(true));
+
+        mockMvc.perform(delete("/api/items/1/favorite"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.favorite").value(false));
+    }
+
+    @Test
+    void 즐겨찾기_해제는_휴지통_이동으로_새지_않는다() throws Exception {
+        // DELETE /api/items/1과 DELETE /api/items/1/favorite이 같은 컨트롤러에 있어
+        // 매핑이 흐려지면 즐겨찾기를 끄려던 요청이 아이템을 지워버린다.
+        authenticateAs(1L);
+        when(itemService.changeFavorite(1L, 1L, false)).thenReturn(new ItemFavoriteResponse(1L, false));
+
+        mockMvc.perform(delete("/api/items/1/favorite")).andExpect(status().isOk());
+
+        verify(itemService).changeFavorite(1L, 1L, false);
+        verify(itemService, never()).moveToTrash(any(), any());
+    }
+
+    @Test
+    void 인증되지_않은_즐겨찾기_요청은_공통형식_401() throws Exception {
+        mockMvc.perform(post("/api/items/1/favorite"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+
+        verify(itemService, never()).changeFavorite(any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
     @Test
