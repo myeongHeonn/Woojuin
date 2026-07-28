@@ -1,4 +1,4 @@
-import GlassButton from '@/components/ui/GlassButton';
+import GlassButton from '@/components/ui/button/GlassButton';
 import HeaderPopover from '@/components/ui/HeaderPopover';
 import { PlusIcon } from '@/assets/icons';
 import AddModal from '@/components/domain/header/AddModal';

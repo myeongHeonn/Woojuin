@@ -1,7 +1,7 @@
 import type { ItemDetail } from '@/types/item';
 import { useItem } from '@/hooks/useItem';
 import Overlay from '@/components/ui/Overlay';
-import CloseButton from '@/components/ui/CloseButton';
+import CloseButton from '@/components/ui/button/CloseButton';
 import ItemActionsMenu from './ItemActionsMenu';
 import PhotoBody from './PhotoBody';
 import LinkBody from './LinkBody';

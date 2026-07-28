@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import Modal from '@/components/ui/Modal';
-import SubmitButton from '@/components/ui/SubmitButton';
+import SubmitButton from '@/components/ui/button/SubmitButton';
 import TextInput from '@/components/ui/TextInput';
 import { createWorkspace } from '@/services/workspaces';
 

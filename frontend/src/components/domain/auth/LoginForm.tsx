@@ -1,12 +1,14 @@
-import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useSetAtom } from 'jotai';
 import { Link, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import axios from 'axios';
 import { login } from '@/services/auth';
+import { loginSchema, type LoginFormValues } from '@/schemas/authSchemas';
 import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
-import TextInput from '@/components/ui/TextInput';
-import SubmitButton from '@/components/ui/SubmitButton';
+import FormTextField from '@/components/ui/form/FormTextField';
+import SubmitButton from '@/components/ui/button/SubmitButton';
 import GoogleAuthButton from './GoogleAuthButton';
 
 /**
@@ -20,8 +22,8 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const setAccessToken = useSetAtom(accessTokenAtom);
   const setRefreshToken = useSetAtom(refreshTokenAtom);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const formMethods = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
+  const { handleSubmit } = formMethods;
 
   const loginMutation = useMutation({
     mutationFn: login,
@@ -40,24 +42,14 @@ const LoginForm = () => {
     <div className="flex w-full flex-col gap-4">
       <form
         className="flex flex-col gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          loginMutation.mutate({ email, password });
-        }}
+        onSubmit={handleSubmit((values) => loginMutation.mutate(values))}
       >
-        <TextInput
-          type="email"
-          placeholder="이메일"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <TextInput
+        <FormTextField type="email" placeholder="이메일" name="email" formMethods={formMethods} />
+        <FormTextField
           type="password"
           placeholder="비밀번호"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
+          name="password"
+          formMethods={formMethods}
         />
         {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
         <SubmitButton pending={loginMutation.isPending} pendingLabel="로그인 중...">

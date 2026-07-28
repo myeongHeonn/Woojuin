@@ -39,4 +39,9 @@ public class SignupService {
         eventPublisher.publishEvent(new UserSignedUpEvent(saved.getId()));
         return saved;
     }
+
+    /** 회원가입 폼에서 제출 전 실시간으로 이메일 사용 가능 여부를 확인할 때 쓴다. */
+    public boolean isEmailAvailable(String email) {
+        return !userRepository.existsByEmail(email);
+    }
 }

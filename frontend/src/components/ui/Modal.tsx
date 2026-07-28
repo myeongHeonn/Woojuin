@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import Overlay from './Overlay';
-import CloseButton from './CloseButton';
+import CloseButton from './button/CloseButton';
 
 interface ModalProps {
   open: boolean;

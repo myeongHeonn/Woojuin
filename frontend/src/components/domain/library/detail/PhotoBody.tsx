@@ -3,7 +3,7 @@ import Thumbnail from '../Thumbnail';
 import Section from './Section';
 import CategoryEditor from './CategoryEditor';
 import SavedMeta from './SavedMeta';
-import IconButton from '@/components/ui/IconButton';
+import IconButton from '@/components/ui/button/IconButton';
 import { DownloadIcon } from '@/assets/icons';
 import { downloadImage, imageFilename } from '@/utils/downloadImage';
 

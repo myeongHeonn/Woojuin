@@ -94,4 +94,26 @@ class SignupServiceTest {
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().userId()).isEqualTo(1L);
     }
+
+    @Test
+    @DisplayName("이미 가입된 이메일이면 사용 불가능하다")
+    void isEmailAvailable_existingEmail_returnsFalse() {
+        signupService = new SignupService(userRepository, passwordEncoder, eventPublisher);
+        when(userRepository.existsByEmail("test@woojuin.com")).thenReturn(true);
+
+        boolean available = signupService.isEmailAvailable("test@woojuin.com");
+
+        assertThat(available).isFalse();
+    }
+
+    @Test
+    @DisplayName("가입된 적 없는 이메일이면 사용 가능하다")
+    void isEmailAvailable_newEmail_returnsTrue() {
+        signupService = new SignupService(userRepository, passwordEncoder, eventPublisher);
+        when(userRepository.existsByEmail("new@woojuin.com")).thenReturn(false);
+
+        boolean available = signupService.isEmailAvailable("new@woojuin.com");
+
+        assertThat(available).isTrue();
+    }
 }
