@@ -1,12 +1,13 @@
-import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useSetAtom } from 'jotai';
 import { Link, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import axios from 'axios';
 import { login } from '@/services/auth';
-import { loginSchema, toFieldErrors } from '@/schemas/authSchemas';
+import { loginSchema, type LoginFormValues } from '@/schemas/authSchemas';
 import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
-import TextInput from '@/components/ui/TextInput';
+import FormTextField from '@/components/ui/FormTextField';
 import SubmitButton from '@/components/ui/SubmitButton';
 import GoogleAuthButton from './GoogleAuthButton';
 
@@ -21,9 +22,11 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const setAccessToken = useSetAtom(accessTokenAtom);
   const setRefreshToken = useSetAtom(refreshTokenAtom);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
 
   const loginMutation = useMutation({
     mutationFn: login,
@@ -42,34 +45,22 @@ const LoginForm = () => {
     <div className="flex w-full flex-col gap-4">
       <form
         className="flex flex-col gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const errors = toFieldErrors(loginSchema, { email, password });
-          setFieldErrors(errors);
-          if (Object.keys(errors).length > 0) return;
-          loginMutation.mutate({ email, password });
-        }}
+        onSubmit={handleSubmit((values) => loginMutation.mutate(values))}
       >
-        <div className="flex flex-col gap-1">
-          <TextInput
-            type="email"
-            placeholder="이메일"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          {fieldErrors.email && <p className="text-sm text-red-400">{fieldErrors.email}</p>}
-        </div>
-        <div className="flex flex-col gap-1">
-          <TextInput
-            type="password"
-            placeholder="비밀번호"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {fieldErrors.password && <p className="text-sm text-red-400">{fieldErrors.password}</p>}
-        </div>
+        <FormTextField
+          type="email"
+          placeholder="이메일"
+          name="email"
+          register={register}
+          error={errors.email}
+        />
+        <FormTextField
+          type="password"
+          placeholder="비밀번호"
+          name="password"
+          register={register}
+          error={errors.password}
+        />
         {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
         <SubmitButton pending={loginMutation.isPending} pendingLabel="로그인 중...">
           로그인

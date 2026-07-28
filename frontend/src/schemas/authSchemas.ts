@@ -24,18 +24,3 @@ export const loginSchema = z.object({
 
 export type SignupFormValues = z.infer<typeof signupSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
-
-/** 필드별 에러 메시지만 뽑아낸다 — 폼에서 바로 렌더링할 수 있는 형태. */
-export function toFieldErrors<T extends z.ZodTypeAny>(schema: T, values: unknown) {
-  const result = schema.safeParse(values);
-  if (result.success) return {};
-
-  const errors: Record<string, string> = {};
-  for (const issue of result.error.issues) {
-    const key = issue.path[0];
-    if (typeof key === 'string' && !(key in errors)) {
-      errors[key] = issue.message;
-    }
-  }
-  return errors;
-}
