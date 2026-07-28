@@ -16,6 +16,20 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') },
   },
+  // 무거운 의존성을 **미리** 최적화해 둔다.
+  //
+  // 안 해두면 테스트가 도는 중간에 Vite 가 이들을 최적화하면서 페이지를 리로드하고,
+  // vitest 가 직접 경고를 낸다:
+  //   [vite] (client) optimized dependencies changed. reloading
+  //   [vitest] Vite unexpectedly reloaded a test. This may cause tests to fail,
+  //            lead to flaky behaviour or duplicated test runs.
+  //
+  // browser mode 에서는 이때 브라우저 컨텍스트가 어긋나 **테스트가 다 통과했는데도
+  // 프로세스가 종료되지 않는다**(CI 에서 13분 넘게 매달려 있는 것을 실제로 관측).
+  // 테스트 파일이 늘어날수록 타이밍상 더 잘 재현된다.
+  optimizeDeps: {
+    include: ['maplibre-gl', 'react-dom/client', 'three'],
+  },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['./src/test/setup.ts'],
