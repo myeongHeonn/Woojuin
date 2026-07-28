@@ -75,6 +75,27 @@ export function TrashIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** 가로 점 3개 — 더보기 메뉴 */
+export function DotsHorizontalIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** 다운로드(아래 화살표 + 받침) — 원본 이미지 저장 */
+export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3v11m0 0 4-4m-4 4-4-4" />
+      <path d="M4 17v1.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V17" />
+    </svg>
+  );
+}
+
 /** 사람 — 마이페이지 */
 export function UserIcon(props: SVGProps<SVGSVGElement>) {
   return (

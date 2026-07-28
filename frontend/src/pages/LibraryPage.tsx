@@ -4,6 +4,7 @@ import { classNames } from '@/utils/classNames';
 import { STAGE_PX } from '@/constants/stage';
 import CategoryChipBar from '@/components/domain/library/CategoryChipBar';
 import Items from '@/components/domain/library/Items';
+import ItemModal from '@/components/domain/library/detail/ItemModal';
 import { useCategories } from '@/hooks/useCategories';
 
 /**
@@ -20,6 +21,9 @@ const LibraryPage = () => {
   // 필터는 이 화면에서만 의미 있고 기억할 필요 없어 지역 상태로 둔다
   const [selected, setSelected] = useState<number[]>([]);
   const [favoriteActive, setFavoriteActive] = useState(false);
+
+  // 상세 모달 — 열린 아이템 id(null 이면 닫힘)
+  const [openItemId, setOpenItemId] = useState<number | null>(null);
 
   return (
     // 좌우 여백(STAGE_PX)은 헤더 제목과 같은 값을 공유해 칩 바·리스트가 한 선에 맞는다.
@@ -47,9 +51,16 @@ const LibraryPage = () => {
 
       {/* 칩 바 아래만 스크롤 — flex-1 로 남은 높이를 채우고 min-h-0 이라야 넘칠 때 줄어든다 */}
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none">
-        {/* TODO: selected(카테고리)·favoriteActive 필터를 Items 로 내려보내기 (지금은 전체) */}
-        <Items />
+        {/* 필터는 전부 서버 처리 — Items → useItems queryKey 로 내려간다 */}
+        <Items favorite={favoriteActive} categoryIds={selected} onOpenItem={setOpenItemId} />
       </div>
+
+      {/* 상세 모달 — 타입(사진·링크·메모)에 맞는 바디를 셸이 골라 띄운다 */}
+      <ItemModal
+        workspaceId={Number(workspaceId)}
+        itemId={openItemId}
+        onClose={() => setOpenItemId(null)}
+      />
     </div>
   );
 };

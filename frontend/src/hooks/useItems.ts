@@ -20,13 +20,14 @@ export function processingPollInterval(
 }
 
 /** 특정 워크스페이스에 저장된 아이템 목록 — 서버 상태 진입점 */
-export function useItems({ workspaceId, size }: workspaceProps) {
+export function useItems({ workspaceId, size, favorite, categoryIds, sort }: workspaceProps) {
   return useInfiniteQuery({
-    queryKey: ['items', workspaceId, size],
+    // 필터를 queryKey 에 넣어야 값이 바뀔 때 0페이지부터 다시 받는다(캐시도 필터별로 분리)
+    queryKey: ['items', workspaceId, size, favorite, categoryIds, sort],
     initialPageParam: 0, //0부터
     queryFn: ({ pageParam }) =>
       // ← react-query가 번호를 줌
-      fetchItems({ workspaceId, page: pageParam, size }),
+      fetchItems({ workspaceId, page: pageParam, size, favorite, categoryIds, sort }),
     getNextPageParam: (lastPage) =>
       // ← page/setPage/hasMore 대체
       (lastPage.page + 1) * lastPage.size < lastPage.totalElements ? lastPage.page + 1 : undefined,

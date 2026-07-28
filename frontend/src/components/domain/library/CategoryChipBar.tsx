@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type ComponentType, type SVGProps } from 'react';
+import type { ComponentType, SVGProps } from 'react';
 import { classNames } from '@/utils/classNames';
+import { useHorizontalScroll } from '@/hooks/useHorizontalScroll';
 import Dot from '@/components/ui/Dot';
 import FilterChip from '@/components/ui/FilterChip';
 import { ChevronLeftIcon, ChevronRightIcon, ManageIcon } from '@/assets/icons';
@@ -75,23 +76,9 @@ const CategoryChipBar = ({
   onToggleFavorite,
   onManage,
 }: CategoryChipBarProps) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [atStart, setAtStart] = useState(true);
-  const [atEnd, setAtEnd] = useState(true);
-
-  const syncArrows = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setAtStart(el.scrollLeft <= 0);
-    // 소수점 오차로 끝에서 1px 남는 경우가 있어 여유를 둔다
-    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1);
-  };
-
-  // 칩 수가 바뀌면 넘칠 수 있는지 다시 판단한다
-  useEffect(syncArrows, [chips]);
-
-  const scrollBy = (dir: 1 | -1) =>
-    scrollRef.current?.scrollBy({ left: dir * 220, behavior: 'smooth' });
+  // 가로 스크롤 동작(끝 감지·이동)은 훅으로 분리 — 이 컴포넌트는 배치·표현만 맡는다.
+  // 칩 수가 바뀌면 넘침 여부를 다시 계산하도록 chips.length 를 넘긴다.
+  const { scrollRef, atStart, atEnd, onScroll, scrollBy } = useHorizontalScroll(chips.length);
 
   return (
     <div className="flex items-center gap-2 pt-10 pb-10">
@@ -116,12 +103,12 @@ const CategoryChipBar = ({
         icon={ChevronLeftIcon}
         label="이전 카테고리"
         disabled={atStart}
-        onClick={() => scrollBy(-1)}
+        onClick={() => scrollBy(-220)}
       />
 
       <div
         ref={scrollRef}
-        onScroll={syncArrows}
+        onScroll={onScroll}
         role="group"
         aria-label="카테고리 필터"
         className="scrollbar-none flex min-w-0 flex-1 items-center gap-2 overflow-x-auto"
@@ -146,7 +133,7 @@ const CategoryChipBar = ({
         icon={ChevronRightIcon}
         label="다음 카테고리"
         disabled={atEnd}
-        onClick={() => scrollBy(1)}
+        onClick={() => scrollBy(220)}
       />
     </div>
   );

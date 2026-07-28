@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-react';
 import ItemCard from '@/components/domain/library/ItemCard';
 import type { Item, ItemStatus, ItemType } from '@/types/item';
@@ -8,10 +8,10 @@ const make = (over: Partial<Item> & { type: ItemType; status: ItemStatus }): Ite
   itemId: 1,
   title: '제목',
   url: null,
-  content: null,
-  s3Key: null,
+  summary: null,
   imageUrl: null,
   preview: { thumbnailUrl: null, description: null },
+  categories: [],
   favorite: false,
   createdAt: '',
   deletedAt: null,
@@ -48,6 +48,17 @@ describe('ItemCard', () => {
       expect(card(container).textContent).toContain('분석 중…');
       // 분석 중엔 실제 제목을 쓰지 않는다
       expect(card(container).textContent).not.toContain('아직 이름');
+    });
+
+    it('분석 중이면 비활성 — 클릭해도 열리지 않는다(모달 안 뜸)', async () => {
+      const onClick = vi.fn();
+      const { container } = await render(
+        <ItemCard item={make({ type: 'URL', status: 'PROCESSING' })} onClick={onClick} />,
+      );
+      expect(card(container).disabled).toBe(true);
+      // 비활성 버튼은 클릭 이벤트가 발생하지 않는다(userEvent 는 활성화를 기다리다 멈추므로 네이티브 클릭으로 확인)
+      card(container).click();
+      expect(onClick).not.toHaveBeenCalled();
     });
   });
 
