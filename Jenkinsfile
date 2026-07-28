@@ -91,7 +91,12 @@ pipeline {
                         returnStatus: true
                     ) == 0
 
-                    if (env.gitlabTargetBranch) {
+                    // 🔴 MR 판별은 **gitlabActionType** 으로 한다(실측: MR=MERGE / push=PUSH).
+                    //    `gitlabTargetBranch` 존재 여부로 판별하면 안 된다 — 플러그인은
+                    //    **push 이벤트에도 이 값을 채운다**(push 는 source=target=develop).
+                    //    그러면 push 빌드가 base=origin/develop = HEAD 자신과 비교해
+                    //    diff 가 비고 **전 스테이지가 skip 된 채 초록불**이 뜬다(2026-07-28 실제 발생).
+                    if (env.gitlabActionType == 'MERGE' && env.gitlabTargetBranch) {
                         // MR 빌드 — 타겟 브랜치와 비교하면 "이 MR 이 가져오는 변경"이 나온다.
                         base = "origin/${env.gitlabTargetBranch}"
                         baseWhy = 'MR 빌드 → 타겟 브랜치'
@@ -120,6 +125,20 @@ pipeline {
                     def buildAll = {
                         env.CHANGED_BE = 'true'
                         env.CHANGED_FE = 'true'
+                    }
+
+                    // 🔴 base 를 "정할 수 있었다"와 "그 base 가 의미 있다"는 다른 문제다.
+                    //    base 가 HEAD 자신을 가리키면 diff 는 항상 비고, 그러면 아무것도 검증하지
+                    //    않은 채 초록불이 뜬다. 그 경우는 판단 불가로 간주한다.
+                    if (base) {
+                        def sameAsHead = sh(
+                            script: "test \"\$(git rev-parse ${base})\" = \"\$(git rev-parse HEAD)\"",
+                            returnStatus: true
+                        ) == 0
+                        if (sameAsHead) {
+                            echo "⚠️ 비교 기준(${base})이 HEAD 와 같은 커밋이다 → 기준 무효 처리"
+                            base = ''
+                        }
                     }
 
                     if (!base) {
@@ -209,6 +228,10 @@ pipeline {
         }
 
         stage('Frontend Test') {
+            // 🔴 브라우저 테스트가 **끝났는데도 종료되지 않는** 사례를 겪었다(13분+ 매달림).
+            //    전체 timeout(30분)에 맡기면 그만큼 잡이 점유되고 다른 MR 이 줄줄이 대기한다
+            //    (동시 빌드 금지 상태라 더 치명적). 여기서 빨리 실패하게 못 박는다.
+            options { timeout(time: 10, unit: 'MINUTES') }
             when { expression { env.CHANGED_FE == 'true' } }
             steps {
                 // 프론트 테스트는 **실제 Chromium** 에서 돈다(vitest browser mode + Playwright).
@@ -221,9 +244,18 @@ pipeline {
                     docker build --target test \
                         -t woojuin-frontend-test:cache \
                         -f frontend/Dockerfile frontend
-                    docker run --rm woojuin-frontend-test:cache \
-                        sh -c 'npm run lint && npm test'
                 """
+
+                // lint 와 test 를 **분리**한다 — 한 줄로 묶으면 멈췄을 때 어느 쪽인지 알 수 없다.
+                sh "docker run --rm woojuin-frontend-test:cache npm run lint"
+
+                // Chromium 을 컨테이너에서 돌릴 때 필요한 두 옵션:
+                //   --init     : Chromium 은 자식 프로세스를 많이 띄운다. PID 1 이 좀비를
+                //                수거하지 않으면 테스트가 끝나도 **컨테이너가 종료되지 않는다**
+                //   --ipc=host : 기본 /dev/shm 은 64MB 뿐이라 Chromium 이 메모리 부족으로
+                //                멈추거나 죽는다(Playwright 공식 문서 권고사항)
+                sh "docker run --rm --init --ipc=host woojuin-frontend-test:cache npm test"
+
                 // type-check 는 별도로 돌리지 않는다 — `npm run build` 가 `tsc -b && vite build`
                 // 라서 다음 스테이지에서 이미 검증된다.
             }
