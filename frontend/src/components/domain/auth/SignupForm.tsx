@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import axios from 'axios';
 import { signup } from '@/services/auth';
 import { signupSchema, type SignupFormValues } from '@/schemas/authSchemas';
-import FormTextField from '@/components/ui/FormTextField';
+import FormTextField from '@/components/ui/form/FormTextField';
 import SubmitButton from '@/components/ui/SubmitButton';
 
 /** 회원가입 폼 — /signup 페이지에서 쓴다. */

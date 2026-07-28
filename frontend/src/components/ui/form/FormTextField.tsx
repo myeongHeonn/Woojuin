@@ -1,6 +1,6 @@
 import type { InputHTMLAttributes } from 'react';
 import type { FieldError, FieldValues, Path, UseFormRegister } from 'react-hook-form';
-import TextInput from './TextInput';
+import TextInput from '../TextInput';
 
 interface FormTextFieldProps<T extends FieldValues> extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
