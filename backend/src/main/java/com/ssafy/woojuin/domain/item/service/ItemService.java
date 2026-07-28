@@ -4,7 +4,6 @@ import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemDetailResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
-import com.ssafy.woojuin.domain.item.dto.ItemSummaryResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.domain.item.entity.Item;
@@ -12,12 +11,10 @@ import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
-import com.ssafy.woojuin.domain.category.dto.CategoryResponse;
 import com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.util.List;
-import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -38,15 +35,17 @@ public class ItemService {
     private final ItemQueueProducer itemQueueProducer;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final ItemCategoryQueryService itemCategoryQueryService;
+    private final ItemSummaryAssembler itemSummaryAssembler;
 
     public ItemService(ItemRepository itemRepository, S3Uploader s3Uploader,
             ItemQueueProducer itemQueueProducer, WorkspaceMemberRepository workspaceMemberRepository,
-            ItemCategoryQueryService itemCategoryQueryService) {
+            ItemCategoryQueryService itemCategoryQueryService, ItemSummaryAssembler itemSummaryAssembler) {
         this.itemRepository = itemRepository;
         this.s3Uploader = s3Uploader;
         this.itemQueueProducer = itemQueueProducer;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.itemCategoryQueryService = itemCategoryQueryService;
+        this.itemSummaryAssembler = itemSummaryAssembler;
     }
 
     public ItemCreateResponse createFromRequest(Long workspaceId, Long userId, ItemCreateRequest request) {
@@ -208,14 +207,9 @@ public class ItemService {
         return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
-    /** 페이지의 아이템들에 카테고리를 배치로 채워 목록 응답으로 변환한다(N+1 방지). */
+    /** 검색과 카드 형태가 갈라지지 않도록 조립은 ItemSummaryAssembler에 위임한다. */
     private ItemListResponse toListResponse(Page<Item> items) {
-        Map<Long, List<CategoryResponse>> categoriesByItem = itemCategoryQueryService.categoriesByItemIds(
-                items.getContent().stream().map(Item::getId).toList());
-        Page<ItemSummaryResponse> mapped = items.map(item ->
-                ItemSummaryResponse.from(item, categoriesByItem.getOrDefault(item.getId(), List.of()),
-                        thumbnailImageUrlOf(item)));
-        return ItemListResponse.from(mapped);
+        return itemSummaryAssembler.toListResponse(items);
     }
 
     /**
@@ -227,19 +221,6 @@ public class ItemService {
             return s3Uploader.presignGet(item.getS3Key());
         }
         return null;
-    }
-
-    /**
-     * 목록용 IMAGE presigned URL — 저용량 썸네일을 우선 쓰고, 아직 생성 전(PROCESSING)이거나
-     * 생성이 실패해 없으면 원본으로 폴백한다. 목록 카드는 이미지를 작게 보여주므로 썸네일이면
-     * 충분하고 로딩도 빠르다.
-     */
-    private String thumbnailImageUrlOf(Item item) {
-        if (item.getType() != ItemType.IMAGE) {
-            return null;
-        }
-        String key = item.getThumbnailS3Key() != null ? item.getThumbnailS3Key() : item.getS3Key();
-        return key != null ? s3Uploader.presignGet(key) : null;
     }
 
     /**
