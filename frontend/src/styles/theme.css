@@ -36,6 +36,7 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
+  --radius-xl: 20px; /* 모달 카드 — 목업 .modal */
   --radius-pill: 999px;
 
   --text-hero: clamp(30px, 4.5vw, 44px); /* 랜딩 히어로 */
@@ -63,6 +64,8 @@
   /* Accent */
   --color-accent: #7c6cf0;
   --color-accent-hover: #8f80f5;
+  /* 파괴적 동작(삭제) */
+  --color-danger: #ef7a72;
   /* Star 팔레트 (밝은 파스텔 — 검은 배경에서 발광) */
   --color-star-lavender: #c9b8ff;
   --color-star-blue: #8fb4ff;
@@ -101,6 +104,8 @@
   /* Accent (흰 배경 대비 강화) */
   --color-accent: #6a58e8;
   --color-accent-hover: #5847d6;
+  /* 파괴적 동작(삭제) */
+  --color-danger: #d9483f;
   /* Star 팔레트 (진한 파스텔 — 흰 배경에서 가독) */
   --color-star-lavender: #8b6fe6;
   --color-star-blue: #4f86e8;

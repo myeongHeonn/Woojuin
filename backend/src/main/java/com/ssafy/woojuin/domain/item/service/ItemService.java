@@ -3,6 +3,7 @@ package com.ssafy.woojuin.domain.item.service;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemDetailResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemFavoriteResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
@@ -192,6 +193,20 @@ public class ItemService {
             categoryAssignmentService.replace(item.getId(), item.getWorkspaceId(), request.categoryIds());
         }
         return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
+    }
+
+    /**
+     * 즐겨찾기 등록(favorite=true)/해제(false). 서버가 토글하지 않고 클라이언트가 원하는
+     * 상태를 메서드로 지정하는 방식이라 멱등하다 — 별을 연타해도 서버 상태가 요청 순서에
+     * 따라 뒤집히지 않는다.
+     * 휴지통에 있는 아이템은 findActiveItem에서 걸러 404다 — 목록에 안 보이는 것을
+     * 즐겨찾기해 두면 복구 전까지 어디에도 나타나지 않아 사용자가 이유를 알 수 없다.
+     */
+    @Transactional
+    public ItemFavoriteResponse changeFavorite(Long itemId, Long userId, boolean favorite) {
+        Item item = findActiveItem(itemId, userId);
+        item.changeFavorite(favorite);
+        return ItemFavoriteResponse.from(item);
     }
 
     /** 삭제는 항상 휴지통 이동이 먼저다 (AGENTS.md 도메인 규칙). */

@@ -11,6 +11,9 @@ backend/.project
 backend/.settings/
 backend/bin/
 
+# --- AI 도구 설정 (개인 설정이라 공유하지 않는다) ---
+.claude/
+
 # --- Env / Secrets ---
 .env
 .env.*

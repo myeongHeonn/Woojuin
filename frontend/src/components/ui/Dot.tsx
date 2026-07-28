@@ -26,7 +26,13 @@ export type DotColor = keyof typeof COLOR;
 
 interface DotProps {
   size?: DotSize;
+  /** 디자인 토큰 색 (기본 accent). hex 를 직접 주려면 hex 프롭을 쓴다 */
   color?: DotColor;
+  /**
+   * 서버가 준 임의 hex 색 (예: 카테고리 "#C9B8FF"). 주면 color 토큰보다 우선한다.
+   * 토큰에 없는 색을 Tailwind 클래스로 만들 수 없어(정적 스캔) 인라인 style 로 칠한다.
+   */
+  hex?: string | null;
   /** 은은한 발광. 디자인 시스템 규칙상 3~5px 를 넘기지 않는다 */
   glow?: boolean;
   /** 배치용 (ml-auto, absolute right-3 …) */
@@ -34,13 +40,15 @@ interface DotProps {
 }
 
 /** 상태·카테고리를 나타내는 색 점 */
-const Dot = ({ size = 'md', color = 'accent', glow = false, className }: DotProps) => (
+const Dot = ({ size = 'md', color = 'accent', hex, glow = false, className }: DotProps) => (
   <span
     aria-hidden="true"
+    style={hex ? { color: hex } : undefined}
     className={classNames(
       'inline-block shrink-0 rounded-full bg-current',
       SIZE[size],
-      COLOR[color],
+      // hex 를 주면 style 의 color 를 쓰므로 토큰 클래스는 붙이지 않는다
+      !hex && COLOR[color],
       glow && 'shadow-[0_0_3px_currentColor]',
       className,
     )}

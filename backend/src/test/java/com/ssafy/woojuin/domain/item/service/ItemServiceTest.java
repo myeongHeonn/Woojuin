@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemFavoriteResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemDetailResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
@@ -557,6 +558,71 @@ class ItemServiceTest {
 
         verify(itemRepository).delete(trashed);
         verifyNoInteractions(s3Uploader);
+    }
+
+    @Test
+    void 즐겨찾기_등록과_해제는_요청한_상태를_그대로_반영한다() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .content("메모").build();
+        ReflectionTestUtils.setField(item, "id", 42L);
+        when(itemRepository.findById(42L)).thenReturn(Optional.of(item));
+
+        ItemFavoriteResponse added = itemService.changeFavorite(42L, 1L, true);
+        assertThat(added.itemId()).isEqualTo(42L);
+        assertThat(added.favorite()).isTrue();
+        assertThat(item.isFavorite()).isTrue();
+
+        ItemFavoriteResponse removed = itemService.changeFavorite(42L, 1L, false);
+        assertThat(removed.favorite()).isFalse();
+        assertThat(item.isFavorite()).isFalse();
+    }
+
+    @Test
+    void 즐겨찾기_등록을_두번_보내도_해제되지_않는다() {
+        // 토글이 아니라 멱등이어야 한다 — 별 연타/재시도로 상태가 뒤집히면 안 된다.
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .content("메모").build();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
+
+        itemService.changeFavorite(1L, 1L, true);
+        itemService.changeFavorite(1L, 1L, true);
+
+        assertThat(item.isFavorite()).isTrue();
+    }
+
+    @Test
+    void 휴지통에_있는_아이템은_즐겨찾기할_수_없다() {
+        when(itemRepository.findById(5L)).thenReturn(Optional.of(trashedItem()));
+
+        assertThatThrownBy(() -> itemService.changeFavorite(5L, 1L, true))
+                .isInstanceOf(ItemNotFoundException.class);
+    }
+
+    @Test
+    void 워크스페이스_멤버가_아니면_즐겨찾기_403() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .content("메모").build();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(1L, 999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> itemService.changeFavorite(1L, 999L, true))
+                .isInstanceOf(WorkspaceAccessDeniedException.class);
+        assertThat(item.isFavorite()).isFalse();
+    }
+
+    @Test
+    void 즐겨찾기_필터는_favorite_조건으로_조회한다() {
+        Item favorite = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .content("즐겨찾기").build();
+        favorite.changeFavorite(true);
+        ReflectionTestUtils.setField(favorite, "id", 9L);
+        when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(favorite), PageRequest.of(0, 28), 1));
+
+        ItemListResponse response = itemService.list(1L, 1L, null, null, true, null, "latest", 0, 28);
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).favorite()).isTrue();
     }
 
     private Item trashedItem() {

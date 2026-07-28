@@ -161,6 +161,14 @@ public class Item extends BaseTimeEntity {
         this.status = ItemStatus.FAILED;
     }
 
+    /**
+     * 즐겨찾기 on/off. 토글이 아니라 원하는 상태를 그대로 반영한다 — POST/DELETE가 각각
+     * true/false를 보내므로, 연타나 재시도로 같은 요청이 두 번 와도 상태가 뒤집히지 않는다.
+     */
+    public void changeFavorite(boolean favorite) {
+        this.favorite = favorite;
+    }
+
     public void moveToTrash() {
         this.deletedAt = OffsetDateTime.now();
     }
