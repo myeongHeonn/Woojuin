@@ -12,6 +12,7 @@ import com.ssafy.woojuin.domain.auth.service.TokenRefreshService;
 import com.ssafy.woojuin.global.common.ApiResponse;
 import com.ssafy.woojuin.global.security.aop.AuthenticatedUser;
 import com.ssafy.woojuin.global.security.aop.CurrentUserResolver;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,17 +39,17 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ApiResponse<UserProfileResponse> signup(@RequestBody SignupRequest request) {
+    public ApiResponse<UserProfileResponse> signup(@Valid @RequestBody SignupRequest request) {
         return ApiResponse.success(UserProfileResponse.from(signupService.signup(request)));
     }
 
     @PostMapping("/login")
-    public ApiResponse<TokenResponse> login(@RequestBody LoginRequest request) {
+    public ApiResponse<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
         return ApiResponse.success(loginService.login(request));
     }
 
     @PostMapping("/token/refresh")
-    public ApiResponse<TokenResponse> refresh(@RequestBody TokenRefreshRequest request) {
+    public ApiResponse<TokenResponse> refresh(@Valid @RequestBody TokenRefreshRequest request) {
         return ApiResponse.success(tokenRefreshService.refresh(request.refreshToken()));
     }
 
