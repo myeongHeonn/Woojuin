@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.domain.item.controller;
 
 import com.ssafy.woojuin.domain.item.dto.ItemDetailResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemFavoriteResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemStatusResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemUpdateRequest;
 import com.ssafy.woojuin.domain.item.service.ItemService;
@@ -55,6 +56,22 @@ public class ItemDetailController {
             @Valid @RequestBody ItemUpdateRequest request) {
         Long userId = currentUserResolver.resolveUserId();
         return ResponseEntity.ok(ApiResponse.success(itemService.update(itemId, userId, request)));
+    }
+
+    /** 즐겨찾기 등록. 이미 등록된 아이템에 다시 보내도 200이다(멱등). */
+    @AuthenticatedUser
+    @PostMapping("/favorite")
+    public ResponseEntity<ApiResponse<ItemFavoriteResponse>> addFavorite(@PathVariable Long itemId) {
+        Long userId = currentUserResolver.resolveUserId();
+        return ResponseEntity.ok(ApiResponse.success(itemService.changeFavorite(itemId, userId, true)));
+    }
+
+    /** 즐겨찾기 해제. 등록과 같은 경로에 메서드만 다르다 (API 명세서 기준). */
+    @AuthenticatedUser
+    @DeleteMapping("/favorite")
+    public ResponseEntity<ApiResponse<ItemFavoriteResponse>> removeFavorite(@PathVariable Long itemId) {
+        Long userId = currentUserResolver.resolveUserId();
+        return ResponseEntity.ok(ApiResponse.success(itemService.changeFavorite(itemId, userId, false)));
     }
 
     /** 휴지통 이동 (soft delete). 영구 삭제는 /permanent로만 가능하다. */
