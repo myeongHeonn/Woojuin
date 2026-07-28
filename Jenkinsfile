@@ -159,10 +159,17 @@ pipeline {
             updateGitlabCommitStatus name: 'jenkins', state: 'failed'
         }
         always {
-            // dangling(태그 없는) 이미지만 정리한다.
+            // dangling(태그 없는) 이미지 중 **7일 넘은 것만** 정리한다.
+            //
+            // ⚠️ `until` 필터 없이 `docker image prune -f` 만 돌리면 **방금 이 빌드가 만든
+            //    중간 레이어까지 지워진다.** 레거시 빌더는 중간 이미지 기록을 따라가며 캐시를
+            //    찾으므로, 그게 사라지면 다음 빌드가 항상 cold start 가 된다.
+            //    (실측: `gradle dependencies` 레이어가 매번 재실행 → 빌드당 1분 가까이 낭비.
+            //     심지어 레이어 데이터는 태그된 이미지가 붙들고 있어 공간도 별로 안 아꼈다)
+            //
             // ⚠️ `docker system prune -a` 는 금지 — 태그 붙은 이미지까지 지워서
             //    롤백 대상 이미지와 jenkins-docker:lts 까지 날릴 수 있다.
-            sh 'docker image prune -f || true'
+            sh 'docker image prune -f --filter "until=168h" || true'
         }
     }
 }
