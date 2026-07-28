@@ -1,9 +1,138 @@
-import StagePlaceholder from '@/components/domain/stage/StagePlaceholder';
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSetAtom } from 'jotai';
+import { useNavigate } from 'react-router-dom';
+import ProfileCard from '@/components/domain/mypage/ProfileCard';
+import SettingsCard from '@/components/domain/mypage/SettingsCard';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import Toast, { type ToastMessage } from '@/components/ui/Toast';
+import { logout, updateMyProfile, type UpdateProfilePayload } from '@/services/auth';
+import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
+import { useUser } from '@/hooks/useUser';
 
-/**
- * 마이페이지 — 프로필·저장 공간·설정.
- * TODO: 목업 v3.5/mypage.html · mobile/app.html 의 my 탭 이식
- */
-const MyPage = () => <StagePlaceholder label="마이페이지" />;
+type ConfirmKind = 'logout' | 'withdraw' | null;
+
+const MyPage = () => {
+  const user = useUser();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const setAccessToken = useSetAtom(accessTokenAtom);
+  const setRefreshToken = useSetAtom(refreshTokenAtom);
+  const [notificationEnabled, setNotificationEnabled] = useState(true);
+  const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const profileMutation = useMutation({
+    mutationFn: (payload: UpdateProfilePayload) => updateMyProfile(payload),
+    onSuccess: (profile) => {
+      queryClient.setQueryData(['user', 'me'], profile);
+      setToast({ message: '프로필이 변경되었습니다.', tone: 'success' });
+    },
+    onError: () => {
+      setToast({ message: '프로필을 변경하지 못했습니다. 다시 시도해 주세요.', tone: 'error' });
+    },
+  });
+
+  const handleProfileUpdate = (changes: Partial<UpdateProfilePayload>) => {
+    profileMutation.mutate({
+      nickname: changes.nickname ?? user.nickName,
+      profileImageUrl: changes.profileImageUrl ?? user.profileImageUrl ?? null,
+      avatarColor: changes.avatarColor ?? user.avatarColor,
+    });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch {
+      // 서버 로그아웃이 실패해도 현재 기기의 인증 정보는 제거한다.
+    }
+    setAccessToken(null);
+    setRefreshToken(null);
+    queryClient.clear();
+    navigate('/');
+  };
+
+  const handleNotificationToggle = () => {
+    setNotificationEnabled((enabled) => !enabled);
+    setToast({
+      message: `알림을 ${notificationEnabled ? '껐습니다.' : '켰습니다.'}`,
+      tone: 'success',
+    });
+  };
+
+  return (
+    <div className="h-full overflow-y-auto px-4 pb-28 pt-6 desktop:px-9 desktop:pb-20">
+      <div className="mx-auto w-full max-w-[660px]">
+        <h1 className="mb-[26px] text-base font-bold text-text-1">마이페이지</h1>
+
+        <ProfileCard
+          nickname={user.nickName}
+          email={user.email}
+          avatarColor={user.avatarColor}
+          provider={user.provider}
+          saving={profileMutation.isPending}
+          onNicknameChange={(nickname) => handleProfileUpdate({ nickname })}
+          onAvatarColorChange={(avatarColor) => handleProfileUpdate({ avatarColor })}
+          onLogout={() => setConfirmKind('logout')}
+        />
+
+        <section aria-label="활동 통계" className="mb-4 grid grid-cols-3 gap-3">
+          {[
+            ['—', '전체 저장'],
+            ['—', '워크스페이스'],
+            ['—', '이번 주 저장'],
+          ].map(([value, label]) => (
+            <div
+              key={label}
+              className="rounded-lg border border-border-soft bg-surface px-3 py-4 desktop:px-[18px]"
+            >
+              <div className="text-[22px] font-extrabold text-text-1">{value}</div>
+              <div className="mt-0.5 text-xs text-text-3">{label}</div>
+            </div>
+          ))}
+        </section>
+
+        <SettingsCard
+          notificationEnabled={notificationEnabled}
+          onNotificationToggle={handleNotificationToggle}
+          onUpgrade={() => setToast({ message: 'Pro 플랜은 준비 중입니다.', tone: 'info' })}
+          onHelp={() => setToast({ message: '고객센터는 준비 중입니다.', tone: 'info' })}
+        />
+
+        <div className="mt-[34px] text-center">
+          <button
+            type="button"
+            onClick={() => setConfirmKind('withdraw')}
+            className="text-[11.5px] text-text-3 underline underline-offset-4 opacity-70 transition-opacity hover:opacity-100"
+          >
+            회원 탈퇴
+          </button>
+        </div>
+      </div>
+
+      <ConfirmModal
+        open={confirmKind === 'logout'}
+        title="로그아웃할까요?"
+        description="현재 기기에서 우주인 계정을 로그아웃합니다."
+        confirmLabel="로그아웃"
+        onCancel={() => setConfirmKind(null)}
+        onConfirm={handleLogout}
+      />
+      <ConfirmModal
+        open={confirmKind === 'withdraw'}
+        title="회원 탈퇴"
+        description="회원 탈퇴 기능은 아직 준비 중입니다. 실제 계정과 저장된 콘텐츠는 삭제되지 않습니다."
+        confirmLabel="확인"
+        onCancel={() => setConfirmKind(null)}
+        onConfirm={() => {
+          setConfirmKind(null);
+          setToast({ message: '회원 탈퇴 기능은 준비 중입니다.', tone: 'info' });
+        }}
+      />
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
+    </div>
+  );
+};
 
 export default MyPage;
