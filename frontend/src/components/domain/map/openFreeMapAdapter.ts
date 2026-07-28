@@ -88,12 +88,33 @@ export const createOpenFreeMapAdapter = ({
   let points: MapPoint[] = [];
   let markers: Marker[] = [];
   let markerElements = new Map<number, HTMLButtonElement>();
-  let popup: Popup | null = null;
+  let selectedPopup: Popup | null = null;
+  let hoverPopup: Popup | null = null;
   let selectedPointId: number | null = null;
 
-  const removePopup = () => {
-    popup?.remove();
-    popup = null;
+  const removeSelectedPopup = () => {
+    selectedPopup?.remove();
+    selectedPopup = null;
+  };
+
+  const removeHoverPopup = () => {
+    hoverPopup?.remove();
+    hoverPopup = null;
+  };
+
+  const showHoverPopup = (point: MapPoint) => {
+    if (selectedPointId !== null) return;
+
+    removeHoverPopup();
+    hoverPopup = new Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: 18,
+      className: 'woojuin-map-popup',
+    })
+      .setLngLat([point.lng, point.lat])
+      .setDOMContent(createPopupContent(point))
+      .addTo(map);
   };
 
   const updateMarkerSelection = () => {
@@ -106,13 +127,14 @@ export const createOpenFreeMapAdapter = ({
 
   const updateSelection = () => {
     updateMarkerSelection();
-    removePopup();
+    removeHoverPopup();
+    removeSelectedPopup();
     if (selectedPointId === null) return;
 
     const point = points.find(({ id }) => id === selectedPointId);
     if (!point) return;
 
-    popup = new Popup({
+    selectedPopup = new Popup({
       closeButton: false,
       closeOnClick: false,
       offset: 18,
@@ -143,6 +165,7 @@ export const createOpenFreeMapAdapter = ({
   };
 
   const removeMarkers = () => {
+    removeHoverPopup();
     markers.forEach((marker) => marker.remove());
     markers = [];
     markerElements = new Map();
@@ -202,6 +225,10 @@ export const createOpenFreeMapAdapter = ({
         event.stopPropagation();
         onSelectPoint(point.id);
       });
+      element.addEventListener('mouseenter', () => showHoverPopup(point));
+      element.addEventListener('mouseleave', removeHoverPopup);
+      element.addEventListener('focus', () => showHoverPopup(point));
+      element.addEventListener('blur', removeHoverPopup);
       markerElements.set(point.id, element);
     }
 
@@ -290,7 +317,8 @@ export const createOpenFreeMapAdapter = ({
       map.resize();
     },
     destroy() {
-      removePopup();
+      removeHoverPopup();
+      removeSelectedPopup();
       map.off('moveend', renderMarkers);
       map.off('click', handleMapClick);
       removeMarkers();
