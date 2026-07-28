@@ -1,7 +1,7 @@
 import type { ItemDetail } from '@/types/item';
 import Dropdown from '@/components/ui/Dropdown';
 import MenuItem from '@/components/ui/MenuItem';
-import IconButton from '@/components/ui/IconButton';
+import IconButton from '@/components/ui/button/IconButton';
 import { DotsHorizontalIcon, StarIcon, TrashIcon } from '@/assets/icons';
 import { useSetFavorite, useDeleteItem } from '@/hooks/useItemActions';
 

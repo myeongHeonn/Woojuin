@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { classNames } from '@/utils/classNames';
 import { saveImage } from '@/services/items';
 import { useCreateItem } from '@/hooks/useCreateItem';
-import SubmitButton from '@/components/ui/SubmitButton';
+import SubmitButton from '@/components/ui/button/SubmitButton';
 
 interface ImageFormProps {
   /** 저장이 끝나면 팝오버를 닫는다 */

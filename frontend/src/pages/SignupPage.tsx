@@ -1,6 +1,6 @@
 import SignupForm from '@/components/domain/auth/SignupForm';
 import BrandMark from '@/components/ui/BrandMark';
-import BackButton from '@/components/ui/BackButton';
+import BackButton from '@/components/ui/button/BackButton';
 
 /** 회원가입 화면 */
 export default function SignupPage() {

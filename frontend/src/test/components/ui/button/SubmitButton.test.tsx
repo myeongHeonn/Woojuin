@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-react';
-import SubmitButton from '@/components/ui/SubmitButton';
+import SubmitButton from '@/components/ui/button/SubmitButton';
 
 const btnOf = (c: HTMLElement) => c.querySelector('button')!;
 

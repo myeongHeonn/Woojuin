@@ -8,7 +8,7 @@ import { checkEmailAvailability, signup } from '@/services/auth';
 import { signupSchema, type SignupFormValues } from '@/schemas/authSchemas';
 import { useDebounce } from '@/hooks/useDebounce';
 import FormTextField from '@/components/ui/form/FormTextField';
-import SubmitButton from '@/components/ui/SubmitButton';
+import SubmitButton from '@/components/ui/button/SubmitButton';
 
 /** 회원가입 폼 — /signup 페이지에서 쓴다. */
 const SignupForm = () => {

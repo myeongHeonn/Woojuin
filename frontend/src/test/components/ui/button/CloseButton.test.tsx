@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { userEvent } from 'vitest/browser';
-import CloseButton from '@/components/ui/CloseButton';
+import CloseButton from '@/components/ui/button/CloseButton';
 
 describe('CloseButton', () => {
   it('닫기 라벨을 가진 버튼을 그리고, 클릭하면 onClick 을 부른다', async () => {

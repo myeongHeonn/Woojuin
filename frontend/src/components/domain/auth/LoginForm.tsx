@@ -8,7 +8,7 @@ import { login } from '@/services/auth';
 import { loginSchema, type LoginFormValues } from '@/schemas/authSchemas';
 import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
 import FormTextField from '@/components/ui/form/FormTextField';
-import SubmitButton from '@/components/ui/SubmitButton';
+import SubmitButton from '@/components/ui/button/SubmitButton';
 import GoogleAuthButton from './GoogleAuthButton';
 
 /**

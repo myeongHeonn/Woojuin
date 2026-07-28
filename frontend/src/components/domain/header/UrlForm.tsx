@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { saveUrl } from '@/services/items';
 import { useCreateItem } from '@/hooks/useCreateItem';
-import SubmitButton from '@/components/ui/SubmitButton';
+import SubmitButton from '@/components/ui/button/SubmitButton';
 import TextInput from '@/components/ui/TextInput';
 
 interface UrlFormProps {

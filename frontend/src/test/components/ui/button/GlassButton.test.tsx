@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-react';
-import GlassButton from '@/components/ui/GlassButton';
+import GlassButton from '@/components/ui/button/GlassButton';
 import { PlusIcon } from '@/assets/icons';
 
 const btnOf = (c: HTMLElement) => c.querySelector('button')!;
