@@ -64,14 +64,14 @@ class ItemSearchControllerTest {
     @Test
     void 정상_검색은_공통형식_200() throws Exception {
         authenticateAs(1L);
-        when(itemSearchService.search(eq(1L), eq(1L), eq("파스타"), eq(0), eq(20)))
-                .thenReturn(new ItemSearchResponse(List.of(), 0, 20, 0, false));
+        when(itemSearchService.search(eq(1L), eq(1L), eq("파스타"), eq(0), eq(28)))
+                .thenReturn(new ItemSearchResponse(List.of(), 0, 28, 0, false));
 
         mockMvc.perform(get("/api/workspaces/1/search").param("q", "파스타"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
                 .andExpect(jsonPath("$.data.page").value(0))
-                .andExpect(jsonPath("$.data.size").value(20))
+                .andExpect(jsonPath("$.data.size").value(28))
                 .andExpect(jsonPath("$.data.totalElements").value(0));
     }
 
@@ -79,8 +79,8 @@ class ItemSearchControllerTest {
     @Test
     void q가_없어도_400이_아니다() throws Exception {
         authenticateAs(1L);
-        when(itemSearchService.search(eq(1L), eq(1L), eq(null), eq(0), eq(20)))
-                .thenReturn(new ItemSearchResponse(List.of(), 0, 20, 0, false));
+        when(itemSearchService.search(eq(1L), eq(1L), eq(null), eq(0), eq(28)))
+                .thenReturn(new ItemSearchResponse(List.of(), 0, 28, 0, false));
 
         mockMvc.perform(get("/api/workspaces/1/search"))
                 .andExpect(status().isOk())
@@ -90,7 +90,7 @@ class ItemSearchControllerTest {
     @Test
     void 멤버가_아닌_워크스페이스_검색은_공통형식_403() throws Exception {
         authenticateAs(99L);
-        when(itemSearchService.search(eq(1L), eq(99L), eq("파스타"), eq(0), eq(20)))
+        when(itemSearchService.search(eq(1L), eq(99L), eq("파스타"), eq(0), eq(28)))
                 .thenThrow(new WorkspaceAccessDeniedException(1L));
 
         mockMvc.perform(get("/api/workspaces/1/search").param("q", "파스타"))

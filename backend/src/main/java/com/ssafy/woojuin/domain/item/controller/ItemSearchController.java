@@ -36,7 +36,7 @@ public class ItemSearchController {
             @PathVariable Long workspaceId,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "28") int size) {
         Long userId = currentUserResolver.resolveUserId();
         return ResponseEntity.ok(
                 ApiResponse.success(itemSearchService.search(workspaceId, userId, q, page, size)));
