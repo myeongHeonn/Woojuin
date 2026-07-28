@@ -62,30 +62,32 @@ pipeline {
                 // 멀티스테이지의 build 스테이지(`FROM gradle:8.8-jdk21 AS build`)만 이미지로 만들어
                 // 그 안에서 테스트한다 — 볼륨을 쓰지 않으므로 위의 DooD 경로 함정을 피한다.
                 // (`docker build` 자체는 CLI 가 컨텍스트를 데몬에 스트리밍하므로 경로 문제 없음)
+                //
+                // ⚠️ 태그를 커밋 SHA 로 붙이고 스테이지 끝에서 `docker rmi` 하면
+                //    build 스테이지 레이어까지 사라져 **바로 다음 Build Image 가 캐시를 못 쓴다**
+                //    (실측: bootJar 가 47초 + 43초로 두 번 돌았다).
+                //    그래서 **고정 태그로 덮어쓰고 지우지 않는다** — 레이어가 남아 있어야
+                //    ① 다음 스테이지가 재사용하고 ② 다음 빌드도 의존성 레이어를 재사용한다.
+                //    이전 빌드의 이미지는 같은 태그를 새로 붙이는 순간 dangling 이 되어
+                //    post 의 `docker image prune -f` 가 정리한다.
                 sh """
                     docker build --target build \
-                        -t woojuin-backend-test:${env.SHORT_SHA} \
+                        -t woojuin-backend-test:cache \
                         -f backend/Dockerfile backend
-                    docker run --rm woojuin-backend-test:${env.SHORT_SHA} \
+                    docker run --rm woojuin-backend-test:cache \
                         gradle test --no-daemon
                 """
-                // TODO(t2 크레딧): 의존성 재다운로드를 줄이려면 gradle 캐시를 named volume 으로
-                //   유지할 수 있다(`-v gradle-cache:/home/gradle/.gradle`).
-                //   named volume 은 호스트 데몬이 관리하므로 DooD 경로 함정과 무관하게 동작한다.
-                //   첫 파이프라인 성공을 먼저 확인한 뒤 붙인다.
-            }
-            post {
-                always {
-                    // 테스트용 임시 이미지는 성공/실패와 무관하게 지운다.
-                    sh "docker rmi woojuin-backend-test:${env.SHORT_SHA} || true"
-                }
+                // TODO(t2 크레딧): 여기서 더 줄이려면 gradle 캐시를 named volume 으로 유지할 수 있다
+                //   (`-v gradle-cache:/home/gradle/.gradle`). named volume 은 호스트 데몬이
+                //   관리하므로 DooD 경로 함정과 무관하게 동작한다.
             }
         }
 
         stage('Build Image') {
             steps {
                 // 위 Test 가 통과한 커밋만 여기 온다.
-                // 레이어 캐시가 살아있어 대부분 재사용되므로 Test 단계와 중복 비용은 작다.
+                // Test 스테이지가 만든 build 스테이지 레이어를 그대로 재사용하므로
+                // (Step 1~6 이 `Using cache` 로 지나가야 정상) 여기서는 실행 이미지만 얹힌다.
                 sh """
                     docker build \
                         -t woojuin-backend:${env.SHORT_SHA} \
