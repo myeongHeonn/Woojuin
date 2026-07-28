@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemFavoriteResponse;
@@ -59,6 +60,9 @@ class ItemServiceTest {
     @Mock
     private com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService itemCategoryQueryService;
 
+    @Mock
+    private com.ssafy.woojuin.domain.category.service.CategoryAssignmentService categoryAssignmentService;
+
     private ItemService itemService;
 
     /**
@@ -71,7 +75,7 @@ class ItemServiceTest {
     @BeforeEach
     void setUpMembership() {
         itemService = new ItemService(itemRepository, s3Uploader, itemQueueProducer,
-                workspaceMemberRepository, itemCategoryQueryService,
+                workspaceMemberRepository, itemCategoryQueryService, categoryAssignmentService,
                 new ItemSummaryAssembler(itemCategoryQueryService, s3Uploader));
 
         lenient().when(workspaceMemberRepository.findByWorkspaceIdAndUserId(any(), any()))
@@ -360,7 +364,7 @@ class ItemServiceTest {
                 .title("원래 제목").content("원래 내용").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
 
-        ItemDetailResponse response = itemService.update(1L, 1L, new ItemUpdateRequest("바뀐 제목", null));
+        ItemDetailResponse response = itemService.update(1L, 1L, new ItemUpdateRequest("바뀐 제목", null, null));
 
         assertThat(response.title()).isEqualTo("바뀐 제목");
         assertThat(response.content()).isEqualTo("원래 내용");
@@ -373,7 +377,7 @@ class ItemServiceTest {
                 .url("https://example.com").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(urlItem));
 
-        ItemDetailResponse response = itemService.update(1L, 1L, new ItemUpdateRequest(null, "직접 남긴 메모"));
+        ItemDetailResponse response = itemService.update(1L, 1L, new ItemUpdateRequest(null, "직접 남긴 메모", null));
 
         assertThat(response.content()).isEqualTo("직접 남긴 메모");
         assertThat(response.url()).isEqualTo("https://example.com");
@@ -381,8 +385,86 @@ class ItemServiceTest {
 
     @Test
     void 수정할_내용이_하나도_없으면_예외() {
-        assertThatThrownBy(() -> itemService.update(1L, 1L, new ItemUpdateRequest(null, null)))
+        assertThatThrownBy(() -> itemService.update(1L, 1L, new ItemUpdateRequest(null, null, null)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 카테고리만_보내도_수정된다() {
+        // 제목·메모 없이 카테고리만 바꾸는 게 가장 흔한 사용 흐름이다.
+        Item item = Item.builder().workspaceId(7L).createdBy(1L).type(ItemType.MEMO)
+                .content("메모").build();
+        ReflectionTestUtils.setField(item, "id", 42L);
+        when(itemRepository.findById(42L)).thenReturn(Optional.of(item));
+
+        itemService.update(42L, 1L, new ItemUpdateRequest(null, null, List.of(3L, 5L)));
+
+        verify(categoryAssignmentService).replace(42L, 7L, List.of(3L, 5L));
+    }
+
+    @Test
+    void 카테고리는_아이템의_워크스페이스로_교체한다() {
+        // path에 workspaceId가 없는 API라 아이템이 들고 있는 workspaceId를 써야 한다 —
+        // 여길 틀리면 남의 워크스페이스 카테고리 검증이 무력해진다.
+        Item item = Item.builder().workspaceId(99L).createdBy(1L).type(ItemType.URL)
+                .url("https://example.com").build();
+        ReflectionTestUtils.setField(item, "id", 1L);
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
+
+        itemService.update(1L, 1L, new ItemUpdateRequest(null, null, List.of(3L)));
+
+        verify(categoryAssignmentService).replace(1L, 99L, List.of(3L));
+    }
+
+    @Test
+    void 카테고리가_null이면_카테고리는_건드리지_않는다() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
+                .content("원래").build();
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
+
+        itemService.update(1L, 1L, new ItemUpdateRequest("제목만", null, null));
+
+        verifyNoInteractions(categoryAssignmentService);
+    }
+
+    @Test
+    void 제목과_카테고리를_한번에_수정할_수_있다() {
+        Item item = Item.builder().workspaceId(7L).createdBy(1L).type(ItemType.MEMO)
+                .title("원래 제목").content("원래 내용").build();
+        ReflectionTestUtils.setField(item, "id", 42L);
+        when(itemRepository.findById(42L)).thenReturn(Optional.of(item));
+
+        ItemDetailResponse response =
+                itemService.update(42L, 1L, new ItemUpdateRequest("바뀐 제목", null, List.of(3L)));
+
+        assertThat(response.title()).isEqualTo("바뀐 제목");
+        assertThat(response.content()).isEqualTo("원래 내용");
+        verify(categoryAssignmentService).replace(42L, 7L, List.of(3L));
+    }
+
+    @Test
+    void 카테고리_교체가_실패하면_제목_수정도_함께_롤백되도록_예외를_전파한다() {
+        // 같은 트랜잭션이므로 여기서 예외를 삼키면 "제목만 바뀌고 카테고리는 그대로"인
+        // 반쪽 저장이 커밋된다.
+        Item item = Item.builder().workspaceId(7L).createdBy(1L).type(ItemType.MEMO)
+                .title("원래 제목").content("메모").build();
+        ReflectionTestUtils.setField(item, "id", 42L);
+        when(itemRepository.findById(42L)).thenReturn(Optional.of(item));
+        doThrow(new CategoryNotFoundException(999L))
+                .when(categoryAssignmentService).replace(42L, 7L, List.of(999L));
+
+        assertThatThrownBy(() ->
+                itemService.update(42L, 1L, new ItemUpdateRequest("바뀐 제목", null, List.of(999L))))
+                .isInstanceOf(CategoryNotFoundException.class);
+    }
+
+    @Test
+    void 휴지통에_있는_아이템은_카테고리를_수정할_수_없다() {
+        when(itemRepository.findById(5L)).thenReturn(Optional.of(trashedItem()));
+
+        assertThatThrownBy(() -> itemService.update(5L, 1L, new ItemUpdateRequest(null, null, List.of(3L))))
+                .isInstanceOf(ItemNotFoundException.class);
+        verifyNoInteractions(categoryAssignmentService);
     }
 
     @Test
@@ -391,7 +473,7 @@ class ItemServiceTest {
                 .content("원래").build();
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
 
-        itemService.update(1L, 1L, new ItemUpdateRequest(null, "수정됨"));
+        itemService.update(1L, 1L, new ItemUpdateRequest(null, "수정됨", null));
 
         verifyNoInteractions(itemQueueProducer);
     }

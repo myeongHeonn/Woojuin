@@ -12,6 +12,7 @@ import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
+import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
@@ -36,16 +37,19 @@ public class ItemService {
     private final ItemQueueProducer itemQueueProducer;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final ItemCategoryQueryService itemCategoryQueryService;
+    private final CategoryAssignmentService categoryAssignmentService;
     private final ItemSummaryAssembler itemSummaryAssembler;
 
     public ItemService(ItemRepository itemRepository, S3Uploader s3Uploader,
             ItemQueueProducer itemQueueProducer, WorkspaceMemberRepository workspaceMemberRepository,
-            ItemCategoryQueryService itemCategoryQueryService, ItemSummaryAssembler itemSummaryAssembler) {
+            ItemCategoryQueryService itemCategoryQueryService,
+            CategoryAssignmentService categoryAssignmentService, ItemSummaryAssembler itemSummaryAssembler) {
         this.itemRepository = itemRepository;
         this.s3Uploader = s3Uploader;
         this.itemQueueProducer = itemQueueProducer;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.itemCategoryQueryService = itemCategoryQueryService;
+        this.categoryAssignmentService = categoryAssignmentService;
         this.itemSummaryAssembler = itemSummaryAssembler;
     }
 
@@ -167,18 +171,27 @@ public class ItemService {
     }
 
     /**
-     * 제목·메모 수정. 수정해도 AI 재처리 큐에는 발행하지 않는다 — 사용자가 직접 고친
-     * 내용을 AI가 다시 덮어쓰면 안 되기 때문. 재처리 정책은 AI 로직을 만드는
+     * 제목·메모·카테고리 수정. 수정해도 AI 재처리 큐에는 발행하지 않는다 — 사용자가 직접
+     * 고친 내용을 AI가 다시 덮어쓰면 안 되기 때문. 재처리 정책은 AI 로직을 만드는
      * 묶음 D/F와 합의해서 정할 것.
-     * 태그·카테고리 수정(API 명세서)은 해당 도메인이 아직 없어 이번 범위 밖.
+     *
+     * <p>categoryIds는 보낸 집합으로 교체한다(추가가 아니다). null이면 카테고리를 건드리지
+     * 않고, 빈 배열은 ItemUpdateRequest의 {@code @Size(min = 1)}에서 400으로 걸린다.
+     * 카테고리 교체가 제목·메모 수정과 한 트랜잭션에 묶여 있어, 카테고리 id가 하나라도
+     * 잘못되면 제목까지 함께 롤백된다(반쪽 저장 방지).
+     *
+     * <p>태그 수정은 태그 기능 자체를 구현하지 않기로 결정되어 대상에서 제외됐다.
      */
     @Transactional
     public ItemDetailResponse update(Long itemId, Long userId, ItemUpdateRequest request) {
-        if (request.title() == null && request.content() == null) {
-            throw new IllegalArgumentException("수정할 내용이 없습니다 (title 또는 content 필요)");
+        if (request.title() == null && request.content() == null && request.categoryIds() == null) {
+            throw new IllegalArgumentException("수정할 내용이 없습니다 (title, content, categoryIds 중 하나 필요)");
         }
         Item item = findActiveItem(itemId, userId);
         item.update(request.title(), request.content());
+        if (request.categoryIds() != null) {
+            categoryAssignmentService.replace(item.getId(), item.getWorkspaceId(), request.categoryIds());
+        }
         return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
