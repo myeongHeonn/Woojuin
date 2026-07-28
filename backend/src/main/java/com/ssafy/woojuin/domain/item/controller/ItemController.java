@@ -10,6 +10,7 @@ import com.ssafy.woojuin.global.common.ItemStatus;
 import com.ssafy.woojuin.global.security.aop.AuthenticatedUser;
 import com.ssafy.woojuin.global.security.aop.CurrentUserResolver;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -69,13 +70,13 @@ public class ItemController {
             @RequestParam(required = false) ItemType type,
             @RequestParam(required = false) ItemStatus status,
             @RequestParam(required = false) Boolean favorite,
-            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) List<Long> categoryIds,
             @RequestParam(defaultValue = "latest") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "28") int size) {
         Long userId = currentUserResolver.resolveUserId();
         ItemListResponse response =
-                itemService.list(workspaceId, userId, type, status, favorite, categoryId, sort, page, size);
+                itemService.list(workspaceId, userId, type, status, favorite, categoryIds, sort, page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
