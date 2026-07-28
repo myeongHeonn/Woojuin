@@ -32,7 +32,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -59,15 +58,21 @@ class ItemServiceTest {
     @Mock
     private com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService itemCategoryQueryService;
 
-    @InjectMocks
     private ItemService itemService;
 
     /**
      * 대부분의 테스트는 멤버십 검증 자체가 아니라 그 다음 로직을 보는 것이라, 기본적으로 멤버라고
      * 가정한다. 아이템이 없어 멤버십 검증까지 가지도 않는 404 테스트들도 있어 lenient로 둔다.
+     *
+     * <p>ItemSummaryAssembler만 목이 아니라 실물을 넣는다 — 목록 응답의 presigned URL
+     * 폴백을 여기서 그대로 검증하고 있어서, 목으로 바꾸면 그 단언들이 의미를 잃는다.
      */
     @BeforeEach
     void setUpMembership() {
+        itemService = new ItemService(itemRepository, s3Uploader, itemQueueProducer,
+                workspaceMemberRepository, itemCategoryQueryService,
+                new ItemSummaryAssembler(itemCategoryQueryService, s3Uploader));
+
         lenient().when(workspaceMemberRepository.findByWorkspaceIdAndUserId(any(), any()))
                 .thenReturn(Optional.of(mock(WorkspaceMember.class)));
         // 읽기 경로가 카테고리를 조회하지만 이 테스트들의 관심사는 아니라 기본 빈 결과로 둔다.
