@@ -91,7 +91,12 @@ pipeline {
                         returnStatus: true
                     ) == 0
 
-                    if (env.gitlabTargetBranch) {
+                    // 🔴 MR 판별은 **gitlabActionType** 으로 한다(실측: MR=MERGE / push=PUSH).
+                    //    `gitlabTargetBranch` 존재 여부로 판별하면 안 된다 — 플러그인은
+                    //    **push 이벤트에도 이 값을 채운다**(push 는 source=target=develop).
+                    //    그러면 push 빌드가 base=origin/develop = HEAD 자신과 비교해
+                    //    diff 가 비고 **전 스테이지가 skip 된 채 초록불**이 뜬다(2026-07-28 실제 발생).
+                    if (env.gitlabActionType == 'MERGE' && env.gitlabTargetBranch) {
                         // MR 빌드 — 타겟 브랜치와 비교하면 "이 MR 이 가져오는 변경"이 나온다.
                         base = "origin/${env.gitlabTargetBranch}"
                         baseWhy = 'MR 빌드 → 타겟 브랜치'
@@ -120,6 +125,20 @@ pipeline {
                     def buildAll = {
                         env.CHANGED_BE = 'true'
                         env.CHANGED_FE = 'true'
+                    }
+
+                    // 🔴 base 를 "정할 수 있었다"와 "그 base 가 의미 있다"는 다른 문제다.
+                    //    base 가 HEAD 자신을 가리키면 diff 는 항상 비고, 그러면 아무것도 검증하지
+                    //    않은 채 초록불이 뜬다. 그 경우는 판단 불가로 간주한다.
+                    if (base) {
+                        def sameAsHead = sh(
+                            script: "test \"\$(git rev-parse ${base})\" = \"\$(git rev-parse HEAD)\"",
+                            returnStatus: true
+                        ) == 0
+                        if (sameAsHead) {
+                            echo "⚠️ 비교 기준(${base})이 HEAD 와 같은 커밋이다 → 기준 무효 처리"
+                            base = ''
+                        }
                     }
 
                     if (!base) {
