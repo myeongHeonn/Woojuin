@@ -13,14 +13,8 @@ import SubmitButton from '@/components/ui/button/SubmitButton';
 /** 회원가입 폼 — /signup 페이지에서 쓴다. */
 const SignupForm = () => {
   const navigate = useNavigate();
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setError,
-    clearErrors,
-    formState: { errors },
-  } = useForm<SignupFormValues>({ resolver: zodResolver(signupSchema) });
+  const formMethods = useForm<SignupFormValues>({ resolver: zodResolver(signupSchema) });
+  const { handleSubmit, watch, setError, clearErrors } = formMethods;
 
   // 형식이 맞을 때만 서버에 물어본다 — 타이핑 중간값으로 매번 호출하지 않기 위해
   const email = watch('email');
@@ -59,27 +53,14 @@ const SignupForm = () => {
         className="flex flex-col gap-3"
         onSubmit={handleSubmit((values) => signupMutation.mutate(values))}
       >
-        <FormTextField
-          type="email"
-          placeholder="이메일"
-          name="email"
-          register={register}
-          error={errors.email}
-        />
+        <FormTextField type="email" placeholder="이메일" name="email" formMethods={formMethods} />
         <FormTextField
           type="password"
           placeholder="비밀번호"
           name="password"
-          register={register}
-          error={errors.password}
+          formMethods={formMethods}
         />
-        <FormTextField
-          type="text"
-          placeholder="닉네임"
-          name="nickname"
-          register={register}
-          error={errors.nickname}
-        />
+        <FormTextField type="text" placeholder="닉네임" name="nickname" formMethods={formMethods} />
         {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
         <SubmitButton pending={signupMutation.isPending} pendingLabel="가입 중...">
           회원가입

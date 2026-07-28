@@ -22,11 +22,8 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const setAccessToken = useSetAtom(accessTokenAtom);
   const setRefreshToken = useSetAtom(refreshTokenAtom);
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
+  const formMethods = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
+  const { handleSubmit } = formMethods;
 
   const loginMutation = useMutation({
     mutationFn: login,
@@ -47,19 +44,12 @@ const LoginForm = () => {
         className="flex flex-col gap-3"
         onSubmit={handleSubmit((values) => loginMutation.mutate(values))}
       >
-        <FormTextField
-          type="email"
-          placeholder="이메일"
-          name="email"
-          register={register}
-          error={errors.email}
-        />
+        <FormTextField type="email" placeholder="이메일" name="email" formMethods={formMethods} />
         <FormTextField
           type="password"
           placeholder="비밀번호"
           name="password"
-          register={register}
-          error={errors.password}
+          formMethods={formMethods}
         />
         {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
         <SubmitButton pending={loginMutation.isPending} pendingLabel="로그인 중...">
