@@ -1,9 +1,86 @@
 import { api, type ApiResponse } from './client';
-import type { ItemCreateResponse, ItemListResponse } from '@/types/item';
+import type { ItemCreateResponse, ItemDetail, ItemListResponse } from '@/types/item';
 
-export async function fetchItems(workspaceId: number) {
-  const res = await api.get<ApiResponse<ItemListResponse>>(`/workspaces/${workspaceId}/items`);
+//워크스페이스 아이템 받아오기
+//필터는 전부 서버가 처리한다(즐겨찾기·카테고리·정렬) — queryKey 로 캐싱/재요청을 태운다.
+export interface ItemFilters {
+  /** 켜졌을 때만 보낸다(끄면 전체). false 는 파라미터를 생략 = 전체 */
+  favorite?: boolean;
+  /** 카테고리 다중 OR 필터 — ?categoryIds=1&categoryIds=2. 빈 배열이면 전체 */
+  categoryIds?: number[];
+  /** 정렬 키(기본 latest). 서버 기본값과 같아 없으면 생략 */
+  sort?: string;
+}
+
+export interface workspaceProps extends ItemFilters {
+  size: number;
+  page?: number;
+  workspaceId: number;
+}
+
+export async function fetchItems({
+  size,
+  page,
+  workspaceId,
+  favorite,
+  categoryIds,
+  sort,
+}: workspaceProps) {
+  // 값이 있을 때만 붙인다 — 빈 필터는 아예 보내지 않아 "전체" 가 된다
+  const params = new URLSearchParams();
+  params.set('page', String(page ?? 0));
+  params.set('size', String(size));
+  if (favorite) params.set('favorite', 'true');
+  if (sort) params.set('sort', sort);
+  categoryIds?.forEach((id) => params.append('categoryIds', String(id)));
+
+  const res = await api.get<ApiResponse<ItemListResponse>>(
+    `/workspaces/${workspaceId}/items?${params.toString()}`,
+  );
   return res.data.data;
+}
+
+// 아이템 상세 — 목록엔 없는 본문(content)·원본 이미지(imageUrl)를 받는다.
+// GET /items/{itemId} → ItemDetailResponse (아이템 id 는 전역 유일이라 워크스페이스 스코프가 없다)
+export async function fetchItem(itemId: number) {
+  const res = await api.get<ApiResponse<ItemDetail>>(`/items/${itemId}`);
+  return res.data.data;
+}
+
+/** 부분 수정 — null/undefined 필드는 안 바꾼다. 제목·본문·카테고리는 이 하나로. */
+export interface ItemPatch {
+  title?: string;
+  content?: string;
+  /** 이 아이템의 카테고리 전체 집합(추가·삭제 모두 새 집합을 통째로 보낸다) */
+  categoryIds?: number[];
+}
+
+// PATCH /items/{itemId} → 갱신된 상세
+export async function updateItem(itemId: number, patch: ItemPatch) {
+  const res = await api.patch<ApiResponse<ItemDetail>>(`/items/${itemId}`, patch);
+  return res.data.data;
+}
+
+/** 즐겨찾기 응답 — 바뀐 상태만 얇게 온다({ itemId, favorite }) */
+export interface FavoriteResponse {
+  itemId: number;
+  favorite: boolean;
+}
+
+// 즐겨찾기 — 전용 엔드포인트. 바디 없음. POST 로 등록, DELETE 로 해제.
+// 응답의 favorite 로 캐시를 바로 갈아끼워 재요청 없이 반영한다.
+export async function addFavorite(itemId: number) {
+  const res = await api.post<ApiResponse<FavoriteResponse>>(`/items/${itemId}/favorite`);
+  return res.data.data;
+}
+export async function removeFavorite(itemId: number) {
+  const res = await api.delete<ApiResponse<FavoriteResponse>>(`/items/${itemId}/favorite`);
+  return res.data.data;
+}
+
+// DELETE /items/{itemId} → 휴지통으로 이동(soft delete)
+export async function deleteItem(itemId: number) {
+  await api.delete(`/items/${itemId}`);
 }
 
 export async function saveUrl(workspaceId: number, url: string) {
