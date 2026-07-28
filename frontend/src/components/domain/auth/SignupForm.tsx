@@ -10,6 +10,10 @@ import { useDebounce } from '@/hooks/useDebounce';
 import FormTextField from '@/components/ui/form/FormTextField';
 import SubmitButton from '@/components/ui/button/SubmitButton';
 
+// 백엔드 SignupService가 중복 이메일일 때 던지는 메시지와 동일해야 한다.
+// 코드 없이 메시지 문자열로만 구분 가능한 유일한 signup 실패 사유라 이 값으로 매칭한다.
+const EMAIL_TAKEN_MESSAGE = '이미 가입된 이메일입니다';
+
 /** 회원가입 폼 — /signup 페이지에서 쓴다. */
 const SignupForm = () => {
   const navigate = useNavigate();
@@ -32,7 +36,7 @@ const SignupForm = () => {
     if (isEmailAvailable) {
       clearErrors('email');
     } else {
-      setError('email', { type: 'manual', message: '이미 가입된 이메일입니다' });
+      setError('email', { type: 'manual', message: EMAIL_TAKEN_MESSAGE });
     }
   }, [isEmailAvailable, isValidEmailFormat, clearErrors, setError]);
 
@@ -41,11 +45,20 @@ const SignupForm = () => {
     onSuccess: () => {
       navigate('/login');
     },
+    onError: (error) => {
+      // 이메일 중복은 실시간 체크와 같은 자리(필드 밑)에 표시 — 기존 useEffect가
+      // 이메일을 바꾸면 자동으로 지워주므로 배너보다 오해의 소지가 적다.
+      if (axios.isAxiosError(error) && error.response?.data?.message === EMAIL_TAKEN_MESSAGE) {
+        setError('email', { type: 'manual', message: EMAIL_TAKEN_MESSAGE });
+      }
+    },
   });
 
-  const errorMessage = axios.isAxiosError(signupMutation.error)
-    ? (signupMutation.error.response?.data?.message ?? '회원가입에 실패했습니다')
-    : null;
+  const errorMessage =
+    axios.isAxiosError(signupMutation.error) &&
+    signupMutation.error.response?.data?.message !== EMAIL_TAKEN_MESSAGE
+      ? (signupMutation.error.response?.data?.message ?? '회원가입에 실패했습니다')
+      : null;
 
   return (
     <div className="flex w-full flex-col gap-4">
