@@ -7,6 +7,54 @@ const base: SVGProps<SVGSVGElement> = {
   strokeWidth: 1.8,
 };
 
+/** 링크(사선 화살표) — 카드 우상단 링크 배지 */
+export function LinkArrowIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} strokeWidth={2.4} {...props}>
+      <path d="M7 17 17 7M9 7h8v8" />
+    </svg>
+  );
+}
+
+/** 별 — 즐겨찾기 */
+export function StarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />
+    </svg>
+  );
+}
+
+/** 슬라이더 — 관리 */
+export function ManageIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <line x1="4" y1="8" x2="20" y2="8" />
+      <line x1="4" y1="16" x2="20" y2="16" />
+      <circle cx="9" cy="8" r="2.2" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="16" r="2.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** 홑화살표 왼쪽 — 가로 스크롤 이전 */
+export function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m15 6-6 6 6 6" />
+    </svg>
+  );
+}
+
+/** 홑화살표 오른쪽 — 가로 스크롤 다음 */
+export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
 /** 행성(토성) — Personal Space·워크스페이스 항목 */
 export function PlanetIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -23,6 +71,27 @@ export function TrashIcon(props: SVGProps<SVGSVGElement>) {
     <svg {...base} {...props}>
       <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13h10l1-13" />
       <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+/** 가로 점 3개 — 더보기 메뉴 */
+export function DotsHorizontalIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** 다운로드(아래 화살표 + 받침) — 원본 이미지 저장 */
+export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3v11m0 0 4-4m-4 4-4-4" />
+      <path d="M4 17v1.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V17" />
     </svg>
   );
 }
