@@ -125,6 +125,25 @@ export function PlusIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** 연필 — 이름 수정 */
+export function PencilIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 20h4L18.5 9.5a2 2 0 0 0-2.8-2.8L5 17.2V20z" />
+      <path d="m13.5 6.5 4 4" />
+    </svg>
+  );
+}
+
+/** 체크 — 확정·저장 */
+export function CheckIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m5 12 5 5L20 7" />
+    </svg>
+  );
+}
+
 /** 별자리 — 뷰바 "성좌" */
 export function ConstellationIcon(props: SVGProps<SVGSVGElement>) {
   return (
