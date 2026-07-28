@@ -1,10 +1,12 @@
-import { useMutation } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import axios from 'axios';
-import { signup } from '@/services/auth';
+import { checkEmailAvailability, signup } from '@/services/auth';
 import { signupSchema, type SignupFormValues } from '@/schemas/authSchemas';
+import { useDebounce } from '@/hooks/useDebounce';
 import FormTextField from '@/components/ui/form/FormTextField';
 import SubmitButton from '@/components/ui/SubmitButton';
 
@@ -14,8 +16,31 @@ const SignupForm = () => {
   const {
     register,
     handleSubmit,
+    watch,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<SignupFormValues>({ resolver: zodResolver(signupSchema) });
+
+  // 형식이 맞을 때만 서버에 물어본다 — 타이핑 중간값으로 매번 호출하지 않기 위해
+  const email = watch('email');
+  const debouncedEmail = useDebounce(email, 500);
+  const isValidEmailFormat = signupSchema.shape.email.safeParse(debouncedEmail).success;
+
+  const { data: isEmailAvailable } = useQuery({
+    queryKey: ['auth', 'check-email', debouncedEmail],
+    queryFn: () => checkEmailAvailability(debouncedEmail),
+    enabled: isValidEmailFormat,
+  });
+
+  useEffect(() => {
+    if (!isValidEmailFormat || isEmailAvailable === undefined) return;
+    if (isEmailAvailable) {
+      clearErrors('email');
+    } else {
+      setError('email', { type: 'manual', message: '이미 가입된 이메일입니다' });
+    }
+  }, [isEmailAvailable, isValidEmailFormat, clearErrors, setError]);
 
   const signupMutation = useMutation({
     mutationFn: signup,

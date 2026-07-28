@@ -41,6 +41,13 @@ export async function signup(payload: SignupPayload) {
   return res.data.data;
 }
 
+export async function checkEmailAvailability(email: string) {
+  const res = await api.get<ApiResponse<{ available: boolean }>>('/auth/check-email', {
+    params: { email },
+  });
+  return res.data.data.available;
+}
+
 export async function login(payload: LoginPayload) {
   const res = await api.post<ApiResponse<TokenResponse>>('/auth/login', payload);
   return res.data.data;
