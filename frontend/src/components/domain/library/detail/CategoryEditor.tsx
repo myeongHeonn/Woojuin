@@ -23,6 +23,8 @@ const CategoryEditor = ({ item, workspaceId }: CategoryEditorProps) => {
   const currentIds = item.categories.map((c) => c.categoryId);
   const commit = (ids: number[]) => update.mutate({ categoryIds: ids });
   const addable = all.filter((c) => !currentIds.includes(c.categoryId));
+  // 서버가 빈 카테고리를 400 으로 막는다(최소 1개) — 마지막 1개는 ✕ 를 숨겨 애초에 못 지우게 한다
+  const canRemove = item.categories.length > 1;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -33,14 +35,16 @@ const CategoryEditor = ({ item, workspaceId }: CategoryEditorProps) => {
         >
           <Dot hex={c.color} />
           {c.name}
-          <button
-            type="button"
-            aria-label={`${c.name} 제거`}
-            onClick={() => commit(currentIds.filter((x) => x !== c.categoryId))}
-            className="ml-0.5 text-[10px] text-text-3 hover:text-text-1"
-          >
-            ✕
-          </button>
+          {canRemove && (
+            <button
+              type="button"
+              aria-label={`${c.name} 제거`}
+              onClick={() => commit(currentIds.filter((x) => x !== c.categoryId))}
+              className="ml-0.5 text-[10px] text-text-3 hover:text-text-1"
+            >
+              ✕
+            </button>
+          )}
         </span>
       ))}
 
