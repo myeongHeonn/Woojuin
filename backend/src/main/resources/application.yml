@@ -42,9 +42,18 @@ woojuin:
     secret: ${JWT_SECRET:change-me-to-a-long-random-string-of-at-least-32-bytes}
     access-token-validity: 3600000      # 1h
     refresh-token-validity: 1209600000  # 14d
-  openai:
-    api-key: ${OPENAI_API_KEY:}
-    model: gpt-4o-mini
+  # OpenAI 호환 Chat Completions 엔드포인트. 팀은 SSAFY GMS 프록시를 통해 OpenAI 모델을
+  # 쓴다(ai/ai-text/config.yaml과 같은 값). base-url만 바꾸면 OpenAI 직접 호출이나 로컬
+  # Ollama(http://localhost:11434/v1)로도 붙는다 — 묶음 F의 모델 비교가 아직 진행 중이라
+  # 특정 프로바이더에 묶지 않았다.
+  # api-key가 비어 있으면 AI 질의 해석이 규칙 기반으로 동작한다(앱은 정상 기동).
+  # API 키(OPENAI_API_KEY)는 여기가 아니라 AiQueryConfig에서 직접 읽는다 — yml의 ${VAR:기본값}은
+  # 변수가 "없을 때"만 기본값을 쓰므로 `OPENAI_API_KEY=` 같은 빈 줄을 "키 있음"으로 오해한다.
+  # 값은 SSAFY GMS 키다(base-url이 GMS 프록시라 OpenAI 직접 키가 아니다).
+  ai:
+    base-url: ${AI_BASE_URL:https://gms.ssafy.io/gmsapi/api.openai.com/v1}
+    model: ${AI_MODEL:gpt-5-mini}
+    timeout-ms: ${AI_TIMEOUT_MS:8000}
   queue:
     stream-key: woojuin:item-processing
     consumer-group: ai-workers
