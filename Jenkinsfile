@@ -36,6 +36,13 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+
+                // 빌드 시작을 GitLab 에 즉시 알린다.
+                // 이게 없으면 post 블록(= 빌드 종료 후)에서야 상태를 보고하므로, 빌드가 도는
+                // 2~3분 동안 MR 화면에 "Looks like there's no pipeline here" 가 뜬다.
+                // 리뷰어가 "CI 없는 MR"로 착각해 그대로 승인·머지할 수 있다.
+                updateGitlabCommitStatus name: 'jenkins', state: 'running'
+
                 script {
                     // 이미지 태그로 쓸 커밋 SHA 앞 7자리.
                     // latest 로만 태깅하면 "지금 뜬 게 어느 커밋인지" 추적이 불가능하고
@@ -46,9 +53,8 @@ pipeline {
                     ).trim()
                     echo "빌드 대상 커밋: ${env.SHORT_SHA}"
 
-                    // ⚠️ 미확정: MR 빌드를 걸러내는 조건으로 이 값을 쓰는데,
-                    // GitLab 플러그인 버전에 따라 변수명/값이 다를 수 있다.
-                    // 첫 빌드(그리고 MR 빌드) 로그에서 실제 값을 확인하고 아래 when 조건을 맞출 것.
+                    // 배포 여부를 가르는 값. 실측: MR 이벤트=MERGE / develop push=PUSH.
+                    // 플러그인 업그레이드로 값이 바뀌면 여기서 바로 드러나므로 진단용으로 남겨 둔다.
                     echo "gitlabActionType = ${env.gitlabActionType}"
                 }
             }
@@ -69,7 +75,14 @@ pipeline {
                 //    그래서 **고정 태그로 덮어쓰고 지우지 않는다** — 레이어가 남아 있어야
                 //    ① 다음 스테이지가 재사용하고 ② 다음 빌드도 의존성 레이어를 재사용한다.
                 //    이전 빌드의 이미지는 같은 태그를 새로 붙이는 순간 dangling 이 되어
-                //    post 의 `docker image prune -f` 가 정리한다.
+                //    post 의 `docker image prune` 이 정리한다.
+                //
+                // 🔴 **이 잡은 반드시 `Do not allow concurrent builds` 로 설정돼 있어야 한다.**
+                //    고정 태그라서 동시 빌드가 허용되면 두 빌드가 같은 태그를 두고 경쟁한다:
+                //      빌드A: build -t ...:cache (A 코드) → 빌드B가 같은 태그를 덮어씀
+                //      → 빌드A 의 `docker run ...:cache gradle test` 가 **B의 코드를 테스트**
+                //    A가 자기 코드가 아닌 것으로 초록불을 받는, 조용히 잘못되는 사고다.
+                //    (Deploy 도 같은 dev 스택을 공유하므로 직렬화가 필요하다)
                 sh """
                     docker build --target build \
                         -t woojuin-backend-test:cache \
