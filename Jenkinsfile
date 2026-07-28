@@ -228,6 +228,10 @@ pipeline {
         }
 
         stage('Frontend Test') {
+            // 🔴 브라우저 테스트가 **끝났는데도 종료되지 않는** 사례를 겪었다(13분+ 매달림).
+            //    전체 timeout(30분)에 맡기면 그만큼 잡이 점유되고 다른 MR 이 줄줄이 대기한다
+            //    (동시 빌드 금지 상태라 더 치명적). 여기서 빨리 실패하게 못 박는다.
+            options { timeout(time: 10, unit: 'MINUTES') }
             when { expression { env.CHANGED_FE == 'true' } }
             steps {
                 // 프론트 테스트는 **실제 Chromium** 에서 돈다(vitest browser mode + Playwright).
@@ -240,9 +244,18 @@ pipeline {
                     docker build --target test \
                         -t woojuin-frontend-test:cache \
                         -f frontend/Dockerfile frontend
-                    docker run --rm woojuin-frontend-test:cache \
-                        sh -c 'npm run lint && npm test'
                 """
+
+                // lint 와 test 를 **분리**한다 — 한 줄로 묶으면 멈췄을 때 어느 쪽인지 알 수 없다.
+                sh "docker run --rm woojuin-frontend-test:cache npm run lint"
+
+                // Chromium 을 컨테이너에서 돌릴 때 필요한 두 옵션:
+                //   --init     : Chromium 은 자식 프로세스를 많이 띄운다. PID 1 이 좀비를
+                //                수거하지 않으면 테스트가 끝나도 **컨테이너가 종료되지 않는다**
+                //   --ipc=host : 기본 /dev/shm 은 64MB 뿐이라 Chromium 이 메모리 부족으로
+                //                멈추거나 죽는다(Playwright 공식 문서 권고사항)
+                sh "docker run --rm --init --ipc=host woojuin-frontend-test:cache npm test"
+
                 // type-check 는 별도로 돌리지 않는다 — `npm run build` 가 `tsc -b && vite build`
                 // 라서 다음 스테이지에서 이미 검증된다.
             }
