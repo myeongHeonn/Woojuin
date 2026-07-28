@@ -4,6 +4,7 @@ import { useSetAtom } from 'jotai';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { login } from '@/services/auth';
+import { loginSchema, toFieldErrors } from '@/schemas/authSchemas';
 import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
 import TextInput from '@/components/ui/TextInput';
 import SubmitButton from '@/components/ui/SubmitButton';
@@ -22,6 +23,7 @@ const LoginForm = () => {
   const setRefreshToken = useSetAtom(refreshTokenAtom);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const loginMutation = useMutation({
     mutationFn: login,
@@ -42,23 +44,32 @@ const LoginForm = () => {
         className="flex flex-col gap-3"
         onSubmit={(e) => {
           e.preventDefault();
+          const errors = toFieldErrors(loginSchema, { email, password });
+          setFieldErrors(errors);
+          if (Object.keys(errors).length > 0) return;
           loginMutation.mutate({ email, password });
         }}
       >
-        <TextInput
-          type="email"
-          placeholder="이메일"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <TextInput
-          type="password"
-          placeholder="비밀번호"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        <div className="flex flex-col gap-1">
+          <TextInput
+            type="email"
+            placeholder="이메일"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          {fieldErrors.email && <p className="text-sm text-red-400">{fieldErrors.email}</p>}
+        </div>
+        <div className="flex flex-col gap-1">
+          <TextInput
+            type="password"
+            placeholder="비밀번호"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          {fieldErrors.password && <p className="text-sm text-red-400">{fieldErrors.password}</p>}
+        </div>
         {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
         <SubmitButton pending={loginMutation.isPending} pendingLabel="로그인 중...">
           로그인
