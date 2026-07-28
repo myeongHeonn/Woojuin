@@ -2,46 +2,56 @@ import { useEffect, useMemo, useRef } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { MapAdapter } from '@/components/domain/map/mapAdapter';
 import { createOpenFreeMapAdapter } from '@/components/domain/map/openFreeMapAdapter';
-import { MAP_CATEGORIES, MAP_ITEM_TYPE_COLOR, MAP_ITEM_TYPE_LABEL } from '@/stores/mock/map';
+import { MAP_ITEM_TYPE_COLOR, MAP_ITEM_TYPE_LABEL } from '@/constants/map';
+import type { Category } from '@/types/category';
 import type { MapPlace } from '@/types/map';
 
 interface MapCanvasProps {
+  categories: Category[];
   places: MapPlace[];
   selectedPlaceId: number | null;
   onSelectPlace: (placeId: number) => void;
   onDeselectPlace: () => void;
 }
 
-const categoryById = new Map(MAP_CATEGORIES.map((category) => [category.id, category]));
-
-const MapCanvas = ({ places, selectedPlaceId, onSelectPlace, onDeselectPlace }: MapCanvasProps) => {
+const MapCanvas = ({
+  categories,
+  places,
+  selectedPlaceId,
+  onSelectPlace,
+  onDeselectPlace,
+}: MapCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<MapAdapter | null>(null);
   const onSelectPlaceRef = useRef(onSelectPlace);
   const onDeselectPlaceRef = useRef(onDeselectPlace);
   onSelectPlaceRef.current = onSelectPlace;
   onDeselectPlaceRef.current = onDeselectPlace;
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.categoryId, category])),
+    [categories],
+  );
 
   const points = useMemo(
     () =>
       places.map((place) => {
         const categoryLabel = place.categoryIds
-          .map((categoryId) => categoryById.get(categoryId)?.label)
+          .map((categoryId) => categoryById.get(categoryId)?.name)
           .filter((label): label is string => Boolean(label))
           .join(' · #');
 
         return {
-          id: place.id,
+          id: place.itemId,
           lat: place.lat,
           lng: place.lng,
-          title: place.title,
+          title: place.title ?? '제목 없음',
           address: place.address,
           categoryLabel: categoryLabel || '미분류',
           typeLabel: MAP_ITEM_TYPE_LABEL[place.type],
           color: MAP_ITEM_TYPE_COLOR[place.type],
         };
       }),
-    [places],
+    [categoryById, places],
   );
 
   useEffect(() => {

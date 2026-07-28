@@ -1,20 +1,9 @@
 import { MOCK_UNIVERSE } from '@/stores/mock/universe';
-import type { ItemType } from '@/types/item';
-import type { MapCategory, MapCategoryId, MapPlace } from '@/types/map';
+import type { Category } from '@/types/category';
+import type { MapPlace } from '@/types/map';
+import { selectVisibleMapPlaces } from '@/utils/mapPlaces';
 
-export const MAP_ITEM_TYPE_LABEL: Record<ItemType, string> = {
-  URL: '링크',
-  IMAGE: '사진',
-  MEMO: '메모',
-};
-
-export const MAP_ITEM_TYPES: ItemType[] = ['MEMO', 'IMAGE', 'URL'];
-
-export const MAP_ITEM_TYPE_COLOR: Record<ItemType, string> = {
-  URL: '#8fb4ff',
-  IMAGE: '#f5b08a',
-  MEMO: '#b8e6a3',
-};
+export { selectVisibleMapPlaces };
 
 /**
  * 지도 API가 구현되기 전까지 우주뷰 아이템에 지도 전용 목업 위치만 합성한다.
@@ -44,9 +33,9 @@ const mapConstellations = MOCK_UNIVERSE.constellations.filter((constellation) =>
   constellation.items.some((item) => LOCATION_BY_ITEM_ID[item.id] !== undefined),
 );
 
-export const MAP_CATEGORIES: MapCategory[] = mapConstellations.map((constellation) => ({
-  id: constellation.categoryId,
-  label: constellation.categoryName.replace(/^#/, ''),
+export const MAP_CATEGORIES: Category[] = mapConstellations.map((constellation) => ({
+  categoryId: constellation.categoryId,
+  name: constellation.categoryName.replace(/^#/, ''),
   color: `#${constellation.color.toString(16).padStart(6, '0')}`,
 }));
 
@@ -63,20 +52,13 @@ mapConstellations.forEach((constellation) => {
     ].sort((left, right) => left - right);
 
     placesByItemId.set(item.id, {
-      ...(existing ?? item),
+      itemId: item.id,
       categoryIds,
+      type: item.type,
+      title: item.title,
       ...location,
     });
   });
 });
 
 export const MAP_PLACES: MapPlace[] = [...placesByItemId.values()];
-
-export const selectVisibleMapPlaces = (
-  places: MapPlace[],
-  activeCategories: ReadonlySet<MapCategoryId>,
-): MapPlace[] =>
-  places.flatMap((place) => {
-    const categoryIds = place.categoryIds.filter((categoryId) => activeCategories.has(categoryId));
-    return categoryIds.length > 0 ? [{ ...place, categoryIds }] : [];
-  });

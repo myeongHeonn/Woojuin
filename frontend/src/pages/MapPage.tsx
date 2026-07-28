@@ -1,9 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import MapCanvas from '@/components/domain/map/MapCanvas';
 import MapPlacePanel from '@/components/domain/map/MapPlacePanel';
+import ItemModal from '@/components/domain/library/detail/ItemModal';
+import { useCategories } from '@/hooks/useCategories';
+import { useMapPlaces } from '@/hooks/useMapPlaces';
 import { useStageMeta } from '@/hooks/useStageMeta';
-import { MAP_CATEGORIES, MAP_PLACES, selectVisibleMapPlaces } from '@/stores/mock/map';
 import type { MapCategoryId } from '@/types/map';
+import { selectVisibleMapPlaces } from '@/utils/mapPlaces';
 
 const isMobileViewport = () =>
   typeof window !== 'undefined' &&
@@ -17,15 +21,28 @@ const isMobileViewport = () =>
  * 추후 지도 어댑터가 정해지면 MapCanvas 내부 구현만 교체한다.
  */
 const MapPage = () => {
-  const [activeCategories, setActiveCategories] = useState<Set<MapCategoryId>>(
-    () => new Set(MAP_CATEGORIES.map((category) => category.id)),
-  );
+  const { workspaceId: workspaceIdParam } = useParams<{ workspaceId: string }>();
+  const workspaceId = Number(workspaceIdParam);
+  const { data: categories = [], isSuccess: categoriesLoaded } = useCategories(workspaceId);
+  const { data: places = [] } = useMapPlaces(workspaceId);
+  const initializedWorkspaceRef = useRef<number | null>(null);
+  const [activeCategories, setActiveCategories] = useState<Set<MapCategoryId>>(new Set());
   const [isMapPanelCollapsed, setIsMapPanelCollapsed] = useState(isMobileViewport);
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
+  const [openItemId, setOpenItemId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!categoriesLoaded || initializedWorkspaceRef.current === workspaceId) return;
+
+    initializedWorkspaceRef.current = workspaceId;
+    setActiveCategories(new Set(categories.map((category) => category.categoryId)));
+    setSelectedPlaceId(null);
+    setOpenItemId(null);
+  }, [categories, categoriesLoaded, workspaceId]);
 
   const visiblePlaces = useMemo(
-    () => selectVisibleMapPlaces(MAP_PLACES, activeCategories),
-    [activeCategories],
+    () => selectVisibleMapPlaces(places, activeCategories),
+    [activeCategories, places],
   );
 
   useStageMeta(`${visiblePlaces.length} places · ${activeCategories.size} categories`);
@@ -34,9 +51,9 @@ const MapPage = () => {
     let next: Set<MapCategoryId>;
     if (categoryId === 'all') {
       next =
-        activeCategories.size === MAP_CATEGORIES.length
+        activeCategories.size === categories.length
           ? new Set<MapCategoryId>()
-          : new Set(MAP_CATEGORIES.map((category) => category.id));
+          : new Set(categories.map((category) => category.categoryId));
     } else {
       next = new Set(activeCategories);
       if (next.has(categoryId)) {
@@ -47,7 +64,7 @@ const MapPage = () => {
     }
     setActiveCategories(next);
 
-    const selectedPlace = MAP_PLACES.find((place) => place.id === selectedPlaceId);
+    const selectedPlace = places.find((place) => place.itemId === selectedPlaceId);
     if (selectedPlace && !selectedPlace.categoryIds.some((id) => next.has(id))) {
       setSelectedPlaceId(null);
     }
@@ -70,12 +87,14 @@ const MapPage = () => {
       className="relative h-full w-full overflow-hidden bg-space"
     >
       <MapCanvas
+        categories={categories}
         places={visiblePlaces}
         selectedPlaceId={selectedPlaceId}
         onSelectPlace={selectPlaceAndCollapsePanel}
         onDeselectPlace={() => setSelectedPlaceId(null)}
       />
       <MapPlacePanel
+        categories={categories}
         places={visiblePlaces}
         activeCategories={activeCategories}
         collapsed={isMapPanelCollapsed}
@@ -83,6 +102,12 @@ const MapPage = () => {
         onCollapsedChange={setIsMapPanelCollapsed}
         onToggleCategory={toggleCategory}
         onSelectPlace={selectPlaceAndCollapsePanel}
+        onOpenItem={setOpenItemId}
+      />
+      <ItemModal
+        workspaceId={workspaceId}
+        itemId={openItemId}
+        onClose={() => setOpenItemId(null)}
       />
     </div>
   );

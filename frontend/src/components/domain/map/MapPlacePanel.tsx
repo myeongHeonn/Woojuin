@@ -1,14 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import {
-  MAP_CATEGORIES,
-  MAP_ITEM_TYPES,
-  MAP_ITEM_TYPE_COLOR,
-  MAP_ITEM_TYPE_LABEL,
-} from '@/stores/mock/map';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { MAP_ITEM_TYPES, MAP_ITEM_TYPE_COLOR, MAP_ITEM_TYPE_LABEL } from '@/constants/map';
+import type { Category } from '@/types/category';
 import type { MapCategoryId, MapPlace } from '@/types/map';
 import { classNames } from '@/utils/classNames';
 
 interface MapPlacePanelProps {
+  categories: Category[];
   places: MapPlace[];
   activeCategories: Set<MapCategoryId>;
   collapsed: boolean;
@@ -16,11 +13,11 @@ interface MapPlacePanelProps {
   onCollapsedChange: (collapsed: boolean) => void;
   onToggleCategory: (categoryId: MapCategoryId | 'all') => void;
   onSelectPlace: (placeId: number) => void;
+  onOpenItem: (itemId: number) => void;
 }
 
-const categoryById = new Map(MAP_CATEGORIES.map((category) => [category.id, category]));
-
 const MapPlacePanel = ({
+  categories,
   places,
   activeCategories,
   collapsed,
@@ -28,13 +25,18 @@ const MapPlacePanel = ({
   onCollapsedChange,
   onToggleCategory,
   onSelectPlace,
+  onOpenItem,
 }: MapPlacePanelProps) => {
   const dragStartYRef = useRef<number | null>(null);
   const ignoreClickRef = useRef(false);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const allSelected = activeCategories.size === MAP_CATEGORIES.length;
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.categoryId, category])),
+    [categories],
+  );
+  const allSelected = categories.length > 0 && activeCategories.size === categories.length;
 
   useEffect(() => {
     const element = categoryScrollRef.current;
@@ -174,15 +176,15 @@ const MapPlacePanel = ({
             전체
           </button>
 
-          {MAP_CATEGORIES.map((category) => {
-            const active = activeCategories.has(category.id);
+          {categories.map((category) => {
+            const active = activeCategories.has(category.categoryId);
 
             return (
               <button
-                key={category.id}
+                key={category.categoryId}
                 type="button"
                 aria-pressed={active}
-                onClick={() => onToggleCategory(category.id)}
+                onClick={() => onToggleCategory(category.categoryId)}
                 className={classNames(
                   'inline-flex shrink-0 items-center gap-1.5 rounded-pill border px-3 py-1.5 text-xs font-bold transition-colors',
                   active
@@ -198,7 +200,7 @@ const MapPlacePanel = ({
                   )}
                   style={{ backgroundColor: category.color }}
                 />
-                {category.label}
+                {category.name}
               </button>
             );
           })}
@@ -229,18 +231,16 @@ const MapPlacePanel = ({
         ) : (
           places.map((place) => {
             const categoryLabel = place.categoryIds
-              .map((categoryId) => categoryById.get(categoryId)?.label)
+              .map((categoryId) => categoryById.get(categoryId)?.name)
               .filter((label): label is string => Boolean(label))
               .map((label) => `#${label}`)
               .join(' · ');
-            const selected = place.id === selectedPlaceId;
+            const selected = place.itemId === selectedPlaceId;
+            const title = place.title ?? '제목 없음';
 
             return (
-              <button
-                key={place.id}
-                type="button"
-                onClick={() => onSelectPlace(place.id)}
-                aria-pressed={selected}
+              <div
+                key={place.itemId}
                 className={classNames(
                   'flex w-full cursor-pointer items-center gap-3 rounded-[11px] border px-2.5 py-2.5 text-left transition-colors',
                   selected
@@ -248,23 +248,38 @@ const MapPlacePanel = ({
                     : 'border-transparent bg-sidebar/10 hover:border-border/60 hover:bg-surface-2/65',
                 )}
               >
-                <span
-                  aria-hidden="true"
-                  className="h-[9px] w-[9px] shrink-0 rounded-full shadow-[0_0_3px_currentColor]"
-                  style={{
-                    backgroundColor: MAP_ITEM_TYPE_COLOR[place.type],
-                    color: MAP_ITEM_TYPE_COLOR[place.type],
-                  }}
-                />
-                <span className="min-w-0 flex-1">
-                  <strong className="block truncate text-[13px] font-semibold text-text-1">
-                    {place.title}
-                  </strong>
-                  <span className="mt-0.5 block truncate text-[11px] text-text-3">
-                    {categoryLabel} · {MAP_ITEM_TYPE_LABEL[place.type]} · {place.address}
+                <button
+                  type="button"
+                  onClick={() => onSelectPlace(place.itemId)}
+                  aria-pressed={selected}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-[9px] w-[9px] shrink-0 rounded-full shadow-[0_0_3px_currentColor]"
+                    style={{
+                      backgroundColor: MAP_ITEM_TYPE_COLOR[place.type],
+                      color: MAP_ITEM_TYPE_COLOR[place.type],
+                    }}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-[13px] font-semibold text-text-1">
+                      {title}
+                    </strong>
+                    <span className="mt-0.5 block truncate text-[11px] text-text-3">
+                      {categoryLabel} · {MAP_ITEM_TYPE_LABEL[place.type]} · {place.address}
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`${title} 상세 보기`}
+                  onClick={() => onOpenItem(place.itemId)}
+                  className="shrink-0 rounded-md border border-border/70 px-2 py-1 text-[10px] font-bold text-text-2 transition-colors hover:bg-surface-3 hover:text-text-1"
+                >
+                  상세
+                </button>
+              </div>
             );
           })
         )}

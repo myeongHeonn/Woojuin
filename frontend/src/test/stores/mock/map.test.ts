@@ -7,7 +7,7 @@ describe('지도 목업 장소', () => {
     const duplicatedItems = MOCK_UNIVERSE.constellations
       .flatMap((constellation) => constellation.items)
       .filter((item) => item.id === 21);
-    const mapPlaces = MAP_PLACES.filter((place) => place.id === 21);
+    const mapPlaces = MAP_PLACES.filter((place) => place.itemId === 21);
 
     expect(duplicatedItems).toHaveLength(8);
     expect(mapPlaces).toHaveLength(1);
@@ -15,7 +15,7 @@ describe('지도 목업 장소', () => {
   });
 
   it('모든 지도 장소의 item id는 고유하다', () => {
-    const placeIds = MAP_PLACES.map((place) => place.id);
+    const placeIds = MAP_PLACES.map((place) => place.itemId);
 
     expect(new Set(placeIds).size).toBe(placeIds.length);
   });
@@ -28,7 +28,7 @@ describe('지도 목업 장소', () => {
     const seongsuPlaces = selectVisibleMapPlaces(MAP_PLACES, new Set([8]));
     const jejuPlaces = selectVisibleMapPlaces(MAP_PLACES, new Set([7]));
 
-    expect(seongsuPlaces.find((place) => place.id === 21)?.categoryIds).toEqual([8]);
-    expect(jejuPlaces.some((place) => place.id === 21)).toBe(false);
+    expect(seongsuPlaces.find((place) => place.itemId === 21)?.categoryIds).toEqual([8]);
+    expect(jejuPlaces.some((place) => place.itemId === 21)).toBe(false);
   });
 });
