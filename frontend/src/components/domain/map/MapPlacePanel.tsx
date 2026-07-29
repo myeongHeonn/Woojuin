@@ -8,10 +8,12 @@ interface MapPlacePanelProps {
   categories: Category[];
   places: MapPlace[];
   activeCategories: Set<MapCategoryId>;
+  favoriteActive: boolean;
   collapsed: boolean;
   selectedPlaceId: number | null;
   onCollapsedChange: (collapsed: boolean) => void;
   onToggleCategory: (categoryId: MapCategoryId | 'all') => void;
+  onToggleFavorite: () => void;
   onSelectPlace: (placeId: number) => void;
   onOpenItem: (itemId: number) => void;
 }
@@ -20,10 +22,12 @@ const MapPlacePanel = ({
   categories,
   places,
   activeCategories,
+  favoriteActive,
   collapsed,
   selectedPlaceId,
   onCollapsedChange,
   onToggleCategory,
+  onToggleFavorite,
   onSelectPlace,
   onOpenItem,
 }: MapPlacePanelProps) => {
@@ -163,16 +167,29 @@ const MapPlacePanel = ({
         >
           <button
             type="button"
+            aria-pressed={favoriteActive}
+            onClick={onToggleFavorite}
+            className={classNames(
+              'inline-flex shrink-0 items-center rounded-pill border px-3 py-1.5 text-xs font-bold transition-colors',
+              favoriteActive
+                ? 'border-accent bg-surface-2 text-text-1'
+                : 'border-border bg-transparent text-text-2 hover:text-text-1',
+            )}
+          >
+            즐겨찾기
+          </button>
+
+          <button
+            type="button"
             aria-pressed={allSelected}
             onClick={() => onToggleCategory('all')}
             className={classNames(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-pill border px-3 py-1.5 text-xs font-bold transition-colors',
+              'inline-flex shrink-0 items-center rounded-pill border px-3 py-1.5 text-xs font-bold transition-colors',
               allSelected
-                ? 'border-surface-3/90 bg-surface-3/90 text-text-1'
-                : 'border-border/80 bg-surface/55 text-text-3 hover:bg-surface-2/75 hover:text-text-1',
+                ? 'border-accent bg-surface-2 text-text-1'
+                : 'border-border bg-transparent text-text-2 hover:text-text-1',
             )}
           >
-            <span aria-hidden="true" className="h-[7px] w-[7px] rounded-full bg-text-2" />
             전체
           </button>
 
@@ -188,16 +205,13 @@ const MapPlacePanel = ({
                 className={classNames(
                   'inline-flex shrink-0 items-center gap-1.5 rounded-pill border px-3 py-1.5 text-xs font-bold transition-colors',
                   active
-                    ? 'border-surface-3/90 bg-surface-3/90 text-text-1'
-                    : 'border-border/80 bg-surface/55 text-text-3 hover:bg-surface-2/75 hover:text-text-1',
+                    ? 'border-accent bg-surface-2 text-text-1'
+                    : 'border-border bg-transparent text-text-2 hover:text-text-1',
                 )}
               >
                 <span
                   aria-hidden="true"
-                  className={classNames(
-                    'h-[7px] w-[7px] rounded-full transition-opacity',
-                    active ? 'opacity-100' : 'opacity-35',
-                  )}
+                  className="h-[7px] w-[7px] rounded-full"
                   style={{ backgroundColor: category.color }}
                 />
                 {category.name}

@@ -7,7 +7,8 @@ import { useCategories } from '@/hooks/useCategories';
 import { useMapPlaces } from '@/hooks/useMapPlaces';
 import { useStageMeta } from '@/hooks/useStageMeta';
 import type { MapCategoryId } from '@/types/map';
-import { selectVisibleMapPlaces } from '@/utils/mapPlaces';
+import { toggleCategorySelection } from '@/utils/categorySelection';
+import { selectVisibleMapPlaces, sortCategoriesByPlaceCount } from '@/utils/mapPlaces';
 
 const isMobileViewport = () =>
   typeof window !== 'undefined' &&
@@ -26,7 +27,8 @@ const MapPage = () => {
   const { data: categories = [], isSuccess: categoriesLoaded } = useCategories(workspaceId);
   const { data: places = [] } = useMapPlaces(workspaceId);
   const initializedWorkspaceRef = useRef<number | null>(null);
-  const [activeCategories, setActiveCategories] = useState<Set<MapCategoryId>>(new Set());
+  const [selectedCategories, setSelectedCategories] = useState<MapCategoryId[]>([]);
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [isMapPanelCollapsed, setIsMapPanelCollapsed] = useState(isMobileViewport);
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
   const [openItemId, setOpenItemId] = useState<number | null>(null);
@@ -35,43 +37,57 @@ const MapPage = () => {
     if (!categoriesLoaded || initializedWorkspaceRef.current === workspaceId) return;
 
     initializedWorkspaceRef.current = workspaceId;
-    setActiveCategories(new Set(categories.map((category) => category.categoryId)));
+    setSelectedCategories([]);
+    setFavoriteOnly(false);
     setSelectedPlaceId(null);
     setOpenItemId(null);
   }, [categories, categoriesLoaded, workspaceId]);
 
+  const activeCategories = useMemo(
+    () =>
+      selectedCategories.length === 0
+        ? new Set(categories.map((category) => category.categoryId))
+        : new Set(selectedCategories),
+    [categories, selectedCategories],
+  );
   const visiblePlaces = useMemo(
-    () => selectVisibleMapPlaces(places, activeCategories),
-    [activeCategories, places],
+    () => selectVisibleMapPlaces(places, activeCategories, favoriteOnly),
+    [activeCategories, favoriteOnly, places],
+  );
+  const sortedFilterCategories = useMemo(
+    () => sortCategoriesByPlaceCount(categories, places),
+    [categories, places],
   );
 
   useStageMeta(`${visiblePlaces.length} places · ${activeCategories.size} categories`);
 
   const toggleCategory = (categoryId: MapCategoryId | 'all') => {
-    let next: Set<MapCategoryId>;
-    if (categoryId === 'all') {
-      next =
-        activeCategories.size === categories.length
-          ? new Set<MapCategoryId>()
-          : new Set(categories.map((category) => category.categoryId));
-    } else {
-      next = new Set(activeCategories);
-      if (next.has(categoryId)) {
-        next.delete(categoryId);
-      } else {
-        next.add(categoryId);
-      }
-    }
-    setActiveCategories(next);
+    const nextSelected = toggleCategorySelection(selectedCategories, categoryId);
+
+    setSelectedCategories(nextSelected);
+    const nextActive =
+      nextSelected.length === 0
+        ? new Set(categories.map((category) => category.categoryId))
+        : new Set(nextSelected);
 
     const selectedPlace = places.find((place) => place.itemId === selectedPlaceId);
-    if (selectedPlace && !selectedPlace.categoryIds.some((id) => next.has(id))) {
+    if (selectedPlace && !selectedPlace.categoryIds.some((id) => nextActive.has(id))) {
       setSelectedPlaceId(null);
     }
   };
 
   const selectPlace = (placeId: number) => {
     setSelectedPlaceId((current) => (current === placeId ? null : placeId));
+  };
+
+  const toggleFavorite = () => {
+    const next = !favoriteOnly;
+    setFavoriteOnly(next);
+
+    const selectedPlace = places.find((place) => place.itemId === selectedPlaceId);
+    if (next && selectedPlace && !selectedPlace.favorite) {
+      setSelectedPlaceId(null);
+    }
   };
 
   const selectPlaceAndCollapsePanel = (placeId: number) => {
@@ -95,13 +111,15 @@ const MapPage = () => {
         onDeselectPlace={() => setSelectedPlaceId(null)}
       />
       <MapPlacePanel
-        categories={categories}
+        categories={sortedFilterCategories}
         places={visiblePlaces}
         activeCategories={activeCategories}
+        favoriteActive={favoriteOnly}
         collapsed={isMapPanelCollapsed}
         selectedPlaceId={selectedPlaceId}
         onCollapsedChange={setIsMapPanelCollapsed}
         onToggleCategory={toggleCategory}
+        onToggleFavorite={toggleFavorite}
         onSelectPlace={selectPlaceAndCollapsePanel}
         onOpenItem={setOpenItemId}
       />

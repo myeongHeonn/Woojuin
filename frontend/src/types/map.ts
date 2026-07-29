@@ -7,6 +7,7 @@ export interface MapPlace {
   categoryIds: MapCategoryId[];
   type: ItemType;
   title: string | null;
+  favorite: boolean;
   lat: number;
   lng: number;
   address: string;
