@@ -1,5 +1,6 @@
 import { api, type ApiResponse } from './client';
 import type { ItemCreateResponse, ItemDetail, ItemListResponse } from '@/types/item';
+import type { MapPlace } from '@/types/map';
 
 //워크스페이스 아이템 받아오기
 //필터는 전부 서버가 처리한다(즐겨찾기·카테고리·정렬) — queryKey 로 캐싱/재요청을 태운다.
@@ -44,6 +45,11 @@ export async function fetchItems({
 // GET /items/{itemId} → ItemDetailResponse (아이템 id 는 전역 유일이라 워크스페이스 스코프가 없다)
 export async function fetchItem(itemId: number) {
   const res = await api.get<ApiResponse<ItemDetail>>(`/items/${itemId}`);
+  return res.data.data;
+}
+
+export async function fetchMapPlaces(workspaceId: number) {
+  const res = await api.get<ApiResponse<MapPlace[]>>(`/workspaces/${workspaceId}/items/geo`);
   return res.data.data;
 }
 

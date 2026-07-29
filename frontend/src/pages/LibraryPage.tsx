@@ -7,6 +7,7 @@ import CategoryManage from '@/components/domain/library/CategoryManage';
 import Items from '@/components/domain/library/Items';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import { useCategories } from '@/hooks/useCategories';
+import { toggleCategorySelection } from '@/utils/categorySelection';
 
 /**
  * 대시보드(보관함) — 상단 필터 바 + 아이템 리스트.
@@ -41,10 +42,8 @@ const LibraryPage = () => {
       <CategoryChipBar
         chips={chips}
         selected={selected}
-        onSelectAll={() => setSelected([])}
-        onToggle={(id) =>
-          setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
-        }
+        onSelectAll={() => setSelected(toggleCategorySelection(selected, 'all'))}
+        onToggle={(id) => setSelected((current) => toggleCategorySelection(current, id))}
         favoriteActive={favoriteActive}
         onToggleFavorite={() => setFavoriteActive((v) => !v)}
         manage={<CategoryManage workspaceId={Number(workspaceId)} />}

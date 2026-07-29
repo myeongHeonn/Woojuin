@@ -1,5 +1,5 @@
 import { api, type ApiResponse } from './client';
-import type { CategoryChip } from '@/components/domain/library/CategoryChipBar';
+import type { Category } from '@/types/category';
 
 export interface Workspace {
   id: number;
@@ -25,7 +25,7 @@ export async function createWorkspace(payload: CreateWorkspacePayload) {
 
 //워크스페이스 내부 카테고리 목록 가져오기
 export async function getCategories(workspaceId: number) {
-  const res = await api.get<ApiResponse<CategoryChip[]>>(`/workspaces/${workspaceId}/categories`);
+  const res = await api.get<ApiResponse<Category[]>>(`/workspaces/${workspaceId}/categories`);
   return res.data.data;
 }
 

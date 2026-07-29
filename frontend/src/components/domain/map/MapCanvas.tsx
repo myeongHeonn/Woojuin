@@ -2,39 +2,60 @@ import { useEffect, useMemo, useRef } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { MapAdapter } from '@/components/domain/map/mapAdapter';
 import { createOpenFreeMapAdapter } from '@/components/domain/map/openFreeMapAdapter';
-import { MAP_CATEGORIES, MAP_ITEM_TYPE_LABEL } from '@/stores/mock/map';
+import { MAP_ITEM_TYPE_COLOR, MAP_ITEM_TYPE_LABEL } from '@/constants/map';
+import type { Category } from '@/types/category';
 import type { MapPlace } from '@/types/map';
 
 interface MapCanvasProps {
+  categories: Category[];
   places: MapPlace[];
   selectedPlaceId: number | null;
   onSelectPlace: (placeId: number) => void;
+  onOpenItem: (itemId: number) => void;
+  onDeselectPlace: () => void;
 }
 
-const categoryById = new Map(MAP_CATEGORIES.map((category) => [category.id, category]));
-
-const MapCanvas = ({ places, selectedPlaceId, onSelectPlace }: MapCanvasProps) => {
+const MapCanvas = ({
+  categories,
+  places,
+  selectedPlaceId,
+  onSelectPlace,
+  onOpenItem,
+  onDeselectPlace,
+}: MapCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<MapAdapter | null>(null);
   const onSelectPlaceRef = useRef(onSelectPlace);
+  const onOpenItemRef = useRef(onOpenItem);
+  const onDeselectPlaceRef = useRef(onDeselectPlace);
   onSelectPlaceRef.current = onSelectPlace;
+  onOpenItemRef.current = onOpenItem;
+  onDeselectPlaceRef.current = onDeselectPlace;
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.categoryId, category])),
+    [categories],
+  );
 
   const points = useMemo(
     () =>
       places.map((place) => {
-        const category = categoryById.get(place.categoryId);
+        const categoryLabel = place.categoryIds
+          .map((categoryId) => categoryById.get(categoryId)?.name)
+          .filter((label): label is string => Boolean(label))
+          .join(' · #');
+
         return {
-          id: place.id,
+          id: place.itemId,
           lat: place.lat,
           lng: place.lng,
-          title: place.title,
+          title: place.title ?? '제목 없음',
           address: place.address,
-          categoryLabel: category?.label ?? '미분류',
+          categoryLabel: categoryLabel || '미분류',
           typeLabel: MAP_ITEM_TYPE_LABEL[place.type],
-          color: category?.color ?? 'var(--color-star-white)',
+          color: MAP_ITEM_TYPE_COLOR[place.type],
         };
       }),
-    [places],
+    [categoryById, places],
   );
 
   useEffect(() => {
@@ -44,6 +65,8 @@ const MapCanvas = ({ places, selectedPlaceId, onSelectPlace }: MapCanvasProps) =
     const adapter = createOpenFreeMapAdapter({
       container,
       onSelectPoint: (pointId) => onSelectPlaceRef.current(pointId),
+      onOpenPoint: (pointId) => onOpenItemRef.current(pointId),
+      onDeselectPoint: () => onDeselectPlaceRef.current(),
     });
     const resizeObserver = new ResizeObserver(() => adapter.resize());
 
