@@ -61,21 +61,21 @@ public class ItemEmbeddingJdbcRepository {
                 xyzByItemId);
     }
 
-    /** 우주 뷰 조회용 행. categoryIds는 서비스가 별도 조회로 붙인다(지도 뷰와 동일 방식). */
-    public record CoordinateRow(Long itemId, String type, String title, boolean favorite,
+    /** 우주 뷰 조회용 행. 카테고리 연결은 서비스가 별도 조회로 붙인다(지도 뷰와 동일 방식). */
+    public record CoordinateRow(Long itemId, String type, String title, String url,
             double x, double y, double z) {
     }
 
-    /** 좌표가 계산된 활성 아이템의 우주 뷰 행들. */
+    /** 좌표가 계산된 활성 아이템의 우주 뷰 행들. url은 URL 타입 별의 바로 이동용. */
     public List<CoordinateRow> findCoordinates(Long workspaceId) {
         return jdbcTemplate.query(
-                "SELECT e.item_id, i.type, i.title, i.favorite, e.x, e.y, e.z "
+                "SELECT e.item_id, i.type, i.title, i.url, e.x, e.y, e.z "
                         + "FROM item_embeddings e "
                         + "JOIN items i ON i.id = e.item_id AND i.deleted_at IS NULL "
                         + "WHERE e.workspace_id = ? AND e.x IS NOT NULL "
                         + "ORDER BY e.item_id",
                 (rs, i) -> new CoordinateRow(rs.getLong(1), rs.getString(2), rs.getString(3),
-                        rs.getBoolean(4), rs.getDouble(5), rs.getDouble(6), rs.getDouble(7)),
+                        rs.getString(4), rs.getDouble(5), rs.getDouble(6), rs.getDouble(7)),
                 workspaceId);
     }
 
