@@ -195,6 +195,90 @@ class MapLinkCoordinateParserTest {
                 37.5445, 127.0561);
     }
 
+    // ---------- 네이버 본문 임베드 지도 (경도가 먼저!) ----------
+
+    /**
+     * 네이버 스마트에디터가 글 본문에 심는 정적 지도. 실측 표본이고, 값이 퍼센트 인코딩돼 있다.
+     * 글쓴이가 직접 찍은 핀이라 본문 주소를 지오코딩하는 것보다 정확하다.
+     */
+    private static final String NAVER_STATICMAP =
+            "https://simg.pstatic.net/static.map/v2/map/staticmap.bin?caller=smarteditor"
+            + "&markers=color%3A0x11cc73%7Csize%3Amid%7Cpos%3A126.8234182%2035.1909497"
+            + "%7CviewSizeRatio%3A0.7%7Ctype%3Ad&w=700&h=315&scale=2&dataversion=176.29";
+
+    @Test
+    void 네이버_임베드_지도의_pos는_경도가_먼저다() {
+        assertCoord(parser.parse(NAVER_STATICMAP), 35.1909497, 126.8234182);
+    }
+
+    @Test
+    void 네이버_임베드_지도는_구분자가_플러스여도_읽는다() {
+        // 리터럴 공백은 URI.create가 거부하므로 애초에 여기까지 오지 않는다.
+        String plusSeparated = "https://simg.pstatic.net/static.map/v2/map/staticmap.bin"
+                + "?markers=pos:126.8234182+35.1909497&w=700";
+
+        assertCoord(parser.parse(plusSeparated), 35.1909497, 126.8234182);
+    }
+
+    @Test
+    void 네이버_임베드_지도의_좌표계가_WGS84가_아니면_거부한다() {
+        // crs가 생략되면 기본값이 WGS84라서 쓰고, 다른 좌표계가 명시되면 포기한다.
+        String tm = "https://simg.pstatic.net/static.map/v2/map/staticmap.bin"
+                + "?crs=EPSG%3A3857&markers=pos%3A126.8234182%2035.1909497&w=700";
+
+        assertThat(parser.parse(tm)).isEmpty();
+    }
+
+    // ---------- 네이버 장소 페이지의 '길찾기' 링크 (경도가 먼저!) ----------
+
+    /**
+     * 네이버 지도 링크는 URL에 좌표가 없고 페이지도 SPA 껍데기다. 모바일 장소 페이지의 '길찾기'
+     * 링크가 장소 id와 좌표를 함께 담는다. 실측 표본(푸드박스 광주점, id 1301934134).
+     */
+    private static final String NAVER_DIRECTIONS =
+            "https://m.search.naver.com/search.naver?where=m&query=%EB%B9%A0%EB%A5%B8%EA%B8%B8"
+            + "&nso_path=placeType%5Eplace%3Bname%5E%3Baddress%5E%3Bcode%5E1301934134"
+            + "%3Blongitude%5E126.7989859%3Blatitude%5E35.1820806%7Cobjtype%5Epath";
+
+    @Test
+    void 네이버_길찾기_링크는_경도가_먼저다() {
+        assertCoord(parser.parse(NAVER_DIRECTIONS), 35.1820806, 126.7989859);
+    }
+
+    @Test
+    void 인코딩되지_않은_길찾기_링크는_URI로_읽히지_않아_포기한다() {
+        // '^'는 URI에 쓸 수 없는 문자라 URI.create가 거부한다 — 실제 페이지는 %5E로 인코딩해서
+        // 내려주므로 도달하지 않는 경우다. 좌표를 잘못 만드는 대신 포기하는 쪽이 맞다.
+        String raw = "https://m.search.naver.com/search.naver?nso_path=code^1301934134"
+                + ";longitude^126.7989859;latitude^35.1820806";
+
+        assertThat(parser.parse(raw)).isEmpty();
+    }
+
+    @Test
+    void 좌표가_없는_네이버_검색_URL은_무시한다() {
+        assertThat(parser.parse("https://m.search.naver.com/search.naver?query=%EB%A7%9B%EC%A7%91"))
+                .isEmpty();
+        assertThat(parser.parse("https://search.naver.com/search.naver?where=nexearch&y=10&x=20"))
+                .isEmpty();
+    }
+
+    @Test
+    void 네이버_지도_장소_링크_자체에는_좌표가_없다() {
+        // 정규화가 모바일 장소 페이지로 보내고 그 페이지의 길찾기 링크에서 좌표를 얻는다.
+        assertThat(parser.parse("https://map.naver.com/p/entry/place/1301934134?placePath=%2Fhome"))
+                .isEmpty();
+        assertThat(parser.parse("https://naver.me/GzE9COFR")).isEmpty();
+    }
+
+    @Test
+    void 지도가_아닌_pstatic_이미지는_무시한다() {
+        // 같은 CDN이 블로그 사진도 서비스한다. 경로로 갈라야 한다.
+        assertThat(parser.parse("https://blogthumb.pstatic.net/food.jpg?type=w800")).isEmpty();
+        assertThat(parser.parse("https://simg.pstatic.net/image/thumb.jpg?pos%3A126.82%2035.19"))
+                .isEmpty();
+    }
+
     @Test
     void 네이버_c_튜플은_지원하지_않는다() {
         // 포맷이 버전마다 달라 위도·경도를 뒤바꿀 위험이 커서 의도적으로 제외했다.

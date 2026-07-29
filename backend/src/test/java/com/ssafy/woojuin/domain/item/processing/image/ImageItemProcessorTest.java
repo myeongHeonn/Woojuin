@@ -18,7 +18,6 @@ import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.service.S3Uploader;
 import com.ssafy.woojuin.domain.location.GeoPoint;
 import com.ssafy.woojuin.domain.location.Geocoder;
-import com.ssafy.woojuin.domain.location.KoreanAddressExtractor;
 import com.ssafy.woojuin.domain.location.LocationResolver;
 import com.ssafy.woojuin.domain.location.MapLinkCoordinateParser;
 import com.ssafy.woojuin.global.common.ItemStatus;
@@ -55,9 +54,9 @@ class ImageItemProcessorTest {
     }
 
     private void newProcessor() {
-        // 파서·추출기는 순수 함수라 실제 구현을 쓰고, 외부 호출이 필요한 지오코더만 목으로 둔다.
+        // 파서는 순수 함수라 실제 구현을 쓰고, 외부 호출이 필요한 지오코더만 목으로 둔다.
         LocationResolver locationResolver = new LocationResolver(
-                new MapLinkCoordinateParser(), new KoreanAddressExtractor(), geocoder);
+                new MapLinkCoordinateParser(), geocoder);
         processor = new ImageItemProcessor(itemRepository, s3Uploader, imageTextExtractor,
                 thumbnailGenerator, aiAnalyzer, categoryAssignmentService,
                 exifGpsReader, locationResolver);
