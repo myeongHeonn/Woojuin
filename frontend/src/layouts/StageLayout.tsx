@@ -2,6 +2,8 @@ import { Outlet, useParams } from 'react-router-dom';
 import { useAtomValue } from 'jotai';
 import StageHeader from '@/components/domain/stage/StageHeader';
 import AddBtn from '@/components/domain/header/AddBtn';
+import ShareButton from '@/components/domain/share/ShareButton';
+import MemberStack from '@/components/domain/share/MemberStack';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { stageMetaAtom } from '@/stores/stageAtoms';
 
@@ -22,10 +24,27 @@ const StageLayout = () => {
   // 제목은 URL 이 가리키는 워크스페이스의 이름. 목록이 오기 전엔 빈 제목 대신 폴백을 쓴다
   const current = workspaces?.find((workspace) => workspace.id === Number(workspaceId));
 
+  // 개인 스페이스를 뺀 팀 워크스페이스에서만 공유·멤버 UI 를 보인다
+  const isTeam = current?.type === 'TEAM';
+
   return (
     <div className="relative h-full w-full">
       <Outlet />
-      <StageHeader title={current?.name ?? 'My Universe'} meta={meta} actions={<AddBtn />} />
+      <StageHeader
+        title={current?.name ?? 'My Universe'}
+        meta={meta}
+        actions={
+          isTeam ? (
+            <div className="flex items-center gap-2">
+              <MemberStack workspaceId={Number(workspaceId)} />
+              <ShareButton workspaceId={Number(workspaceId)} />
+              <AddBtn />
+            </div>
+          ) : (
+            <AddBtn />
+          )
+        }
+      />
     </div>
   );
 };

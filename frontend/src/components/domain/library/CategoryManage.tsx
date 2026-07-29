@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import Dropdown from '@/components/ui/Dropdown';
-import IconButton from '@/components/ui/IconButton';
+import IconButton from '@/components/ui/button/IconButton';
 import TextInput from '@/components/ui/TextInput';
-import SubmitButton from '@/components/ui/SubmitButton';
+import SubmitButton from '@/components/ui/button/SubmitButton';
 import Dot from '@/components/ui/Dot';
 import { ManageIcon, PencilIcon, TrashIcon, CheckIcon, PlusIcon } from '@/assets/icons';
 import { useCategories } from '@/hooks/useCategories';
