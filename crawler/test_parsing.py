@@ -17,6 +17,18 @@ GOOD_PRODUCT = (
     '<h1 class="prod-buy-header__title">쿠팡 상품</h1></head>'
     "<body>내용</body></html>"
 )
+# 구글이 스텔스 브라우저를 감지했을 때 보내는 캡차 페이지. share.google 링크로 실측했다.
+GOOGLE_CAPTCHA = (
+    '<html><head><title>https://www.google.com/search?q=x</title></head><body>'
+    '<form action="/sorry/index?continue=https://www.google.com/search" id="captcha-form">'
+    "</form></body></html>"
+)
+# reCAPTCHA를 정상적으로 쓰는 일반 사이트 — 차단으로 오인하면 안 된다.
+LEGIT_RECAPTCHA_PAGE = (
+    '<html><head><meta property="og:title" content="문의하기"></head><body>'
+    '<script src="https://www.google.com/recaptcha/api.js"></script>'
+    "<p>문의 내용을 남겨주세요</p></body></html>"
+)
 
 
 class TestRejectionReason:
@@ -39,6 +51,21 @@ class TestRejectionReason:
     def test_detection_is_case_insensitive(self):
         upper = "<html>ACCESS DENIED errors.EDGESUITE.net</html>"
         assert rejection_reason(200, upper) == "blocked: akamai access denied"
+
+    def test_429_rejected(self):
+        # 레이트리밋을 통과시키면 Java가 차단 페이지를 정상 콘텐츠로 저장한다.
+        assert rejection_reason(429, "<html>x</html>") == "blocked: status=429"
+
+    def test_google_captcha_with_200_rejected(self):
+        assert rejection_reason(200, GOOGLE_CAPTCHA) == "blocked: google automation captcha"
+
+    def test_google_unusual_traffic_phrase_rejected(self):
+        page = "<html><body>Our systems have detected unusual traffic</body></html>"
+        assert rejection_reason(200, page) == "blocked: google automation captcha"
+
+    def test_legit_recaptcha_page_passes(self):
+        # 마커가 /sorry/index 로 좁혀져 있어 정상 사이트의 reCAPTCHA는 통과한다.
+        assert rejection_reason(200, LEGIT_RECAPTCHA_PAGE) is None
 
 
 class _FakePage:

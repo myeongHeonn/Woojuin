@@ -14,10 +14,17 @@ def rejection_reason(status: int, html: str) -> str | None:
     """
     if not html:
         return "empty html"
-    if status == 403:
+    # 403은 차단, 429는 레이트리밋. 429를 통과시키면 Java가 "성공"으로 받아 차단 페이지를
+    # 파싱하고, FallbackHtmlFetcher의 "크롤러 실패 시 Jsoup 결과 사용" 안전망도 안 돈다.
+    if status in (403, 429):
         return f"blocked: status={status}"
 
     lowered = html.lower()
+    # 구글 자동화 차단(캡차) 페이지. share.google 링크를 렌더할 때 실측으로 확인했다 —
+    # google.com/sorry/index 로 보내면서 상태코드는 200이나 429로 온다. 마커를 구글
+    # 고유 경로로 좁혀서, reCAPTCHA를 정상적으로 쓰는 일반 사이트가 걸리지 않게 한다.
+    if "/sorry/index" in lowered or "unusual traffic" in lowered:
+        return "blocked: google automation captcha"
     # 아카마이 접근 거부 페이지 (200으로 올 수도 있어 상태코드와 별개로 본다)
     if "errors.edgesuite.net" in lowered or "access denied" in lowered:
         return "blocked: akamai access denied"
