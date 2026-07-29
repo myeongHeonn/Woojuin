@@ -70,6 +70,28 @@ public class Item extends BaseTimeEntity {
     @Column(columnDefinition = "text")
     private String previewThumbnailUrl;
 
+    // 지도 뷰용 좌표 (FR-023 지도 자동 매핑). URL은 지도 공유 링크 파싱 또는 본문 주소
+    // 지오코딩으로, IMAGE는 사진 EXIF GPS로 얻는다. 대부분의 아이템에는 위치가 없다
+    // (코드 링크, 메모, 스크린샷 등) — null이 정상 상태다.
+    //
+    // 타입이 Double인 이유:
+    //  - BigDecimal은 함정이다. Hibernate 6 + PostgreSQL 기본이 numeric(38,2)라서
+    //    ddl-auto=update로 만들면 소수점 2자리(≈1km 오차)가 조용히 박힌다.
+    //  - 원시 double은 "모름"을 표현할 수 없다. 0.0은 실제 좌표(기니만)이고,
+    //    지도 조회가 IS NOT NULL 필터에 의존한다.
+    //
+    // AGENTS.md: 지도 SDK는 미정이므로 좌표는 특정 API 형식이 아닌 lat/lng 원시값으로 둔다.
+    @Column
+    private Double lat;
+
+    @Column
+    private Double lng;
+
+    // 사람이 읽는 주소. 정방향 지오코딩은 좌표와 함께 받고, EXIF 경로는 역지오코딩으로
+    // 따로 채운다. 확보 못 하면 좌표만 있고 null이다.
+    @Column(length = 300)
+    private String address;
+
     // 카테고리는 item_categories 조인 테이블로 다대다 관리한다(단일 category_id 폐기).
     // 기존 DB의 category_id 컬럼은 ddl-auto=update로는 드롭되지 않으니 마이그레이션 시 정리.
 
@@ -144,6 +166,39 @@ public class Item extends BaseTimeEntity {
         if (summary != null) {
             this.summary = summary;
         }
+    }
+
+    /**
+     * 지도 좌표·주소 반영 (FR-023). 다른 apply*와 같은 계약이다 — null 인자는
+     * "확보 못 함"이므로 기존 값을 지우지 않는다.
+     *
+     * <p>lat/lng는 <b>쌍으로만</b> 반영한다. 한쪽만 채우면 지도 조회(둘 다 NOT NULL 조건)에서
+     * 어차피 걸러지는 반쪽 상태만 남는다. address는 별개로 반영한다 — 역지오코딩이 실패해도
+     * 좌표는 살려야 하기 때문이다(핀이 목적이고 주소는 장식이다).
+     *
+     * <p>범위를 벗어난 좌표는 무시한다. 지도 공유 링크에서 투영 좌표(카카오 WCONGNAMUL 등)를
+     * 잘못 읽는 사고가 조용히 저장되는 걸 막는 마지막 방어선이다.
+     */
+    public void applyLocation(Double lat, Double lng, String address) {
+        if (isValidCoordinate(lat, lng)) {
+            this.lat = lat;
+            this.lng = lng;
+        }
+        if (address != null && !address.isBlank()) {
+            this.address = address;
+        }
+    }
+
+    /** 0,0은 EXIF 누락·파싱 실패의 전형적 산출물이라 실제 좌표로 취급하지 않는다. */
+    private static boolean isValidCoordinate(Double lat, Double lng) {
+        return lat != null && lng != null
+                && lat >= -90 && lat <= 90
+                && lng >= -180 && lng <= 180
+                && !(lat == 0 && lng == 0);
+    }
+
+    public boolean hasCoordinates() {
+        return this.lat != null && this.lng != null;
     }
 
     /** 트랙 A/B 모두 성공. AI 분석까지 끝난 최종 상태. */
