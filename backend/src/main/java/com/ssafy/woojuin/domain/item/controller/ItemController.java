@@ -57,9 +57,10 @@ public class ItemController {
     @PostMapping(path = "/items", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<ItemCreateResponse>> createFromImage(
             @PathVariable Long workspaceId,
-            @RequestPart MultipartFile file) {
+            @RequestPart MultipartFile file,
+            @RequestPart(required = false) String title) {
         Long userId = currentUserResolver.resolveUserId();
-        ItemCreateResponse response = itemService.createFromImage(workspaceId, userId, file);
+        ItemCreateResponse response = itemService.createFromImage(workspaceId, userId, file, title);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(201, "success", response));
     }
 

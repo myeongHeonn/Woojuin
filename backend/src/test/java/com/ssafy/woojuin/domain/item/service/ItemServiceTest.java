@@ -625,6 +625,31 @@ class ItemServiceTest {
         assertThat(response.content().get(0).favorite()).isTrue();
     }
 
+    @Test
+    void MEMO_저장시_요청으로_받은_제목을_저장한다() {
+        ItemCreateRequest request =
+                new ItemCreateRequest(ItemType.MEMO, null, "선택한 본문", "React 문서 메모: 컴포넌트");
+        ArgumentCaptor<Item> captor = ArgumentCaptor.forClass(Item.class);
+        when(itemRepository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        itemService.createFromRequest(10L, 1L, request);
+
+        assertThat(captor.getValue().getTitle()).isEqualTo("React 문서 메모: 컴포넌트");
+    }
+
+    @Test
+    void IMAGE_저장시_요청_제목이_파일명보다_우선한다() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "woojuin-image.jpg", "image/jpeg", new byte[] {1});
+        when(s3Uploader.upload(file, 10L)).thenReturn("items/10/uuid-image.jpg");
+        ArgumentCaptor<Item> captor = ArgumentCaptor.forClass(Item.class);
+        when(itemRepository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        itemService.createFromImage(10L, 1L, file, "메타 AI 소개에서 저장한 이미지");
+
+        assertThat(captor.getValue().getTitle()).isEqualTo("메타 AI 소개에서 저장한 이미지");
+    }
+
     private Item trashedItem() {
         Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO)
                 .content("삭제됨").build();

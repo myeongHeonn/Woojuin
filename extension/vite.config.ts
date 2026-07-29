@@ -5,6 +5,11 @@ import { resolve } from 'node:path';
 // MV3: popup(HTML) + background(서비스워커) 두 엔트리
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src'),
+    },
+  },
   build: {
     rollupOptions: {
       input: {

@@ -23,6 +23,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
@@ -42,8 +44,8 @@ public class SecurityConfig {
     // 기본값은 application.yml 한 곳에만 둔다(${CORS_ALLOWED_ORIGIN:...}).
     // 여기에도 기본값을 적으면 yml 쪽이 항상 이겨서 죽은 값이 되는데, 코드만 읽은 사람은
     // 그게 유효하다고 믿게 된다. 선언이 사라지면 기동 시점에 바로 실패하는 편이 낫다.
-    @Value("${woojuin.cors.allowed-origin}")
-    private String allowedOrigin;
+    @Value("${woojuin.cors.allowed-origins}")
+    private String allowedOriginsValue;
 
     public SecurityConfig(JwtTokenProvider jwtTokenProvider, CustomUserDetailsService userDetailsService,
                            CustomOidcUserService customOidcUserService,
@@ -82,7 +84,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(allowedOrigin));
+        LinkedHashSet<String> allowedOrigins = new LinkedHashSet<>();
+        // 로컬 웹앱은 개발 중 항상 백엔드(8080)를 직접 호출한다.
+        allowedOrigins.add("http://localhost:5173");
+        Arrays.stream(allowedOriginsValue.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .forEach(allowedOrigins::add);
+        config.setAllowedOrigins(List.copyOf(allowedOrigins));
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

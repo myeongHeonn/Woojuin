@@ -61,6 +61,7 @@ public class ItemService {
                 .workspaceId(workspaceId)
                 .createdBy(userId)
                 .type(request.type())
+                .title(normalizeTitle(request.title()))
                 .url(request.url())
                 .content(request.content())
                 .build();
@@ -69,7 +70,12 @@ public class ItemService {
     }
 
     public ItemCreateResponse createFromImage(Long workspaceId, Long userId, MultipartFile file) {
+        return createFromImage(workspaceId, userId, file, null);
+    }
+
+    public ItemCreateResponse createFromImage(Long workspaceId, Long userId, MultipartFile file, String title) {
         verifyMembership(workspaceId, userId);
+        String normalizedTitle = normalizeTitle(title);
 
         // S3 업로드는 느린 네트워크 I/O라 트랜잭션 밖에서 먼저 끝낸다. 트랜잭션 안에서
         // 하면 업로드가 끝날 때까지 DB 커넥션을 붙잡고 있어 풀이 마른다.
@@ -79,7 +85,7 @@ public class ItemService {
                 .workspaceId(workspaceId)
                 .createdBy(userId)
                 .type(ItemType.IMAGE)
-                .title(originalFilenameOrNull(file))
+                .title(normalizedTitle != null ? normalizedTitle : originalFilenameOrNull(file))
                 .s3Key(s3Key)
                 .build();
 
@@ -95,6 +101,17 @@ public class ItemService {
     private String originalFilenameOrNull(MultipartFile file) {
         String name = file.getOriginalFilename();
         return (name != null && !name.isBlank()) ? name : null;
+    }
+
+    private String normalizeTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return null;
+        }
+        String normalized = title.trim();
+        if (normalized.length() > 500) {
+            throw new IllegalArgumentException("title은 500자 이하여야 합니다");
+        }
+        return normalized;
     }
 
     /**

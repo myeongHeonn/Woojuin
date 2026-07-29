@@ -7,6 +7,9 @@
     ],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "types": [
       "chrome",
       "node"
