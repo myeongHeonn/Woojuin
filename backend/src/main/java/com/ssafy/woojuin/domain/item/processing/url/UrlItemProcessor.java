@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -136,6 +137,13 @@ public class UrlItemProcessor implements ItemProcessor {
      * <b>추가 요청 없이</b> 커버한다 — 그 fetch는 {@link JsoupHtmlFetcher}가 홉마다 SSRF를
      * 검사한 경로다.
      *
+     * <p>URL 뒤에 <b>페이지의 og:image·twitter:image</b>도 후보로 붙인다. 카카오 장소 페이지
+     * ({@code place.map.kakao.com/{id}})는 URL에 좌표가 없지만 미리보기 스태틱맵 이미지 URL에
+     * 정확한 좌표를 담고 있어서, 이미 받아온 {@code doc}만으로 좌표가 나온다(추가 네트워크 0회).
+     * 카카오맵 앱의 '공유'가 주는 형태라 실사용 빈도가 가장 높다. 지도 이미지가 아닌 og:image는
+     * {@link MapLinkCoordinateParser}의 호스트 게이트에서 그냥 탈락하므로 넣어도 무해하다 —
+     * 단 하나 위험한 구글 스태틱맵은 그쪽에서 명시적으로 거부한다(요청자 IP 기준 좌표라서).
+     *
      * <p>텍스트 후보는 og:description → title → 본문 순이다. 앞쪽이 이 페이지의 주제를
      * 설명하는 텍스트라, 맛집 후기에 섞인 "근처 다른 가게" 주소를 잡을 확률이 낮다.
      *
@@ -149,7 +157,9 @@ public class UrlItemProcessor implements ItemProcessor {
             UrlPreview preview, String content) {
         try {
             List<String> candidateUrls = Stream.of(
-                            item.getUrl(), normalizedUrl, doc != null ? doc.location() : null)
+                            item.getUrl(), normalizedUrl, doc != null ? doc.location() : null,
+                            metaContent(doc, "meta[name='twitter:image']"),
+                            metaContent(doc, "meta[property='og:image']"))
                     .filter(url -> url != null && !url.isBlank())
                     .toList();
             List<String> candidateTexts = Stream.of(
@@ -162,6 +172,15 @@ public class UrlItemProcessor implements ItemProcessor {
         } catch (Exception e) {
             log.warn("위치 확보 실패(무시): itemId={}, cause={}", item.getId(), e.toString());
         }
+    }
+
+    /** 메타 태그 하나의 content 값. 없으면 null — 지도 이미지가 아닌 값은 파서가 걸러낸다. */
+    private String metaContent(Document doc, String selector) {
+        if (doc == null) {
+            return null;
+        }
+        Element meta = doc.selectFirst(selector);
+        return meta == null ? null : meta.attr("content");
     }
 
     private Document tryFetch(String url) {

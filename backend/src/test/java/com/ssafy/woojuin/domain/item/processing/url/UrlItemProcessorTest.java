@@ -296,6 +296,35 @@ class UrlItemProcessorTest {
     }
 
     @Test
+    void 카카오_장소페이지는_스태틱맵_메타태그에서_좌표를_얻는다() {
+        // 실제로 밟은 시나리오 — 카카오맵 앱의 '공유'가 주는 place URL엔 좌표가 없고, 페이지가
+        // 미리보기로 싣는 스태틱맵 이미지 URL에만 들어있다. 이미 받아온 doc을 쓰므로 추가
+        // 네트워크는 0회다. og:image(리뷰 사진)는 지도 호스트가 아니라 그냥 탈락해야 한다.
+        Item item = urlItem("https://place.map.kakao.com/15586602");
+        aiReturnsEmpty();
+        Document placeDoc = Jsoup.parse("""
+                <html><head>
+                  <meta property="og:image" content="https://img1.kakaocdn.net/review/photo.jpg">
+                  <meta name="twitter:image" content="http://staticmap.kakao.com/staticmap/og?\
+                type=place&amp;srs=wgs84&amp;size=400x200&amp;service=placeweb\
+                &amp;m=126.81519384985194%2C35.18968663709063">
+                </head></html>""", "https://place.map.kakao.com/15586602");
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(placeDoc);
+        when(openGraphScraper.scrape(placeDoc)).thenReturn(new UrlPreview("수완초밥", null, null));
+        when(contentExtractor.extract(placeDoc)).thenReturn(null);
+        when(geocoder.reverse(any()))
+                .thenReturn(Optional.of("전남광주통합특별시 광산구 장신로50번길 20-3"));
+
+        processor.process(message());
+
+        assertThat(item.getLat()).isEqualTo(35.18968663709063);
+        assertThat(item.getLng()).isEqualTo(126.81519384985194);
+        assertThat(item.getAddress()).isEqualTo("전남광주통합특별시 광산구 장신로50번길 20-3");
+        verify(geocoder, never()).forwardAddress(any());
+    }
+
+    @Test
     void 역지오코딩이_예외를_던져도_상태와_본문이_유지된다() {
         // 지도 링크 경로에서도 예외가 트랜잭션으로 새면 안 된다(정방향과 같은 위험).
         Item item = urlItem("https://map.kakao.com/link/map/cafe,37.5445,127.0561");
