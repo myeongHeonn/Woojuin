@@ -1,4 +1,5 @@
 import UniverseCanvas from '@/components/domain/universe/UniverseCanvas';
+import ConstellationSearch from '@/components/domain/search/ConstellationSearch';
 import { useStageMeta } from '@/hooks/useStageMeta';
 import { MOCK_UNIVERSE } from '@/stores/mock/universe';
 
@@ -17,7 +18,12 @@ const UniversePage = () => {
 
   useStageMeta(`${memories} memories · ${universe.constellations.length} constellations`);
 
-  return <UniverseCanvas data={universe} />;
+  return (
+    <>
+      <UniverseCanvas data={universe} />
+      <ConstellationSearch />
+    </>
+  );
 };
 
 export default UniversePage;
