@@ -91,6 +91,7 @@ const MapPage = () => {
         places={visiblePlaces}
         selectedPlaceId={selectedPlaceId}
         onSelectPlace={selectPlaceAndCollapsePanel}
+        onOpenItem={setOpenItemId}
         onDeselectPlace={() => setSelectedPlaceId(null)}
       />
       <MapPlacePanel

@@ -24,9 +24,12 @@ const SELECTED_PLACE_ZOOM = 17.5;
 
 setWorkerUrl(maplibreWorkerUrl);
 
-const createPopupContent = (point: MapPoint) => {
+const createPopupContent = (point: MapPoint, onOpen: (pointId: number) => void) => {
   const content = document.createElement('article');
   content.className = 'woojuin-map-popup-content';
+  content.tabIndex = 0;
+  content.setAttribute('role', 'button');
+  content.setAttribute('aria-label', `${point.title} 상세 열기`);
 
   const meta = document.createElement('div');
   meta.className = 'woojuin-map-popup-meta';
@@ -45,14 +48,30 @@ const createPopupContent = (point: MapPoint) => {
   address.className = 'woojuin-map-popup-address';
   address.textContent = point.address;
 
+  const openHint = document.createElement('span');
+  openHint.className = 'woojuin-map-popup-open-hint';
+  openHint.textContent = '클릭하여 열기';
+
   meta.append(dot, type);
-  content.append(meta, title, address);
+  content.append(meta, title, address, openHint);
+  content.addEventListener('click', (event) => {
+    event.stopPropagation();
+    onOpen(point.id);
+  });
+  content.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    event.stopPropagation();
+    onOpen(point.id);
+  });
+
   return content;
 };
 
 export const createOpenFreeMapAdapter = ({
   container,
   onSelectPoint,
+  onOpenPoint,
   onDeselectPoint,
 }: MapAdapterOptions): MapAdapter => {
   const map = new MapLibreMap({
@@ -90,6 +109,7 @@ export const createOpenFreeMapAdapter = ({
   let markerElements = new Map<number, HTMLButtonElement>();
   let selectedPopup: Popup | null = null;
   let hoverPopup: Popup | null = null;
+  let hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
   let selectedPointId: number | null = null;
 
   const removeSelectedPopup = () => {
@@ -98,8 +118,17 @@ export const createOpenFreeMapAdapter = ({
   };
 
   const removeHoverPopup = () => {
+    if (hoverCloseTimer) {
+      clearTimeout(hoverCloseTimer);
+      hoverCloseTimer = null;
+    }
     hoverPopup?.remove();
     hoverPopup = null;
+  };
+
+  const scheduleHoverPopupRemoval = () => {
+    if (hoverCloseTimer) clearTimeout(hoverCloseTimer);
+    hoverCloseTimer = setTimeout(removeHoverPopup, 120);
   };
 
   const showHoverPopup = (point: MapPoint) => {
@@ -113,8 +142,17 @@ export const createOpenFreeMapAdapter = ({
       className: 'woojuin-map-popup',
     })
       .setLngLat([point.lng, point.lat])
-      .setDOMContent(createPopupContent(point))
+      .setDOMContent(createPopupContent(point, onOpenPoint))
       .addTo(map);
+
+    const popupElement = hoverPopup.getElement();
+    popupElement.addEventListener('mouseenter', () => {
+      if (hoverCloseTimer) {
+        clearTimeout(hoverCloseTimer);
+        hoverCloseTimer = null;
+      }
+    });
+    popupElement.addEventListener('mouseleave', scheduleHoverPopupRemoval);
   };
 
   const updateMarkerSelection = () => {
@@ -141,7 +179,7 @@ export const createOpenFreeMapAdapter = ({
       className: 'woojuin-map-popup',
     })
       .setLngLat([point.lng, point.lat])
-      .setDOMContent(createPopupContent(point))
+      .setDOMContent(createPopupContent(point, onOpenPoint))
       .addTo(map);
 
     const destination = new LngLat(point.lng, point.lat);
@@ -226,9 +264,9 @@ export const createOpenFreeMapAdapter = ({
         onSelectPoint(point.id);
       });
       element.addEventListener('mouseenter', () => showHoverPopup(point));
-      element.addEventListener('mouseleave', removeHoverPopup);
+      element.addEventListener('mouseleave', scheduleHoverPopupRemoval);
       element.addEventListener('focus', () => showHoverPopup(point));
-      element.addEventListener('blur', removeHoverPopup);
+      element.addEventListener('blur', scheduleHoverPopupRemoval);
       markerElements.set(point.id, element);
     }
 

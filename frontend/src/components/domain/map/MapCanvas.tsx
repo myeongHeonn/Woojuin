@@ -11,6 +11,7 @@ interface MapCanvasProps {
   places: MapPlace[];
   selectedPlaceId: number | null;
   onSelectPlace: (placeId: number) => void;
+  onOpenItem: (itemId: number) => void;
   onDeselectPlace: () => void;
 }
 
@@ -19,13 +20,16 @@ const MapCanvas = ({
   places,
   selectedPlaceId,
   onSelectPlace,
+  onOpenItem,
   onDeselectPlace,
 }: MapCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<MapAdapter | null>(null);
   const onSelectPlaceRef = useRef(onSelectPlace);
+  const onOpenItemRef = useRef(onOpenItem);
   const onDeselectPlaceRef = useRef(onDeselectPlace);
   onSelectPlaceRef.current = onSelectPlace;
+  onOpenItemRef.current = onOpenItem;
   onDeselectPlaceRef.current = onDeselectPlace;
   const categoryById = useMemo(
     () => new Map(categories.map((category) => [category.categoryId, category])),
@@ -61,6 +65,7 @@ const MapCanvas = ({
     const adapter = createOpenFreeMapAdapter({
       container,
       onSelectPoint: (pointId) => onSelectPlaceRef.current(pointId),
+      onOpenPoint: (pointId) => onOpenItemRef.current(pointId),
       onDeselectPoint: () => onDeselectPlaceRef.current(),
     });
     const resizeObserver = new ResizeObserver(() => adapter.resize());
