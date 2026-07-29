@@ -65,6 +65,26 @@ class KoreanAddressExtractorTest {
                 .contains("경기 용인시 기흥구 동백중앙로 191");
     }
 
+    @Test
+    void 통합_광역단체_표기를_잡는다() {
+        // 카카오 지오코딩이 실제로 내려주는 표기다. 광역 토큰을 하나만 허용하면 '전남' 뒤에
+        // 공백이 없어서(바로 '광주') 매칭이 통째로 실패하고, 카카오 장소 페이지의
+        // og:description을 전부 놓친다.
+        assertThat(extractor.extract("전남광주통합특별시 광산구 장신로50번길 20-3"))
+                .contains("전남광주통합특별시 광산구 장신로50번길 20-3");
+        assertThat(extractor.extract("전남광주통합특별시 광산구 장덕동 1623"))
+                .contains("전남광주통합특별시 광산구 장덕동 1623");
+    }
+
+    @Test
+    void 통합_표기를_허용해도_기존_단일_광역은_그대로_잡는다() {
+        // {1,2} 반복이 기존 매칭을 망치지 않는지 — 두 번째 토큰을 못 찾으면 하나로 되돌아와야 한다.
+        assertThat(extractor.extract("광주광역시 광산구 임방울대로 347"))
+                .contains("광주광역시 광산구 임방울대로 347");
+        assertThat(extractor.extract("광주 광산구 장신로50번길 20-3"))
+                .contains("광주 광산구 장신로50번길 20-3");
+    }
+
     // ---------- 잡으면 안 되는 것 ----------
 
     @Test
