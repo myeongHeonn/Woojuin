@@ -1,5 +1,6 @@
 import { api, type ApiResponse } from './client';
 import type { Category } from '@/types/category';
+import type { CategoryChip } from '@/components/domain/library/CategoryChipBar';
 
 export interface Workspace {
   id: number;
