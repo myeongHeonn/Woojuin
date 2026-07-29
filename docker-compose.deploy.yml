@@ -124,6 +124,28 @@ services:
       retries: 5
       start_period: 30s
 
+  # AI Mix 사이드카 — 제목·요약, 카테고리 분류, 임베딩, 3차원 좌표 축소(UMAP).
+  # crawler와 같은 이유로 profile 뒤에 둔다: 이미지를 서버에서 수동 빌드하기 전까지
+  # 기본 `up -d`가 없는 이미지를 해석하다 실패하지 않게 한다.
+  #    docker compose --profile aimix ... up -d
+  # 앱 쪽 스위치는 별개: 안 띄우면 백엔드가 AiAnalyzer 폴백(빈 결과)으로 동작한다.
+  aimix:
+    profiles: ["aimix"]
+    image: ${AIMIX_IMAGE:-woojuin-aimix:latest}
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_CHAT_MODEL: ${OPENROUTER_CHAT_MODEL:-qwen/qwen3-8b}
+      OPENROUTER_EMBEDDING_MODEL: ${OPENROUTER_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+    networks: [internal]
+    restart: always
+    mem_limit: ${AIMIX_MEM_LIMIT:-1g}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8002/health')\" || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   backend:
     # Jenkins가 EC2에서 직접 빌드하고 커밋 SHA로 태깅한 이미지(결정 #9).
     # 빌드하는 곳 = 실행하는 곳이라 별도 레지스트리가 필요 없다.
@@ -159,6 +181,7 @@ services:
       # 전환되는데 AWS 계정이 없어 버킷 확인 단계에서 기동이 실패한다.
       AWS_S3_ENDPOINT: http://minio:9000
       CRAWLER_BASE_URL: http://crawler:8001
+      AIMIX_BASE_URL: http://aimix:8002
 
       # ③ 이름 매핑
       JAVA_OPTS: ${BACKEND_JAVA_OPTS:-}
