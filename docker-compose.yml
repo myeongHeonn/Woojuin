@@ -39,9 +39,17 @@ services:
     container_name: woojuin-crawler
     ports:
       - "8001:8001"
+    # 배포용(docker-compose.deploy.yml)과 같은 형태로 변수화 — 값을 바꾸려고 이 파일을
+    # 고치면 그 수정이 커밋되어 남의 환경까지 따라 바뀐다. 기본값은 그대로라 .env를
+    # 건드리지 않은 사람에겐 동작 변화가 없다.
+    #
+    # 동시 렌더 수는 올리지 않는 게 좋다: 브라우저 1개가 400~500MB를 쓰고(실측), 백엔드
+    # 컨슈머가 순차 처리라 크롤러에 동시 요청이 2개를 넘지 않는다(재시도 회수기까지 겹친
+    # 최악값이 2). 올릴 이유가 생기는 건 컨슈머를 스레드풀로 바꾸거나 백엔드를 다중
+    # 인스턴스로 띄울 때이고, 그때는 메모리 상한도 함께 올려야 한다.
     environment:
-      CRAWLER_SOLVE_CLOUDFLARE: "true"
-      CRAWLER_MAX_CONCURRENCY: "2"
+      CRAWLER_SOLVE_CLOUDFLARE: ${CRAWLER_SOLVE_CLOUDFLARE:-true}
+      CRAWLER_MAX_CONCURRENCY: ${CRAWLER_MAX_CONCURRENCY:-2}
     shm_size: "1gb"   # 브라우저 렌더 중 /dev/shm 부족으로 인한 크래시 방지
 
 volumes:
