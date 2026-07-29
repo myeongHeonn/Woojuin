@@ -13,8 +13,7 @@ import org.springframework.web.client.RestClient;
 
 /**
  * ai-mix 사이드카(ai/ai-mix, 묶음 F 산출물) HTTP 클라이언트. 제목·요약 생성, 카테고리
- * 분류, 카테고리 설명 생성을 감싼다. 임베딩·3차원 좌표 엔드포인트도 같은 서비스에 있지만
- * 그건 다음 작업(임베딩 저장) 몫이라 여기 없다.
+ * 분류·설명 생성, 아이템·검색어 임베딩, 3차원 좌표 축소를 감싼다.
  *
  * <p>ai-mix 입력 모델은 {@code extra="forbid"}(모르는 키 거부)라 필드를 계약 그대로만
  * 보내고, 길이 제한(제목 300/1000자, 본문 50000자, 설명 5000자 등)도 클라이언트에서
@@ -158,6 +157,24 @@ public class AiMixClient {
                 textOrNull(data.path("embeddingModel")),
                 textOrNull(data.path("inputHash")),
                 embedding);
+    }
+
+    /**
+     * 검색어 임베딩. 아이템 임베딩과 달리 생 문장 그대로 보낸다 — 검색어에는 카테고리·제목
+     * 구조가 없고, 같은 모델(text-embedding-3-small)이라 아이템 벡터와 같은 공간에 떨어진다.
+     */
+    public float[] embedQuery(String text) {
+        JsonNode data = post("/v1/embeddings/query", Map.of("text", truncate(text, 500)));
+
+        JsonNode vector = data.path("embedding");
+        if (!vector.isArray() || vector.isEmpty()) {
+            throw new IllegalStateException("ai-mix 검색어 임베딩 응답에 벡터가 없음");
+        }
+        float[] embedding = new float[vector.size()];
+        for (int i = 0; i < vector.size(); i++) {
+            embedding[i] = (float) vector.get(i).asDouble();
+        }
+        return embedding;
     }
 
     /** 3차원 좌표 축소 입력(아이템 하나의 임베딩). */

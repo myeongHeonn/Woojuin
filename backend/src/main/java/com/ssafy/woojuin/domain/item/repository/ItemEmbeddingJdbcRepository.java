@@ -79,6 +79,40 @@ public class ItemEmbeddingJdbcRepository {
                 workspaceId);
     }
 
+    /** 의미 검색 결과 행. distance는 코사인 거리(0=동일, 2=정반대) — 임계값 튜닝 로그에도 쓴다. */
+    public record SimilarityRow(Long itemId, double distance) {
+    }
+
+    /** 임계값 안에 드는 활성 아이템 수 — 의미 검색 페이지네이션의 totalElements. */
+    public long countSimilar(Long workspaceId, float[] queryEmbedding, double maxDistance) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM item_embeddings e "
+                        + "JOIN items i ON i.id = e.item_id AND i.deleted_at IS NULL "
+                        + "WHERE e.workspace_id = ? AND (e.embedding <=> ?::vector) < ?",
+                Long.class, workspaceId, toVectorLiteral(queryEmbedding), maxDistance);
+        return count == null ? 0 : count;
+    }
+
+    /**
+     * 검색어 벡터와 가까운 순으로 활성 아이템을 찾는다({@code <=>} = 코사인 거리). 임계값이
+     * 없으면 아무리 무관한 검색어여도 "가장 덜 먼" 아이템이 나오므로 반드시 거리로 자른다.
+     *
+     * <p>인덱스(HNSW)는 일부러 안 만든다 — 워크스페이스당 최대 1000건 수준이라 정확 스캔이
+     * 이미 빠르고, HNSW는 근사 탐색이라 workspace_id 필터와 결합하면 결과가 누락될 수 있다.
+     * 키워드 검색이 GIN을 버린 것({@link ItemSearchRepository})과 같은 계열의 결정이다.
+     */
+    public List<SimilarityRow> searchBySimilarity(Long workspaceId, float[] queryEmbedding,
+            double maxDistance, int limit, int offset) {
+        String vector = toVectorLiteral(queryEmbedding);
+        return jdbcTemplate.query(
+                "SELECT e.item_id, e.embedding <=> ?::vector AS distance FROM item_embeddings e "
+                        + "JOIN items i ON i.id = e.item_id AND i.deleted_at IS NULL "
+                        + "WHERE e.workspace_id = ? AND (e.embedding <=> ?::vector) < ? "
+                        + "ORDER BY distance, e.item_id LIMIT ? OFFSET ?",
+                (rs, i) -> new SimilarityRow(rs.getLong(1), rs.getDouble(2)),
+                vector, workspaceId, vector, maxDistance, limit, offset);
+    }
+
     /** pgvector 리터럴로 직렬화: [0.1,0.2,...] */
     static String toVectorLiteral(float[] embedding) {
         StringBuilder builder = new StringBuilder(embedding.length * 12).append('[');

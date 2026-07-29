@@ -83,6 +83,13 @@ woojuin:
     enabled: ${AIMIX_ENABLED:true}
     base-url: ${AIMIX_BASE_URL:http://localhost:8002}
     timeout-ms: ${AIMIX_TIMEOUT_MS:45000}
+    # 의미 검색(키워드 0건 폴백)의 코사인 거리 상한. 이보다 먼 아이템은 "관련 없음"으로
+    # 버린다 — 임계값이 없으면 무관한 검색어에도 가장 덜 먼 아이템이 무조건 나온다.
+    # 0.7은 text-embedding-3-small 한국어 실측으로 잡았다: 관련 구문 쿼리가 0.50~0.70,
+    # 무관 쿼리가 0.72~0.77에 몰려 그 사이를 자른 값이다. 단답형(한 단어) 쿼리는 이 모델의
+    # 변별력이 없어서("초밥"vs"스시"조차 0.72) 임계값을 올려 잡으려 하면 오탐이 더 늘어난다.
+    # 검색이 엉뚱한 걸 물어오면 낮추고 너무 안 잡으면 올리면 된다(백엔드 로그에 거리가 찍힌다).
+    search-max-distance: ${AIMIX_SEARCH_MAX_DISTANCE:0.7}
   # 지도 좌표 변환(FR-023). 카카오 로컬 API — 주소↔좌표 REST 호출이지 지도 SDK가 아니다.
   # REST 키(KAKAO_REST_API_KEY)는 여기가 아니라 GeocoderConfig에서 직접 읽는다 — 이유는
   # 위 ai 블록 주석과 동일(빈 줄을 "키 있음"으로 오해하는 문제).

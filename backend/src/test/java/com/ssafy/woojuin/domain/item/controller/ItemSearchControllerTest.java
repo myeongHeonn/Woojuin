@@ -65,7 +65,7 @@ class ItemSearchControllerTest {
     void 정상_검색은_공통형식_200() throws Exception {
         authenticateAs(1L);
         when(itemSearchService.search(eq(1L), eq(1L), eq("파스타"), eq(0), eq(28)))
-                .thenReturn(new ItemSearchResponse(List.of(), 0, 28, 0, false));
+                .thenReturn(new ItemSearchResponse(List.of(), 0, 28, 0, false, false));
 
         mockMvc.perform(get("/api/workspaces/1/search").param("q", "파스타"))
                 .andExpect(status().isOk())
@@ -80,7 +80,7 @@ class ItemSearchControllerTest {
     void q가_없어도_400이_아니다() throws Exception {
         authenticateAs(1L);
         when(itemSearchService.search(eq(1L), eq(1L), eq(null), eq(0), eq(28)))
-                .thenReturn(new ItemSearchResponse(List.of(), 0, 28, 0, false));
+                .thenReturn(new ItemSearchResponse(List.of(), 0, 28, 0, false, false));
 
         mockMvc.perform(get("/api/workspaces/1/search"))
                 .andExpect(status().isOk())
