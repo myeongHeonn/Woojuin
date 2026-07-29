@@ -9,6 +9,7 @@ import LibrarySearch from '@/components/domain/library/LibrarySearch';
 import SearchItems from '@/components/domain/library/SearchItems';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import { useCategories } from '@/hooks/useCategories';
+import { useItems } from '@/hooks/useItems';
 import { toggleCategorySelection } from '@/utils/categorySelection';
 
 /**
@@ -34,6 +35,11 @@ const LibraryPage = () => {
   const q = params.get('q') ?? '';
   const aiMode = params.get('ai') === '1';
 
+  // 보관함이 완전히 비었으면(필터 무관 전체 0개) 검색창을 숨긴다.
+  // 로딩 중(undefined)엔 숨김 판단을 유보해 깜빡임을 막고, 검색 중(q)이면 늘 보인다.
+  const { data: baseItems } = useItems({ workspaceId: Number(workspaceId), size: 20 });
+  const workspaceEmpty = baseItems !== undefined && (baseItems.pages[0]?.totalElements ?? 0) === 0;
+
   return (
     // 좌우 여백(STAGE_PX)은 헤더 제목과 같은 값을 공유해 칩 바·리스트가 한 선에 맞는다.
     // StageHeader 가 absolute 로 떠 있어(모바일 58·데스크톱 66px) 콘텐츠를 그 아래에서 시작.
@@ -46,18 +52,20 @@ const LibraryPage = () => {
         STAGE_PX,
       )}
     >
-      <CategoryChipBar
-        chips={chips}
-        selected={selected}
-        onSelectAll={() => setSelected(toggleCategorySelection(selected, 'all'))}
-        onToggle={(id) => setSelected((current) => toggleCategorySelection(current, id))}
-        favoriteActive={favoriteActive}
-        onToggleFavorite={() => setFavoriteActive((v) => !v)}
-        manage={<CategoryManage workspaceId={Number(workspaceId)} />}
-      />
+      {/* 보관함이 완전히 비면 필터·검색 둘 다 의미 없어 숨긴다 (검색 중이면 검색창은 유지) */}
+      {!workspaceEmpty && (
+        <CategoryChipBar
+          chips={chips}
+          selected={selected}
+          onSelectAll={() => setSelected(toggleCategorySelection(selected, 'all'))}
+          onToggle={(id) => setSelected((current) => toggleCategorySelection(current, id))}
+          favoriteActive={favoriteActive}
+          onToggleFavorite={() => setFavoriteActive((v) => !v)}
+          manage={<CategoryManage workspaceId={Number(workspaceId)} />}
+        />
+      )}
 
-      {/* 카테고리 바 아래 작은 검색창 (검색 중이면 ‹검색어 헤더로 전환) */}
-      <LibrarySearch />
+      {(!workspaceEmpty || q) && <LibrarySearch />}
 
       {/* 칩 바 아래만 스크롤 — flex-1 로 남은 높이를 채우고 min-h-0 이라야 넘칠 때 줄어든다 */}
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none">
