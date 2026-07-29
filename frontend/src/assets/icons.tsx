@@ -75,6 +75,25 @@ export function TrashIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** 돋보기 — 검색 */
+export function SearchIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.35-4.35" />
+    </svg>
+  );
+}
+
+/** 반짝(스파크) — AI 모드 */
+export function SparkIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+    </svg>
+  );
+}
+
 /** 사람 + 플러스 — 공유(멤버 초대) */
 export function UserPlusIcon(props: SVGProps<SVGSVGElement>) {
   return (

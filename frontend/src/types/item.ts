@@ -56,6 +56,22 @@ export interface ItemListResponse {
   totalElements: number;
 }
 
+/**
+ * 검색 응답 — 목록과 같은 content(아이템 카드 재사용) + partialMatch 하나.
+ * partialMatch: 모든 단어를 포함한 결과가 없어 일부만 포함한 결과로 폴백했음.
+ */
+export interface ItemSearchResponse extends ItemListResponse {
+  partialMatch: boolean;
+}
+
+/** AI 검색 응답 — 검색 응답에 "AI 가 무엇으로 이해했는지"를 더한다 */
+export interface ItemAiSearchResponse extends ItemSearchResponse {
+  /** AI 가 질문에서 뽑아낸 실제 검색어 (예: "을지로 파스타집") */
+  interpretedQuery: string;
+  /** LLM 이 해석했으면 true. false 면 규칙 기반 폴백(오타교정·확장 없음) */
+  aiPlanned: boolean;
+}
+
 export interface ItemCreateResponse {
   itemId: number;
   status: ItemStatus;
