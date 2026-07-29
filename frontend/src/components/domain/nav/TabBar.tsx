@@ -1,7 +1,7 @@
 import type { ComponentType, SVGProps } from 'react';
 import { Link, useLocation, useMatch } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
-import { useUser } from '@/hooks/useUser';
+import { useSpaces } from '@/hooks/useSpaces';
 import { ConstellationIcon, DashboardIcon, MapIcon, TrashIcon, UserIcon } from '@/assets/icons';
 
 interface Tab {
@@ -35,14 +35,15 @@ const TABS: Tab[] = [
  */
 const TabBar = ({ className }: { className?: string }) => {
   const { pathname } = useLocation();
-  const { personalSpaceId } = useUser();
+  const { personalSpaceId } = useSpaces();
 
   /**
    * TabBar 는 /workspace/:workspaceId 라우트보다 위에 있어 useParams 로는 id 를 못 읽는다.
    * 마이·휴지통에 있는 동안에는 URL 에 워크스페이스가 없으므로 개인 스페이스로 되돌린다.
    */
   const match = useMatch('/workspace/:workspaceId/*');
-  const workspaceId = match?.params.workspaceId ?? String(personalSpaceId);
+  // 목록 로드 전(personalSpaceId undefined)엔 워크스페이스 탭을 /home 으로 보낸다
+  const workspaceId = match?.params.workspaceId ?? personalSpaceId;
 
   return (
     <nav
@@ -56,7 +57,7 @@ const TabBar = ({ className }: { className?: string }) => {
     >
       <div className="flex gap-1 rounded-[20px] border border-border bg-sidebar/70 p-1.5 backdrop-blur-lg">
         {TABS.map(({ label, Icon, segment, path }) => {
-          const to = path ?? `/workspace/${workspaceId}/${segment}`;
+          const to = path ?? (workspaceId ? `/workspace/${workspaceId}/${segment}` : '/home');
           // 하위 경로(library/:catId)에서도 켜져 보이게 prefix 로 판단
           const active = pathname === to || pathname.startsWith(`${to}/`);
 
