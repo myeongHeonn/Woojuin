@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
 import { STAGE_PX } from '@/constants/stage';
 import CategoryChipBar from '@/components/domain/library/CategoryChipBar';
+import CategoryManage from '@/components/domain/library/CategoryManage';
 import Items from '@/components/domain/library/Items';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import { useCategories } from '@/hooks/useCategories';
@@ -46,7 +47,7 @@ const LibraryPage = () => {
         }
         favoriteActive={favoriteActive}
         onToggleFavorite={() => setFavoriteActive((v) => !v)}
-        onManage={() => {}}
+        manage={<CategoryManage workspaceId={Number(workspaceId)} />}
       />
 
       {/* 칩 바 아래만 스크롤 — flex-1 로 남은 높이를 채우고 min-h-0 이라야 넘칠 때 줄어든다 */}

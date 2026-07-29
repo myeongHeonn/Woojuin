@@ -28,3 +28,25 @@ export async function getCategories(workspaceId: number) {
   const res = await api.get<ApiResponse<CategoryChip[]>>(`/workspaces/${workspaceId}/categories`);
   return res.data.data;
 }
+
+// 카테고리 생성 — 색은 서버가 배정하므로 이름만 보낸다
+export async function createCategory(workspaceId: number, name: string) {
+  const res = await api.post<ApiResponse<CategoryChip>>(`/workspaces/${workspaceId}/categories`, {
+    name,
+  });
+  return res.data.data;
+}
+
+// 카테고리 이름 변경
+export async function renameCategory(workspaceId: number, categoryId: number, name: string) {
+  const res = await api.patch<ApiResponse<CategoryChip>>(
+    `/workspaces/${workspaceId}/categories/${categoryId}`,
+    { name },
+  );
+  return res.data.data;
+}
+
+// 카테고리 삭제 — 응답 data 가 없다(void)
+export async function deleteCategory(workspaceId: number, categoryId: number) {
+  await api.delete<ApiResponse<null>>(`/workspaces/${workspaceId}/categories/${categoryId}`);
+}

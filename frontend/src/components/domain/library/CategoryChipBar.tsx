@@ -1,9 +1,9 @@
-import type { ComponentType, SVGProps } from 'react';
+import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { classNames } from '@/utils/classNames';
 import { useHorizontalScroll } from '@/hooks/useHorizontalScroll';
 import Dot from '@/components/ui/Dot';
 import FilterChip from '@/components/ui/FilterChip';
-import { ChevronLeftIcon, ChevronRightIcon, ManageIcon } from '@/assets/icons';
+import { ChevronLeftIcon, ChevronRightIcon } from '@/assets/icons';
 
 /** 칩 하나가 그리는 데 필요한 것 — 서버 CategoryResponse(id·이름·hex 색) */
 export interface CategoryChip {
@@ -24,8 +24,8 @@ interface CategoryChipBarProps {
   /** 즐겨찾기만 보기 (서버 필터 favorite=true) */
   favoriteActive: boolean;
   onToggleFavorite: () => void;
-  /** 카테고리 관리 화면 열기 */
-  onManage: () => void;
+  /** [관리] 자리 — 트리거+팝오버가 한 몸이라 버튼 대신 슬롯으로 받는다 */
+  manage: ReactNode;
 }
 
 /** 홑화살표 스크롤 버튼 — 끝에 닿으면 비활성 */
@@ -74,7 +74,7 @@ const CategoryChipBar = ({
   onSelectAll,
   favoriteActive,
   onToggleFavorite,
-  onManage,
+  manage,
 }: CategoryChipBarProps) => {
   // 가로 스크롤 동작(끝 감지·이동)은 훅으로 분리 — 이 컴포넌트는 배치·표현만 맡는다.
   // 칩 수가 바뀌면 넘침 여부를 다시 계산하도록 chips.length 를 넘긴다.
@@ -83,14 +83,7 @@ const CategoryChipBar = ({
   return (
     <div className="flex items-center gap-2 pt-10 pb-10">
       {/* ── 고정 왼쪽 ─────────────────────────── */}
-      <button
-        type="button"
-        onClick={onManage}
-        className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-[7px] rounded-pill border border-border px-[13px] text-[13px] text-text-2 transition-colors hover:text-text-1 [&>svg]:h-4 [&>svg]:w-4"
-      >
-        <ManageIcon />
-        관리
-      </button>
+      {manage}
 
       <FilterChip active={favoriteActive} onClick={onToggleFavorite}>
         즐겨찾기
