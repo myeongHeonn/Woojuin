@@ -85,6 +85,15 @@ export function RestoreIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** 홑화살표 아래 — 드롭다운/전환 표시 */
+export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
 /** 돋보기 — 검색 */
 export function SearchIcon(props: SVGProps<SVGSVGElement>) {
   return (
