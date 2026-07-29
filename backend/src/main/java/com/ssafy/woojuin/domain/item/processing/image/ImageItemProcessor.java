@@ -3,6 +3,8 @@ package com.ssafy.woojuin.domain.item.processing.image;
 import com.ssafy.woojuin.domain.ai.AiAnalysis;
 import com.ssafy.woojuin.domain.ai.AiAnalysisRequest;
 import com.ssafy.woojuin.domain.ai.AiAnalyzer;
+import com.ssafy.woojuin.domain.ai.AiSourceType;
+import com.ssafy.woojuin.domain.ai.CategoryCandidate;
 import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
@@ -163,9 +165,11 @@ public class ImageItemProcessor implements ItemProcessor {
      */
     private void enrichWithAi(Item item, String text) {
         try {
-            List<String> candidates = categoryAssignmentService.candidateNames(item.getWorkspaceId());
+            List<CategoryCandidate> candidates = categoryAssignmentService.candidates(item.getWorkspaceId());
             AiAnalysis analysis = aiAnalyzer.analyze(
-                    new AiAnalysisRequest(item.getTitle(), text, candidates));
+                    new AiAnalysisRequest(AiSourceType.IMAGE, item.getTitle(), text, candidates));
+            // 이미지 제목은 대부분 파일명이라 AI 제목의 효과가 가장 크다(null이면 기존 유지).
+            item.update(analysis.title(), null);
             item.applySummary(analysis.summary());
             categoryAssignmentService.assign(item.getId(), item.getWorkspaceId(), analysis.categories());
         } catch (Exception e) {

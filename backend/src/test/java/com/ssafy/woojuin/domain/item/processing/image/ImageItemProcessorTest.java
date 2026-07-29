@@ -136,7 +136,7 @@ class ImageItemProcessorTest {
         Item item = imageItem();
         when(s3Uploader.download(any())).thenReturn(new byte[]{1});
         when(imageTextExtractor.extract(any())).thenReturn("텍스트");
-        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis("요약문", List.of("문화·콘텐츠")));
+        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis(null, "요약문", List.of("문화·콘텐츠")));
 
         processor.process(message());
 

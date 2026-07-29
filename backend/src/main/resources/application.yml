@@ -72,6 +72,17 @@ woojuin:
     base-url: ${VISION_BASE_URL:https://openrouter.ai/api/v1}
     model: ${VISION_MODEL:qwen/qwen3-vl-8b-instruct}
     timeout-ms: ${VISION_TIMEOUT_MS:20000}
+  # AI 요약·카테고리 분류 (+ 사용자 카테고리 설명 생성). ai/ai-mix 사이드카(묶음 F 산출물,
+  # qwen3-8b via OpenRouter)를 HTTP로 호출한다 — 크롤러와 같은 사이드카 패턴이고,
+  # 임베딩·3차원 좌표 축소(UMAP)도 같은 서비스에 있어 다음 작업이 재사용한다.
+  # aimix는 docker-compose에 포함돼 함께 뜨므로 기본 켜둔다. 사이드카 없이 백엔드만
+  # 돌릴 땐 AIMIX_ENABLED=false로 끄면 요약·분류만 조용히 비활성화된다(NoOp).
+  # timeout이 넉넉한 건 아이템 하나에 LLM 두 번(요약→분류)이 나가는 데다 ai-mix가
+  # 자체 재시도를 하기 때문이다. 컨슈머가 순차 처리라 커넥션 점유가 겹치진 않는다.
+  aimix:
+    enabled: ${AIMIX_ENABLED:true}
+    base-url: ${AIMIX_BASE_URL:http://localhost:8002}
+    timeout-ms: ${AIMIX_TIMEOUT_MS:45000}
   # 지도 좌표 변환(FR-023). 카카오 로컬 API — 주소↔좌표 REST 호출이지 지도 SDK가 아니다.
   # REST 키(KAKAO_REST_API_KEY)는 여기가 아니라 GeocoderConfig에서 직접 읽는다 — 이유는
   # 위 ai 블록 주석과 동일(빈 줄을 "키 있음"으로 오해하는 문제).

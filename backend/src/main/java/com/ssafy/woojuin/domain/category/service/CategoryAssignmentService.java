@@ -1,5 +1,6 @@
 package com.ssafy.woojuin.domain.category.service;
 
+import com.ssafy.woojuin.domain.ai.CategoryCandidate;
 import com.ssafy.woojuin.domain.category.CategoryDefaults;
 import com.ssafy.woojuin.domain.category.entity.Category;
 import com.ssafy.woojuin.domain.category.entity.ItemCategory;
@@ -102,10 +103,15 @@ public class CategoryAssignmentService {
         }
     }
 
-    /** AI에 넘길 후보 목록(그 워크스페이스의 현재 카테고리 이름). */
-    public List<String> candidateNames(Long workspaceId) {
+    /**
+     * AI에 넘길 후보 목록(그 워크스페이스의 현재 카테고리). 분류 정확도를 위해 이름만이
+     * 아니라 id·판단 기준 설명까지 넘긴다 — 설명이 아직 없는 카테고리(생성 직후 등)는
+     * null로 가고, 분석기 쪽에서 이름으로 폴백한다.
+     */
+    public List<CategoryCandidate> candidates(Long workspaceId) {
         return categoryRepository.findByWorkspaceId(workspaceId).stream()
-                .map(Category::getName)
+                .map(category -> new CategoryCandidate(
+                        category.getId(), category.getName(), category.getDescription()))
                 .toList();
     }
 }

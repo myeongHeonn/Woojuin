@@ -3,6 +3,8 @@ package com.ssafy.woojuin.domain.item.processing.memo;
 import com.ssafy.woojuin.domain.ai.AiAnalysis;
 import com.ssafy.woojuin.domain.ai.AiAnalysisRequest;
 import com.ssafy.woojuin.domain.ai.AiAnalyzer;
+import com.ssafy.woojuin.domain.ai.AiSourceType;
+import com.ssafy.woojuin.domain.ai.CategoryCandidate;
 import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
@@ -69,9 +71,10 @@ public class MemoItemProcessor implements ItemProcessor {
      */
     private void enrichWithAi(Item item) {
         try {
-            List<String> candidates = categoryAssignmentService.candidateNames(item.getWorkspaceId());
+            List<CategoryCandidate> candidates = categoryAssignmentService.candidates(item.getWorkspaceId());
             AiAnalysis analysis = aiAnalyzer.analyze(
-                    new AiAnalysisRequest(item.getTitle(), item.getContent(), candidates));
+                    new AiAnalysisRequest(AiSourceType.MEMO, item.getTitle(), item.getContent(), candidates));
+            item.update(analysis.title(), null);   // AI가 다듬은 제목(null이면 기존 유지)
             item.applySummary(analysis.summary());
             categoryAssignmentService.assign(item.getId(), item.getWorkspaceId(), analysis.categories());
         } catch (Exception e) {
