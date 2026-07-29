@@ -18,12 +18,17 @@
 //
 // 전제 (Jenkinsfile 만 봐서는 알 수 없는 것들):
 //   - Jenkins 가 호스트 docker 를 조종할 수 있어야 한다(DooD, 결정 #22)
-//     — docker CLI + /var/run/docker.sock 마운트 + --group-add <docker GID>
+//     — docker CLI + **docker-buildx-plugin** + /var/run/docker.sock 마운트 + --group-add <GID>
 //   - Multibranch 잡 설정: Discover branches 는 `develop` 만(Filter by name),
 //     Discover merge requests 는 "Merging the MR with the current target branch revision"
-//   - ⚠️ 서로 다른 MR 은 잡이 달라 **동시에 돌 수 있다**. 아래 disableConcurrentBuilds 는
-//     같은 잡 안에서만 직렬화한다. docker 캐시 태그(woojuin-*-test:cache)와 dev 스택은
-//     전체가 공유하므로, Lockable Resources 를 설치해 lock() 으로 감싸는 것이 완성형 (TODO)
+//   - Lockable Resources 플러그인 (배포 스테이지의 lock() 이 사용)
+//
+// 🔀 동시성 설계 — 서로 다른 MR 은 잡이 달라 **동시에 돌 수 있다**:
+//   - 빌드·테스트: **격리** — 이미지를 빌드마다 고유 태그(커밋 SHA)로 만들어 겹칠 것이 없다.
+//     BuildKit 캐시는 태그와 무관한 별도 저장소라 태그를 지워도 캐시는 산다
+//   - 배포: dev 환경은 하나뿐이라 격리가 불가능 → **lock('woojuin-dev-stack')** 으로 직렬화.
+//     (지금은 develop 잡 + disableConcurrentBuilds 만으로도 직렬이지만, 잡이 늘거나 설정이
+//     풀려도 안전하도록 자원 자체에 계약을 건다)
 //
 // ⚠️ DooD 경로 함정: Jenkins 는 컨테이너 안에 있지만 docker 명령은 **호스트 데몬**이 실행한다.
 //    그래서 `docker run -v $WORKSPACE:/src` 는 데몬이 호스트에서 그 경로를 못 찾아
@@ -44,6 +49,12 @@ pipeline {
     }
 
     environment {
+        // BuildKit 강제. docker-buildx-plugin 이 있으면 어차피 기본값이지만, 명시해 두면
+        // 플러그인이 빠진 환경에서 **조용히 레거시 빌더로 폴백하는 대신 즉시 실패**한다.
+        // (레거시 빌더는 캐시가 이미지 레이어에 얹혀 있어 아래 SHA 태그 + rmi 정리 방식이
+        //  캐시를 파괴한다 — Backend Test 의 📜 역사 주석 참고)
+        DOCKER_BUILDKIT   = '1'
+
         // COMPOSE_FILE / COMPOSE_PROJECT_NAME 은 docker compose 가 실제로 읽는 예약 변수명이라
         // 의도치 않은 동작을 피하려고 다른 이름을 쓴다.
         DEPLOY_FILE       = 'docker-compose.deploy.yml'
@@ -99,12 +110,11 @@ pipeline {
 
                     if (env.CHANGE_TARGET) {
                         // MR 잡 — 타겟 브랜치와 비교하면 "이 MR 이 가져오는 변경"이 나온다.
-                        // 워크스페이스에 타겟 브랜치 ref 가 없을 수 있으므로 먼저 fetch 해 둔다
-                        // (실패해도 아래 diff 실패 → 전부 빌드로 안전하게 빠진다).
-                        sh(
-                            script: "git fetch origin +refs/heads/${env.CHANGE_TARGET}:refs/remotes/origin/${env.CHANGE_TARGET}",
-                            returnStatus: true
-                        )
+                        // 타겟 브랜치 ref 는 Branch Source 플러그인이 체크아웃 때 refspec 으로
+                        // 항상 받아다 놓는다(+refs/heads/develop:refs/remotes/origin/develop)
+                        // — 여기서 따로 fetch 하지 않는다. (예전에 방어용 fetch 를 뒀다가
+                        // sh 에는 git 인증이 없어 매번 `fatal: could not read Username` 만 찍었다.
+                        // 동작엔 무해했지만 로그의 가짜 fatal 이 디버깅을 헷갈리게 해서 제거)
                         base = "origin/${env.CHANGE_TARGET}"
                         baseWhy = "MR → 타겟 브랜치(${env.CHANGE_TARGET})"
                     } else if (isMergeCommit) {
@@ -187,25 +197,31 @@ pipeline {
                 // 그 안에서 테스트한다 — 볼륨을 쓰지 않으므로 DooD 경로 함정을 피한다.
                 // (`docker build` 자체는 CLI 가 컨텍스트를 데몬에 스트리밍하므로 경로 문제 없음)
                 //
-                // ⚠️ 태그를 커밋 SHA 로 붙이고 스테이지 끝에서 `docker rmi` 하면
-                //    build 스테이지 레이어까지 사라져 다음 Build Image 가 캐시를 못 쓴다
-                //    (실측: bootJar 가 47초 + 43초로 두 번 돌았다).
-                //    그래서 **고정 태그로 덮어쓰고 지우지 않는다.** 이전 빌드의 이미지는
-                //    같은 태그를 새로 붙이는 순간 dangling 이 되어 post 의 prune 이 정리한다.
+                // 태그가 **커밋 SHA(빌드별 고유)** 인 이유 — 동시에 도는 다른 MR 빌드와
+                // 절대 겹치지 않는다(격리). BuildKit 의 캐시는 이미지 태그와 무관한 별도
+                // 저장소에 살기 때문에, 스테이지 끝에서 이 이미지를 지워도 캐시는 유지된다.
                 //
-                // 🔴 고정 태그는 **동시 빌드에서 경쟁**한다(빌드 A 가 B 의 코드를 테스트하게 됨).
-                //    같은 잡 안은 disableConcurrentBuilds 로 막았지만, Multibranch 에서
-                //    **서로 다른 MR 잡**은 막지 못한다 → Lockable Resources 도입 전까지 알려진 위험.
+                // 📜 역사: 레거시 빌더 시절엔 캐시가 이미지 레이어에 얹혀 있어서 SHA 태그+rmi 가
+                //    캐시를 파괴했고(bootJar 두 번, 빌드당 1분 낭비), 그 대응으로 고정 태그
+                //    (:cache)를 썼다가 이번엔 **동시 빌드 경쟁**(빌드 A 가 B 의 코드를 테스트)이
+                //    생겼다. BuildKit 전환으로 두 문제가 동시에 풀린다.
                 sh """
                     docker build --target build \
-                        -t woojuin-backend-test:cache \
+                        -t woojuin-backend-test:${env.SHORT_SHA} \
                         -f backend/Dockerfile backend
-                    docker run --rm woojuin-backend-test:cache \
+                    docker run --rm woojuin-backend-test:${env.SHORT_SHA} \
                         gradle test --no-daemon
                 """
                 // TODO(t2 크레딧): gradle 캐시를 named volume 으로 유지하면 더 줄일 수 있다
                 //   (`-v gradle-cache:/home/gradle/.gradle`). named volume 은 호스트 데몬이
                 //   관리하므로 DooD 경로 함정과 무관하게 동작한다.
+            }
+            post {
+                always {
+                    // 테스트용 이미지는 이 스테이지에서만 쓰인다. BuildKit 캐시는 별도라
+                    // 지워도 다음 빌드가 느려지지 않는다(레거시 빌더에선 금기였던 것).
+                    sh "docker rmi woojuin-backend-test:${env.SHORT_SHA} || true"
+                }
             }
         }
 
@@ -231,25 +247,30 @@ pipeline {
             steps {
                 // 프론트 테스트는 **실제 Chromium** 에서 돈다(vitest browser mode + Playwright).
                 // 그래서 alpine 을 못 쓰고 공식 Playwright 이미지를 베이스로 한다 — 상세는
-                // frontend/Dockerfile 주석 참고. 고정 태그 이유는 Backend Test 와 동일.
+                // frontend/Dockerfile 주석 참고. SHA 태그(격리) 이유는 Backend Test 와 동일.
                 sh """
                     docker build --target test \
-                        -t woojuin-frontend-test:cache \
+                        -t woojuin-frontend-test:${env.SHORT_SHA} \
                         -f frontend/Dockerfile frontend
                 """
 
                 // lint 와 test 를 **분리**한다 — 한 줄로 묶으면 멈췄을 때 어느 쪽인지 알 수 없다.
-                sh "docker run --rm woojuin-frontend-test:cache npm run lint"
+                sh "docker run --rm woojuin-frontend-test:${env.SHORT_SHA} npm run lint"
 
                 // Chromium 을 컨테이너에서 돌릴 때 필요한 두 옵션:
                 //   --init     : Chromium 은 자식 프로세스를 많이 띄운다. PID 1 이 좀비를
                 //                수거하지 않으면 테스트가 끝나도 **컨테이너가 종료되지 않는다**
                 //   --ipc=host : 기본 /dev/shm 은 64MB 뿐이라 Chromium 이 메모리 부족으로
                 //                멈추거나 죽는다(Playwright 공식 문서 권고사항)
-                sh "docker run --rm --init --ipc=host woojuin-frontend-test:cache npm test"
+                sh "docker run --rm --init --ipc=host woojuin-frontend-test:${env.SHORT_SHA} npm test"
 
                 // type-check 는 별도로 돌리지 않는다 — `npm run build` 가 `tsc -b && vite build`
                 // 라서 다음 스테이지에서 이미 검증된다.
+            }
+            post {
+                always {
+                    sh "docker rmi woojuin-frontend-test:${env.SHORT_SHA} || true"
+                }
             }
         }
 
@@ -284,19 +305,24 @@ pipeline {
                 }
             }
             steps {
-                // Jenkins 컨테이너는 호스트의 ~/woojuin/dev/.env.dev 를 볼 수 없다(마운트 안 함).
-                // 변수를 개별 Credential 로 10여 개 등록하는 대신 **파일 통째로 Secret file** 로 올린다.
-                // withCredentials 가 임시 파일에 풀어 주고, 빌드가 끝나면 삭제된다(로그에도 안 찍힘).
-                withCredentials([file(credentialsId: 'env-dev', variable: 'ENV_FILE')]) {
-                    // BACKEND_IMAGE 를 쉘 환경변수로 준다. compose 치환에서 쉘 환경변수가
-                    // --env-file 보다 우선하므로 .env.dev 의 값을 이번 커밋 SHA 로 덮어쓴다.
-                    sh """
-                        BACKEND_IMAGE=woojuin-backend:${env.SHORT_SHA} \
-                        docker compose -p ${STACK} \
-                            --env-file "\$ENV_FILE" \
-                            -f ${DEPLOY_FILE} \
-                            up -d
-                    """
+                // dev 스택은 하나뿐인 공유 자원 — lock 으로 배포를 직렬화한다.
+                // (같은 이름의 lock 을 쓰는 다른 빌드는 여기서 대기한다. 자원은 미리 등록할
+                //  필요 없이 lock() 이 이름으로 자동 생성한다)
+                lock('woojuin-dev-stack') {
+                    // Jenkins 컨테이너는 호스트의 ~/woojuin/dev/.env.dev 를 볼 수 없다(마운트 안 함).
+                    // 변수를 개별 Credential 로 10여 개 등록하는 대신 **파일 통째로 Secret file** 로 올린다.
+                    // withCredentials 가 임시 파일에 풀어 주고, 빌드가 끝나면 삭제된다(로그에도 안 찍힘).
+                    withCredentials([file(credentialsId: 'env-dev', variable: 'ENV_FILE')]) {
+                        // BACKEND_IMAGE 를 쉘 환경변수로 준다. compose 치환에서 쉘 환경변수가
+                        // --env-file 보다 우선하므로 .env.dev 의 값을 이번 커밋 SHA 로 덮어쓴다.
+                        sh """
+                            BACKEND_IMAGE=woojuin-backend:${env.SHORT_SHA} \
+                            docker compose -p ${STACK} \
+                                --env-file "\$ENV_FILE" \
+                                -f ${DEPLOY_FILE} \
+                                up -d
+                        """
+                    }
                 }
             }
         }
@@ -315,23 +341,25 @@ pipeline {
                 //
                 // 재시도하는 이유: 기동 직후에는 Spring 이 Tomcat 을 올리는 중이라 연결이 안 된다
                 // (실측: `health: starting` 구간에 빈 응답, 4회째 통과). compose 의 start_period 와 같은 맥락.
-                sh """
-                    for i in \$(seq 1 30); do
-                        if docker exec ${BACKEND_CONTAINER} \
-                            wget -qO- http://localhost:8080/actuator/health 2>/dev/null \
-                            | grep -q '"status":"UP"'; then
-                            echo "헬스체크 통과 (\${i}회 시도)"
-                            exit 0
-                        fi
-                        echo "대기 중... (\${i}/30)"
-                        sleep 5
-                    done
-                    echo "헬스체크 실패 — 2분 30초 안에 UP 이 되지 않았다"
-                    # compose 로 로그를 보려면 --env-file 이 또 필요하고 \${VAR:?} 파싱을 다시 타므로
-                    # 컨테이너 이름으로 직접 본다.
-                    docker logs --tail=100 ${BACKEND_CONTAINER} || true
-                    exit 1
-                """
+                lock('woojuin-dev-stack') {
+                    sh """
+                        for i in \$(seq 1 30); do
+                            if docker exec ${BACKEND_CONTAINER} \
+                                wget -qO- http://localhost:8080/actuator/health 2>/dev/null \
+                                | grep -q '"status":"UP"'; then
+                                echo "헬스체크 통과 (\${i}회 시도)"
+                                exit 0
+                            fi
+                            echo "대기 중... (\${i}/30)"
+                            sleep 5
+                        done
+                        echo "헬스체크 실패 — 2분 30초 안에 UP 이 되지 않았다"
+                        # compose 로 로그를 보려면 --env-file 이 또 필요하고 \${VAR:?} 파싱을 다시 타므로
+                        # 컨테이너 이름으로 직접 본다.
+                        docker logs --tail=100 ${BACKEND_CONTAINER} || true
+                        exit 1
+                    """
+                }
             }
         }
 
@@ -355,24 +383,26 @@ pipeline {
                 //
                 // `cp -r /dist/. /out/` 의 `.` 이 중요하다 — `/dist` 로 쓰면 /out/dist 가 되어
                 // nginx 가 404 를 낸다.
-                sh """
-                    docker run --rm \
-                        -v ${FRONTEND_WEBROOT}:/out \
-                        woojuin-frontend:${env.SHORT_SHA} \
-                        sh -c 'rm -rf /out/* && cp -r /dist/. /out/ && ls -1 /out | head'
-                """
-                // nginx 가 실제로 새 파일을 내주는지 확인한다 — 복사만 성공하고 nginx 설정이
-                // 어긋나 있으면 404 인데, 그건 배포 성공이 아니다.
-                // 방금 만든 이미지(alpine, busybox wget 내장)를 재사용한다.
-                // `--network host` 는 호스트 데몬이 해석하므로 호스트의 127.0.0.1:80 = nginx 에 닿는다.
-                // DNS 없이 vhost 를 고르려고 Host 헤더를 직접 준다.
-                sh """
-                    docker run --rm --network host \
-                        woojuin-frontend:${env.SHORT_SHA} \
-                        wget -q -O /dev/null --header='Host: dev.woojuin.store' http://127.0.0.1/ \
-                        || (echo 'nginx 가 dev 프론트를 서빙하지 않는다 — server 블록/root 경로 확인'; exit 1)
-                    echo 'nginx 서빙 확인 완료'
-                """
+                lock('woojuin-dev-stack') {
+                    sh """
+                        docker run --rm \
+                            -v ${FRONTEND_WEBROOT}:/out \
+                            woojuin-frontend:${env.SHORT_SHA} \
+                            sh -c 'rm -rf /out/* && cp -r /dist/. /out/ && ls -1 /out | head'
+                    """
+                    // nginx 가 실제로 새 파일을 내주는지 확인한다 — 복사만 성공하고 nginx 설정이
+                    // 어긋나 있으면 404 인데, 그건 배포 성공이 아니다.
+                    // 방금 만든 이미지(alpine, busybox wget 내장)를 재사용한다.
+                    // `--network host` 는 호스트 데몬이 해석하므로 호스트의 127.0.0.1:80 = nginx 에 닿는다.
+                    // DNS 없이 vhost 를 고르려고 Host 헤더를 직접 준다.
+                    sh """
+                        docker run --rm --network host \
+                            woojuin-frontend:${env.SHORT_SHA} \
+                            wget -q -O /dev/null --header='Host: dev.woojuin.store' http://127.0.0.1/ \
+                            || (echo 'nginx 가 dev 프론트를 서빙하지 않는다 — server 블록/root 경로 확인'; exit 1)
+                        echo 'nginx 서빙 확인 완료'
+                    """
+                }
             }
         }
     }
@@ -381,13 +411,14 @@ pipeline {
         // GitLab 커밋 상태 보고는 GitLab Branch Source 가 **자동으로** 한다
         // (시작 시 running, 종료 시 success/failed/canceled). 여기서 보내면 중복이다.
         always {
-            // dangling(태그 없는) 이미지 중 **7일 넘은 것만** 정리한다.
-            //
-            // ⚠️ `until` 필터 없이 prune 하면 **방금 이 빌드가 만든 중간 레이어까지 지워져**
-            //    다음 빌드가 항상 cold start 가 된다(실측: bootJar 매번 재실행, 빌드당 1분 낭비).
+            // ① dangling(태그 없는) 이미지 중 7일 넘은 것 정리.
+            // ② BuildKit 빌드 캐시도 7일 넘은 것만 정리 — BuildKit 캐시는 이미지와 별도
+            //    저장소라 따로 비워 줘야 디스크가 안 쌓인다. until 필터 덕에 최근 캐시는
+            //    남아서 빌드 속도는 유지된다.
             // ⚠️ `docker system prune -a` 는 금지 — 태그 붙은 이미지까지 지워서
             //    롤백 대상 이미지와 jenkins-docker:lts 까지 날릴 수 있다.
             sh 'docker image prune -f --filter "until=168h" || true'
+            sh 'docker builder prune -f --filter "until=168h" || true'
         }
     }
 }
