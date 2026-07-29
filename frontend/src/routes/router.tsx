@@ -15,6 +15,7 @@ import CanvasPage from '@/pages/CanvasPage';
 import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
 import OAuthCallbackPage from '@/pages/OAuthCallbackPage';
+import InvitePage from '@/pages/InvitePage';
 
 export const router = createBrowserRouter([
   {
@@ -23,6 +24,8 @@ export const router = createBrowserRouter([
   },
   { path: '/login', element: <LoginPage /> },
   { path: '/signup', element: <SignupPage /> },
+  // 공유 링크 진입점 — 로그인 전에도 미리보기, 참여는 로그인 후(사이드바 없는 단독 화면)
+  { path: '/invite/:code', element: <InvitePage /> },
   // 구글 OAuth 콜백 (백엔드 woojuin.oauth.redirect-base-url과 경로 일치 필요)
   { path: '/oauth/callback', element: <OAuthCallbackPage /> },
   // 로그인해야 들어갈 수 있는 앱 화면들 (사이드바 포함)

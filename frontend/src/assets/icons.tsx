@@ -75,6 +75,17 @@ export function TrashIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** 사람 + 플러스 — 공유(멤버 초대) */
+export function UserPlusIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19c0-3 2.5-5.2 5.5-5.2s5.5 2.2 5.5 5.2" />
+      <path d="M18.5 8.5v5M16 11h5" />
+    </svg>
+  );
+}
+
 /** 가로 점 3개 — 더보기 메뉴 */
 export function DotsHorizontalIcon(props: SVGProps<SVGSVGElement>) {
   return (
