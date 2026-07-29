@@ -246,6 +246,23 @@ public class UrlItemProcessor implements ItemProcessor {
         return better != null ? better : doc;
     }
 
+    /**
+     * fetch 실패를 흡수하고 null을 돌려준다 — 호출부는 미리보기 없이 진행한다.
+     *
+     * <p><b>일시적 실패(429·503)라도 재시도하지 않는다. 의도된 선택이다.</b> 예외를 밖으로
+     * 던지면 디스패처가 RETRYABLE로 보고 스트림이 최대 3번 재배달하는데, 그 대가가 이득보다
+     * 크다 — 파이프라인 전체(AI 호출 포함)가 다시 돌고, 계속 막히는 상대라면 결말이 PARTIAL이
+     * 아니라 <b>FAILED</b>가 되어 사용자 입장에선 더 나빠진다.
+     *
+     * <p>네이버 스토어가 이 케이스다. IP 단위 레이트리밋이라 같은 링크가 시점에 따라 되다
+     * 안 되다 하고, 호스트·UA를 바꿔도 스텔스 크롤러까지 함께 막힌다. 대신 아이템은 남고
+     * 폴백 제목이 호스트+경로를 담으므로({@link #fallbackTitleOf}) 사용자가 무엇인지 알아보고
+     * 상세에서 원본 링크로 갈 수 있다. 다시 저장하면 그때는 대개 성공한다.
+     *
+     * <p>재처리가 정말 필요해지면 재시도가 아니라 별도 경로여야 한다 — 프로세서는
+     * {@code status != PROCESSING}이면 조기 반환하고, 일괄 재처리는 사용자의 수동 편집을
+     * 덮어쓸 위험이 있다({@code ItemService.update} javadoc 참고).
+     */
     private Document tryFetch(String url) {
         try {
             return htmlFetcher.fetch(url);
