@@ -66,11 +66,15 @@ services:
     environment:
       MINIO_ROOT_USER: ${AWS_S3_ACCESS_KEY:?}
       MINIO_ROOT_PASSWORD: ${AWS_S3_SECRET_KEY:?}
-    # S3 API(9000)는 호스트에 아예 노출하지 않는다.
-    # 백엔드가 업로드/다운로드를 중계하는 구조라(presigned URL 미사용) 브라우저가
-    # MinIO에 직접 접근할 일이 없다 → 외부 노출 이유가 없음.
-    # 콘솔(9001)만 루프백에 열어 두고 관리 접속은 SSH 터널로 한다.
+    # S3 API(9000)를 **루프백으로** 노출한다 — 정문은 호스트 nginx.
+    #   브라우저 → https://minio.<env>.woojuin.store (nginx) → 127.0.0.1:이 포트 → MinIO
+    # 백엔드가 presigned URL 을 발급하는 구조로 바뀌면서(2026-07-29) 브라우저가 MinIO 에
+    # 직접 닿아야 해졌다. 내부 호스트명(minio:9000)으로 서명된 URL 은 브라우저가
+    # DNS 해석을 못 해 ERR_NAME_NOT_RESOLVED 가 난다 — 그래서 공개 도메인 경유가 필요.
+    # (예전 주석 "S3 API 미노출"은 백엔드 중계 방식이던 시절의 결정이라 폐기)
+    # 콘솔(9001)은 그대로 루프백만 — 관리 접속은 SSH 터널.
     ports:
+      - "127.0.0.1:${MINIO_API_HOST_PORT:?}:9000"
       - "127.0.0.1:${MINIO_CONSOLE_HOST_PORT:?}:9001"
     volumes:
       - minio-data:/data
@@ -146,6 +150,11 @@ services:
       # 운영도 자체 MinIO를 쓴다(결정 #19). 비우면 백엔드가 실제 AWS S3 모드로
       # 전환되는데 AWS 계정이 없어 버킷 확인 단계에서 기동이 실패한다.
       AWS_S3_ENDPOINT: http://minio:9000
+      # presigned URL **서명용** 공개 엔드포인트 (2026-07-29).
+      # 파일 I/O 는 위의 내부 주소(minio:9000)로 하고, 브라우저에 줄 URL 만 이 주소로
+      # 서명한다. 내부 주소로 서명하면 브라우저가 호스트명을 해석 못 한다.
+      # 환경별로 다르다: dev=https://minio.dev.woojuin.store / prod=https://minio.woojuin.store
+      AWS_S3_PUBLIC_ENDPOINT: ${AWS_S3_PUBLIC_ENDPOINT:?}
       CRAWLER_BASE_URL: http://crawler:8001
       JAVA_OPTS: ${BACKEND_JAVA_OPTS:-}
 
@@ -165,6 +174,9 @@ services:
       OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:?}
       # 없으면 AI 분석이 NoOp 으로 대체될 뿐 기동은 된다.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # 카카오 로컬(주소↔좌표) REST 키. 없으면 백엔드가 NoOp 지오코더로 **조용히** 폴백한다
+      # (GeocoderConfig — 기동은 되지만 지도 기능이 꺼짐). 배포 후 지도가 안 되면 이 값부터 의심.
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
       AWS_REGION: ${AWS_REGION:-ap-northeast-2}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:?}
       AWS_S3_ACCESS_KEY: ${AWS_S3_ACCESS_KEY}
