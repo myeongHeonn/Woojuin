@@ -80,6 +80,37 @@ class UrlNormalizerTest {
                 .isEqualTo("https://blog.naver.com/PostView.naver");
     }
 
+    // ---------- 카카오 장소 (앱링크 랜딩 → 장소 페이지) ----------
+
+    /**
+     * 카카오톡에서 공유한 지도 링크(kko.to)는 앱 설치를 유도하는 랜딩 페이지로 풀린다.
+     * 그 페이지는 og:title이 "카카오맵"인 안내 페이지(robots noindex)라 장소 정보가 없다.
+     * 장소 페이지는 같은 장소의 스태틱맵 좌표와 이름·주소를 담는다.
+     */
+    @Test
+    void 카카오_앱링크_랜딩을_장소페이지로_바꾼다() {
+        String result = normalizer.normalize(
+                "https://applink.map.kakao.com/place?id=1208117084");
+
+        assertThat(result).isEqualTo("https://place.map.kakao.com/1208117084");
+    }
+
+    @Test
+    void 카카오_앱링크에_장소id가_없으면_손대지_않는다() {
+        assertThat(normalizer.normalize("https://applink.map.kakao.com/place"))
+                .isEqualTo("https://applink.map.kakao.com/place");
+        assertThat(normalizer.normalize("https://applink.map.kakao.com/place?id=abc"))
+                .isEqualTo("https://applink.map.kakao.com/place?id=abc");
+    }
+
+    @Test
+    void 좌표가_박힌_카카오_공유링크는_건드리지_않는다() {
+        // /link/map 형태는 URL 자체에 좌표가 있어 그대로 두는 게 맞다.
+        String url = "https://map.kakao.com/link/map/cafe,37.5445,127.0561";
+
+        assertThat(normalizer.normalize(url)).isEqualTo(url);
+    }
+
     // ---------- 네이버 장소 (모바일 장소 페이지로 모은다) ----------
 
     /**

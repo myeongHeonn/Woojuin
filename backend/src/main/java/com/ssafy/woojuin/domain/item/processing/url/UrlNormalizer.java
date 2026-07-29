@@ -19,7 +19,19 @@ import org.springframework.stereotype.Component;
  *   <li>youtu.be 단축 → youtube.com/watch?v= (oEmbed 제공자 매칭)</li>
  *   <li>모바일 호스트(m.example.com 등) → 데스크톱 호스트 (OG 태그가 더 잘 붙는다)</li>
  *   <li><b>네이버 블로그는 예외로 모바일 호스트를 쓴다</b> — 아래 참고</li>
+ *   <li>지도 앱링크·장소 링크(카카오톡 {@code kko.to}, 네이버 {@code naver.me}가 풀리는 곳)
+ *       → 장소 정보가 실제로 있는 페이지</li>
  * </ul>
+ *
+ * <p><b>지도 앱링크 특례.</b> 카카오톡·네이버 앱에서 공유한 지도 링크는 앱 설치를 유도하는
+ * 랜딩 페이지로 풀린다. 그 페이지에는 장소 정보가 하나도 없다 — 카카오
+ * {@code applink.map.kakao.com/place?id=}는 og:title이 "카카오맵"인 안내 페이지(robots
+ * noindex)이고, 네이버 {@code map.naver.com/p/entry/place/{id}}는 2.3KB SPA 껍데기다.
+ * 장소 페이지({@code place.map.kakao.com/{id}}, {@code m.place.naver.com/place/{id}})로 보내면
+ * 이름·주소·좌표가 다 나온다.
+ *
+ * <p>단축 링크는 정규화 시점엔 불투명한 토큰이라 이 규칙이 바로 걸리지 않는다. 리다이렉트가
+ * 끝난 뒤 {@code UrlItemProcessor}가 최종 URL을 다시 정규화해서 한 번 더 받아온다.
  *
  * <p><b>네이버 블로그 특례.</b> 데스크톱 포스트 URL({@code blog.naver.com/{id}/{logNo}})은
  * 2.8KB짜리 iframe 껍데기라서 <b>본문도 OG 태그도 없다</b>. {@code <title>}에 글 제목이 아니라
@@ -49,6 +61,11 @@ public class UrlNormalizer {
 
     private static final Set<String> NAVER_BLOG_HOSTS =
             Set.of("blog.naver.com", "m.blog.naver.com");
+
+    /** 카카오톡 공유(kko.to)가 풀리는 앱링크 랜딩 호스트. 장소 페이지로 보낸다 — 아래 javadoc 참고. */
+    private static final String KAKAO_APPLINK_HOST = "applink.map.kakao.com";
+    private static final String KAKAO_PLACE_HOST = "place.map.kakao.com";
+    private static final Pattern KAKAO_PLACE_ID = Pattern.compile("\\d{1,20}");
 
     /** 네이버 장소를 가리키는 호스트들. 전부 모바일 장소 페이지로 모은다 — 아래 javadoc 참고. */
     private static final Set<String> NAVER_PLACE_HOSTS =
@@ -94,15 +111,27 @@ public class UrlNormalizer {
             }
         }
 
-        // 네이버 블로그(데스크톱·모바일·PostView 어느 형태로 저장했든) → 모바일 포스트 URL.
-        // 클래스 javadoc의 실측 표 참고. 아래 m.* 제거 규칙보다 먼저 반환해야 한다 —
-        // 그러지 않으면 모바일 링크가 본문 없는 데스크톱 껍데기로 되돌아간다.
+        // 카카오톡 공유(kko.to)가 풀리는 앱링크 랜딩 페이지 → 장소 페이지.
+        // 랜딩 페이지는 og:title이 "카카오맵"인 일반 안내 페이지라(robots noindex) 장소 이름도
+        // 주소도 좌표도 없다. 장소 페이지는 같은 장소의 스태틱맵 좌표와 이름·주소를 담는다.
+        if (host.equals(KAKAO_APPLINK_HOST) && uri.getPath() != null
+                && uri.getPath().startsWith("/place")) {
+            String placeId = queryValue(uri.getQuery(), "id");
+            if (placeId != null && KAKAO_PLACE_ID.matcher(placeId).matches()) {
+                return new URI("https", KAKAO_PLACE_HOST, "/" + placeId, null, null);
+            }
+            return uri;
+        }
+
         // 네이버 장소(지도 링크·플레이스) → 모바일 장소 페이지. 아래 m.* 제거 규칙보다 먼저다.
         if (NAVER_PLACE_HOSTS.contains(host)) {
             URI mobilePlace = naverMobilePlace(uri);
             return mobilePlace != null ? mobilePlace : uri;
         }
 
+        // 네이버 블로그(데스크톱·모바일·PostView 어느 형태로 저장했든) → 모바일 포스트 URL.
+        // 클래스 javadoc의 실측 표 참고. 아래 m.* 제거 규칙보다 먼저 반환해야 한다 —
+        // 그러지 않으면 모바일 링크가 본문 없는 데스크톱 껍데기로 되돌아간다.
         if (NAVER_BLOG_HOSTS.contains(host)) {
             URI mobilePost = naverBlogMobilePost(uri);
             // 글 단위로 특정하지 못하면(블로그 홈 등) 손대지 않는다. m.도 떼지 않는다 —
