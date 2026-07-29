@@ -65,7 +65,7 @@ public class ItemGeoService {
         return rows.stream()
                 .map(row -> new ItemGeoResponse(row.itemId(), row.type(), row.title(),
                         categoryIdsByItem.getOrDefault(row.itemId(), List.of()),
-                        row.lat(), row.lng(), row.address()))
+                        row.favorite(), row.lat(), row.lng(), row.address()))
                 .toList();
     }
 

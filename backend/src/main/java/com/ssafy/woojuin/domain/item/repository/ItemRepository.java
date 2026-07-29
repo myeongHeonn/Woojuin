@@ -27,7 +27,7 @@ public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificat
      * <p>정렬하지 않는다 — 지도는 핀을 좌표로 배치하므로 순서에 의미가 없다.
      */
     @Query("select new com.ssafy.woojuin.domain.item.repository.ItemGeoRow("
-            + "i.id, i.type, i.title, i.lat, i.lng, i.address) "
+            + "i.id, i.type, i.title, i.favorite, i.lat, i.lng, i.address) "
             + "from Item i "
             + "where i.workspaceId = :workspaceId and i.deletedAt is null "
             + "and i.lat is not null and i.lng is not null")

@@ -11,6 +11,7 @@ public record ItemGeoRow(
         Long itemId,
         ItemType type,
         String title,
+        boolean favorite,
         Double lat,
         Double lng,
         String address) {

@@ -1,5 +1,6 @@
 package com.ssafy.woojuin.domain.item.controller;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -62,7 +63,7 @@ class ItemGeoControllerTest {
     void 좌표_아이템_목록을_평면_배열로_응답한다() throws Exception {
         authenticateAs(10L);
         when(itemGeoService.geoItems(eq(1L), eq(10L))).thenReturn(List.of(
-                new ItemGeoResponse(42L, ItemType.URL, "성수동 맛집", List.of(1L, 2L),
+                new ItemGeoResponse(42L, ItemType.URL, "성수동 맛집", List.of(1L, 2L), true,
                         37.5445, 127.0561, "서울 성동구 아차산로17길 49")));
 
         mockMvc.perform(get("/api/workspaces/1/items/geo"))
@@ -74,16 +75,33 @@ class ItemGeoControllerTest {
                 .andExpect(jsonPath("$.data[0].title").value("성수동 맛집"))
                 .andExpect(jsonPath("$.data[0].categoryIds[0]").value(1))
                 .andExpect(jsonPath("$.data[0].categoryIds[1]").value(2))
+                .andExpect(jsonPath("$.data[0].favorite").value(true))
                 .andExpect(jsonPath("$.data[0].lat").value(37.5445))
                 .andExpect(jsonPath("$.data[0].lng").value(127.0561))
                 .andExpect(jsonPath("$.data[0].address").value("서울 성동구 아차산로17길 49"));
     }
 
     @Test
+    void title과_address는_null로_내려갈_수_있다() throws Exception {
+        // 프론트 MapPlace 타입이 address를 string으로 선언해 뒀는데, 지도 공유 링크는
+        // 좌표만 주므로 실제로는 null이 내려간다. 계약을 여기서 명시해 둔다.
+        authenticateAs(10L);
+        when(itemGeoService.geoItems(eq(1L), eq(10L))).thenReturn(List.of(
+                new ItemGeoResponse(42L, ItemType.IMAGE, null, List.of(), false,
+                        37.5445, 127.0561, null)));
+
+        mockMvc.perform(get("/api/workspaces/1/items/geo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].title").value(nullValue()))
+                .andExpect(jsonPath("$.data[0].address").value(nullValue()))
+                .andExpect(jsonPath("$.data[0].favorite").value(false));
+    }
+
+    @Test
     void 목록_응답_전용_필드는_포함하지_않는다() throws Exception {
         authenticateAs(10L);
         when(itemGeoService.geoItems(eq(1L), eq(10L))).thenReturn(List.of(
-                new ItemGeoResponse(42L, ItemType.URL, "성수동 맛집", List.of(),
+                new ItemGeoResponse(42L, ItemType.URL, "성수동 맛집", List.of(), false,
                         37.5445, 127.0561, null)));
 
         mockMvc.perform(get("/api/workspaces/1/items/geo"))
@@ -92,9 +110,13 @@ class ItemGeoControllerTest {
                 .andExpect(jsonPath("$.data[0].preview").doesNotExist())
                 .andExpect(jsonPath("$.data[0].imageUrl").doesNotExist())
                 .andExpect(jsonPath("$.data[0].status").doesNotExist())
-                .andExpect(jsonPath("$.data[0].favorite").doesNotExist())
                 .andExpect(jsonPath("$.data[0].createdAt").doesNotExist())
-                .andExpect(jsonPath("$.data[0].categories").doesNotExist());
+                .andExpect(jsonPath("$.data[0].deletedAt").doesNotExist())
+                // favorite은 지도의 즐겨찾기 필터가 쓰므로 포함된다(제외 목록이 아니다).
+                .andExpect(jsonPath("$.data[0].favorite").exists())
+                // categories(객체 배열)가 아니라 categoryIds(평면 배열)여야 한다.
+                .andExpect(jsonPath("$.data[0].categories").doesNotExist())
+                .andExpect(jsonPath("$.data[0].categoryIds").exists());
     }
 
     @Test

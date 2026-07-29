@@ -13,12 +13,20 @@ import java.util.List;
  * <p>카테고리를 {@code {categoryId, name, color}} 객체가 아니라 id 배열로 내리는 이유:
  * 프론트는 핀 색과 필터 칩을 그리려고 카테고리 목록 API를 이미 받아둔 상태이므로 id만으로
  * 조립할 수 있고, 핀마다 이름·색을 중복 전송하면 페이로드만 커진다.
+ *
+ * <p>{@code favorite}은 지도의 "즐겨찾기만 보기" 토글이 쓴다. 클라이언트가 이미 받은 핀
+ * 목록에서 바로 필터링하므로 서버에 favorite 쿼리 파라미터를 두지 않았다.
+ *
+ * <p>{@code title}과 {@code address}는 <b>null일 수 있다</b>. title은 저장 시점에 비어 있고
+ * 미리보기가 실패하면 채워지지 않으며, address는 지도 공유 링크에서 좌표만 얻었거나
+ * 역지오코딩이 실패한 경우 비어 있다(핀이 목적이고 주소는 장식이다).
  */
 public record ItemGeoResponse(
         Long itemId,
         ItemType type,
         String title,
         List<Long> categoryIds,
+        boolean favorite,
         Double lat,
         Double lng,
         String address) {

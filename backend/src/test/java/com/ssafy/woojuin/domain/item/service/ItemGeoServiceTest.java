@@ -69,7 +69,11 @@ class ItemGeoServiceTest {
     }
 
     private ItemGeoRow row(long itemId) {
-        return new ItemGeoRow(itemId, ItemType.URL, "성수동 맛집", 37.5445, 127.0561,
+        return row(itemId, false);
+    }
+
+    private ItemGeoRow row(long itemId, boolean favorite) {
+        return new ItemGeoRow(itemId, ItemType.URL, "성수동 맛집", favorite, 37.5445, 127.0561,
                 "서울 성동구 아차산로17길 49");
     }
 
@@ -89,9 +93,23 @@ class ItemGeoServiceTest {
         assertThat(pin.type()).isEqualTo(ItemType.URL);
         assertThat(pin.title()).isEqualTo("성수동 맛집");
         assertThat(pin.categoryIds()).containsExactly(1L, 2L);
+        assertThat(pin.favorite()).isFalse();
         assertThat(pin.lat()).isEqualTo(37.5445);
         assertThat(pin.lng()).isEqualTo(127.0561);
         assertThat(pin.address()).isEqualTo("서울 성동구 아차산로17길 49");
+    }
+
+    @Test
+    void 즐겨찾기_여부를_그대로_내린다() {
+        // 지도의 "즐겨찾기만 보기" 토글이 이 필드로 클라이언트에서 필터링한다.
+        asMember();
+        when(itemRepository.findGeoRows(eq(WORKSPACE_ID), any(Limit.class)))
+                .thenReturn(List.of(row(42L, true), row(43L, false)));
+        when(itemCategoryQueryService.categoryIdsByItemIds(anyCollection())).thenReturn(Map.of());
+
+        List<ItemGeoResponse> result = itemGeoService.geoItems(WORKSPACE_ID, USER_ID);
+
+        assertThat(result).extracting(ItemGeoResponse::favorite).containsExactly(true, false);
     }
 
     @Test
