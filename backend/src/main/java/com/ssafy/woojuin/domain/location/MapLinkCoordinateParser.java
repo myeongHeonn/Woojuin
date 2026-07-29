@@ -39,7 +39,7 @@ public class MapLinkCoordinateParser {
     /** 좌표는 소수점을 반드시 포함해야 한다 — 투영 좌표·장소 id 같은 정수를 배제한다. */
     private static final String COORD = "(-?\\d{1,3}\\.\\d+)";
 
-    private enum Provider { KAKAO, KAKAO_STATICMAP, NAVER, GOOGLE }
+    private enum Provider { KAKAO, KAKAO_STATICMAP, NAVER, NAVER_STATICMAP, GOOGLE }
 
     /**
      * @param lngFirst 경도가 먼저 나오는 패턴인지. 대부분은 위도가 먼저지만 카카오 스태틱맵의
@@ -84,11 +84,31 @@ public class MapLinkCoordinateParser {
                     Pattern.compile("[?&]m=" + COORD + "(?:,|%2[Cc])" + COORD), true));
 
     /**
-     * 스태틱맵 좌표계 표기. 이게 없으면 좌표를 쓰지 않는다 — 카카오가 이 파라미터를
+     * 네이버 스마트에디터가 글 본문에 심는 정적 지도 이미지. {@code markers=…pos:경도 위도…}
+     * 형태이고 값은 퍼센트 인코딩돼 있다({@code pos%3A126.82%2035.19}).
+     *
+     * <p>블로그 글쓴이가 <b>직접 찍은 핀</b>이라 본문 주소를 지오코딩하는 것보다 정확하다 —
+     * 같은 글에서 두 방식을 비교했을 때 26m 차이가 났고 임베드 쪽이 실제 가게 위치였다.
+     */
+    private static final List<NamedPattern> NAVER_STATICMAP_PATTERNS = List.of(
+            // 구분자로 리터럴 공백은 받지 않는다 — URI.create가 애초에 거부하므로 도달할 수 없다.
+            new NamedPattern("naver-staticmap", Pattern.compile(
+                    "pos(?::|%3[Aa])" + COORD + "(?:%20|\\+)" + COORD), true));
+
+    /**
+     * 카카오 스태틱맵 좌표계 표기. 이게 없으면 좌표를 쓰지 않는다 — 카카오가 이 파라미터를
      * WCONGNAMUL 같은 투영 좌표계로 바꾸는 날, 핀을 바다에 꽂는 대신 조용히 포기한다.
      */
     private static final Pattern WGS84_MARKER =
             Pattern.compile("[?&]srs=wgs84", Pattern.CASE_INSENSITIVE);
+
+    /**
+     * 네이버 스태틱맵의 좌표계 파라미터. 없으면 기본값이 WGS84(EPSG:4326)라서 그대로 쓰고,
+     * <b>4326이 아닌 값이 명시돼 있으면 거부한다</b> — 카카오의 {@code srs} 검사와 같은 이유로
+     * fail-closed다.
+     */
+    private static final Pattern NAVER_CRS_PARAM =
+            Pattern.compile("[?&]crs=([^&]+)", Pattern.CASE_INSENSITIVE);
 
     /** 이름 있는 파라미터는 순서가 고정이 아니라 위도·경도를 따로 찾는다. x=경도, y=위도. */
     private static final Pattern LAT_PARAM = Pattern.compile("[?&](?:lat|y)=" + COORD);
@@ -123,8 +143,7 @@ public class MapLinkCoordinateParser {
         if (provider == null) {
             return Optional.empty();
         }
-        if (provider == Provider.KAKAO_STATICMAP && !WGS84_MARKER.matcher(url).find()) {
-            log.debug("카카오 스태틱맵에 srs=wgs84 표기가 없어 좌표를 쓰지 않는다: url={}", url);
+        if (!coordinateSystemTrusted(provider, url)) {
             return Optional.empty();
         }
 
@@ -143,10 +162,36 @@ public class MapLinkCoordinateParser {
         }
         // 스태틱맵은 전용 패턴만 신뢰한다. lat/x 같은 이름 있는 파라미터를 함께 훑으면
         // 이미지 크기·줌 같은 무관한 값을 좌표로 오독할 여지가 생긴다.
-        if (provider == Provider.KAKAO_STATICMAP) {
+        if (isStaticMap(provider)) {
             return Optional.empty();
         }
         return parseNamedParams(provider, url);
+    }
+
+    private boolean isStaticMap(Provider provider) {
+        return provider == Provider.KAKAO_STATICMAP || provider == Provider.NAVER_STATICMAP;
+    }
+
+    /**
+     * 스태틱맵 URL의 좌표계를 신뢰할 수 있는지 본다. 두 제공자가 방식이 다르다 — 카카오는
+     * {@code srs=wgs84}를 명시하므로 그 표기를 요구하고, 네이버는 생략 시 기본값이 WGS84라서
+     * {@code crs}가 있을 때만 4326인지 확인한다. 둘 다 <b>의심스러우면 포기</b>한다.
+     */
+    private boolean coordinateSystemTrusted(Provider provider, String url) {
+        if (provider == Provider.KAKAO_STATICMAP && !WGS84_MARKER.matcher(url).find()) {
+            log.debug("카카오 스태틱맵에 srs=wgs84 표기가 없어 좌표를 쓰지 않는다: url={}", url);
+            return false;
+        }
+        if (provider == Provider.NAVER_STATICMAP) {
+            Matcher crs = NAVER_CRS_PARAM.matcher(url);
+            if (crs.find() && !crs.group(1).equalsIgnoreCase("epsg:4326")
+                    && !crs.group(1).equalsIgnoreCase("epsg%3A4326")) {
+                log.debug("네이버 스태틱맵 좌표계가 WGS84가 아니라 좌표를 쓰지 않는다: crs={}, url={}",
+                        crs.group(1), url);
+                return false;
+            }
+        }
+        return true;
     }
 
     private Optional<GeoPoint> parseNamedParams(Provider provider, String url) {
@@ -186,6 +231,7 @@ public class MapLinkCoordinateParser {
             case GOOGLE -> GOOGLE_PATTERNS;
             case KAKAO -> KAKAO_PATTERNS;
             case KAKAO_STATICMAP -> KAKAO_STATICMAP_PATTERNS;
+            case NAVER_STATICMAP -> NAVER_STATICMAP_PATTERNS;
             case NAVER -> List.of();   // 네이버는 이름 있는 파라미터만 신뢰한다 (아래 주석)
         };
     }
@@ -234,6 +280,11 @@ public class MapLinkCoordinateParser {
         // staticmap.kakao.com 은 아래 map.kakao.com 검사에도 걸리므로(endsWith) 반드시 먼저 본다.
         if (host.equals("staticmap.kakao.com")) {
             return Provider.KAKAO_STATICMAP;
+        }
+        // 네이버 스마트에디터가 글 본문에 심는 정적 지도 이미지. 경로까지 확인해서
+        // 같은 CDN이 서비스하는 다른 이미지가 걸리지 않게 한다.
+        if (host.endsWith("pstatic.net") && path.startsWith("/static.map")) {
+            return Provider.NAVER_STATICMAP;
         }
         if (host.endsWith("map.kakao.com") || host.equals("kko.kr")) {
             return Provider.KAKAO;

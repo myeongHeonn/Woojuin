@@ -195,6 +195,48 @@ class MapLinkCoordinateParserTest {
                 37.5445, 127.0561);
     }
 
+    // ---------- 네이버 본문 임베드 지도 (경도가 먼저!) ----------
+
+    /**
+     * 네이버 스마트에디터가 글 본문에 심는 정적 지도. 실측 표본이고, 값이 퍼센트 인코딩돼 있다.
+     * 글쓴이가 직접 찍은 핀이라 본문 주소를 지오코딩하는 것보다 정확하다.
+     */
+    private static final String NAVER_STATICMAP =
+            "https://simg.pstatic.net/static.map/v2/map/staticmap.bin?caller=smarteditor"
+            + "&markers=color%3A0x11cc73%7Csize%3Amid%7Cpos%3A126.8234182%2035.1909497"
+            + "%7CviewSizeRatio%3A0.7%7Ctype%3Ad&w=700&h=315&scale=2&dataversion=176.29";
+
+    @Test
+    void 네이버_임베드_지도의_pos는_경도가_먼저다() {
+        assertCoord(parser.parse(NAVER_STATICMAP), 35.1909497, 126.8234182);
+    }
+
+    @Test
+    void 네이버_임베드_지도는_구분자가_플러스여도_읽는다() {
+        // 리터럴 공백은 URI.create가 거부하므로 애초에 여기까지 오지 않는다.
+        String plusSeparated = "https://simg.pstatic.net/static.map/v2/map/staticmap.bin"
+                + "?markers=pos:126.8234182+35.1909497&w=700";
+
+        assertCoord(parser.parse(plusSeparated), 35.1909497, 126.8234182);
+    }
+
+    @Test
+    void 네이버_임베드_지도의_좌표계가_WGS84가_아니면_거부한다() {
+        // crs가 생략되면 기본값이 WGS84라서 쓰고, 다른 좌표계가 명시되면 포기한다.
+        String tm = "https://simg.pstatic.net/static.map/v2/map/staticmap.bin"
+                + "?crs=EPSG%3A3857&markers=pos%3A126.8234182%2035.1909497&w=700";
+
+        assertThat(parser.parse(tm)).isEmpty();
+    }
+
+    @Test
+    void 지도가_아닌_pstatic_이미지는_무시한다() {
+        // 같은 CDN이 블로그 사진도 서비스한다. 경로로 갈라야 한다.
+        assertThat(parser.parse("https://blogthumb.pstatic.net/food.jpg?type=w800")).isEmpty();
+        assertThat(parser.parse("https://simg.pstatic.net/image/thumb.jpg?pos%3A126.82%2035.19"))
+                .isEmpty();
+    }
+
     @Test
     void 네이버_c_튜플은_지원하지_않는다() {
         // 포맷이 버전마다 달라 위도·경도를 뒤바꿀 위험이 커서 의도적으로 제외했다.
