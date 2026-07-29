@@ -16,12 +16,9 @@ import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
-import com.ssafy.woojuin.domain.location.GeoPoint;
 import com.ssafy.woojuin.domain.location.Geocoder;
-import com.ssafy.woojuin.domain.location.KoreanAddressExtractor;
 import com.ssafy.woojuin.domain.location.LocationResolver;
 import com.ssafy.woojuin.domain.location.MapLinkCoordinateParser;
-import com.ssafy.woojuin.domain.location.ResolvedLocation;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.util.List;
 import java.util.Optional;
@@ -62,9 +59,9 @@ class UrlItemProcessorTest {
                 return rawUrl;
             }
         };
-        // 파서·추출기는 순수 함수라 실제 구현을 쓰고 외부 호출이 필요한 지오코더만 목으로 둔다.
+        // 파서는 순수 함수라 실제 구현을 쓰고 외부 호출이 필요한 지오코더만 목으로 둔다.
         LocationResolver locationResolver = new LocationResolver(
-                new MapLinkCoordinateParser(), new KoreanAddressExtractor(), geocoder);
+                new MapLinkCoordinateParser(), geocoder);
         processor = new UrlItemProcessor(itemRepository, normalizer, oEmbedClient,
                 htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer,
                 categoryAssignmentService, locationResolver);
@@ -203,8 +200,6 @@ class UrlItemProcessorTest {
         assertThat(item.getLat()).isEqualTo(37.5445);
         assertThat(item.getLng()).isEqualTo(127.0561);
         assertThat(item.getAddress()).isEqualTo("서울특별시 성동구 아차산로 100");
-        // 좌표를 URL에서 얻었으므로 본문 주소를 지오코딩하지는 않는다.
-        verify(geocoder, never()).forwardAddress(any());
     }
 
     @Test
@@ -225,21 +220,50 @@ class UrlItemProcessorTest {
     }
 
     @Test
-    void 지도_링크가_아니면_본문_주소를_지오코딩해_저장한다() {
-        Item item = urlItem("https://blog.naver.com/someone/123");
+    void 본문에_임베드된_지도의_핀_좌표를_쓴다() {
+        // 맛집 블로그의 실제 시나리오 — 글 URL엔 좌표가 없고 본문 지도 이미지에만 있다.
+        // 지식·기술 글은 지도를 심지 않으므로 이 신호가 두 부류를 가른다.
+        Item item = urlItem("https://m.blog.naver.com/someone/224131224522");
+        aiReturnsEmpty();
+        Document blogDoc = Jsoup.parse("""
+                <html><body><p>맛있었어요</p>
+                  <img src="https://blogthumb.pstatic.net/food.jpg">
+                  <img src="https://simg.pstatic.net/static.map/v2/map/staticmap.bin?\
+                caller=smarteditor&amp;markers=color%3A0x11cc73%7Csize%3Amid\
+                %7Cpos%3A126.8234182%2035.1909497%7Ctype%3Ad&amp;w=700&amp;h=315">
+                </body></html>""", "https://m.blog.naver.com/someone/224131224522");
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(blogDoc);
+        when(openGraphScraper.scrape(blogDoc))
+                .thenReturn(new UrlPreview("광주 수완지구 초밥", null, "안녕하세요 개구장이입니다"));
+        when(contentExtractor.extract(blogDoc)).thenReturn("충분히 긴 본문");
+        when(geocoder.reverse(any()))
+                .thenReturn(Optional.of("전남광주통합특별시 광산구 임방울대로 347"));
+
+        processor.process(message());
+
+        assertThat(item.getLat()).isEqualTo(35.1909497);
+        assertThat(item.getLng()).isEqualTo(126.8234182);
+        assertThat(item.getAddress()).isEqualTo("전남광주통합특별시 광산구 임방울대로 347");
+    }
+
+    @Test
+    void 본문에_주소가_적혀_있어도_지도가_없으면_위치를_만들지_않는다() {
+        // 의도된 동작이다 — 자유 텍스트 주소 경로를 없앴다(LocationResolver javadoc 참고).
+        // 지식·기술 글이나 회사 footer 주소에 핀이 꽂히는 것을 구조적으로 막는다.
+        Item item = urlItem("https://blog.example.com/post/1");
         aiReturnsEmpty();
         when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
         when(htmlFetcher.fetch(any())).thenReturn(doc);
         when(openGraphScraper.scrape(doc))
                 .thenReturn(new UrlPreview("성수동 맛집", null, "서울 성동구 아차산로 49"));
-        when(contentExtractor.extract(doc)).thenReturn("본문");
-        when(geocoder.forwardAddress("서울 성동구 아차산로 49")).thenReturn(Optional.of(
-                new ResolvedLocation(new GeoPoint(37.5445, 127.0561), "서울 성동구 아차산로17길 49")));
+        when(contentExtractor.extract(doc)).thenReturn("주소는 서울 성동구 아차산로 49 입니다");
 
         processor.process(message());
 
-        assertThat(item.getLat()).isEqualTo(37.5445);
-        assertThat(item.getAddress()).isEqualTo("서울 성동구 아차산로17길 49");
+        assertThat(item.hasCoordinates()).isFalse();
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
+        verifyNoInteractions(geocoder);
     }
 
     @Test
@@ -262,14 +286,14 @@ class UrlItemProcessorTest {
     void 지오코더가_예외를_던져도_상태와_본문이_유지된다() {
         // @Transactional 안에서 예외가 새면 rollback-only로 찍혀 이미 확보한 미리보기·본문이
         // 전부 버려지고, 디스패처가 RETRYABLE로 판단해 AI 호출까지 다시 돈다.
-        Item item = urlItem("https://blog.naver.com/someone/123");
+        Item item = urlItem("https://map.kakao.com/link/map/cafe,37.5445,127.0561");
         aiReturnsEmpty();
         when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
         when(htmlFetcher.fetch(any())).thenReturn(doc);
         when(openGraphScraper.scrape(doc))
-                .thenReturn(new UrlPreview("성수동 맛집", "https://img", "서울 성동구 아차산로 49"));
+                .thenReturn(new UrlPreview("성수동 맛집", "https://img", null));
         when(contentExtractor.extract(doc)).thenReturn("확보한 본문");
-        when(geocoder.forwardAddress(any())).thenThrow(new RuntimeException("지오코딩 폭발"));
+        when(geocoder.reverse(any())).thenThrow(new RuntimeException("지오코딩 폭발"));
 
         processor.process(message());   // 예외가 밖으로 나오지 않아야 한다
 
@@ -321,7 +345,6 @@ class UrlItemProcessorTest {
         assertThat(item.getLat()).isEqualTo(35.18968663709063);
         assertThat(item.getLng()).isEqualTo(126.81519384985194);
         assertThat(item.getAddress()).isEqualTo("전남광주통합특별시 광산구 장신로50번길 20-3");
-        verify(geocoder, never()).forwardAddress(any());
     }
 
     @Test

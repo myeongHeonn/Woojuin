@@ -45,6 +45,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class UrlItemProcessor implements ItemProcessor {
 
+    /** 본문에서 모을 지도 이미지 후보 상한. 지도는 보통 글에 하나뿐이다. */
+    private static final int MAX_EMBEDDED_MAP_CANDIDATES = 5;
+
     private final ItemRepository itemRepository;
     private final UrlNormalizer urlNormalizer;
     private final OEmbedClient oEmbedClient;
@@ -121,15 +124,19 @@ public class UrlItemProcessor implements ItemProcessor {
         }
 
         // 위치 확보(FR-023). 썸네일과 같은 등급의 부가 정보라 상태에는 영향이 없다.
-        tryResolveLocation(item, normalizedUrl, doc, preview, content);
+        tryResolveLocation(item, normalizedUrl, doc);
 
         enrichWithAi(item, content);   // 본문이 없어도 title로 분류 시도(상태에는 영향 없음)
         finalizeStatus(item, preview, contentAcquired);
     }
 
     /**
-     * 지도 좌표를 확보해 반영한다 (FR-023). 지도 공유 링크면 URL 파싱만으로 끝나고(네트워크
-     * 0회), 아니면 본문에서 뽑은 주소를 지오코딩한다.
+     * 지도 좌표를 확보해 반영한다 (FR-023). <b>좌표는 지도에서만 온다</b> — 지도 공유 링크,
+     * 페이지가 실어준 지도 이미지, 본문에 임베드된 지도. 전부 URL 문자열 파싱이라 네트워크가
+     * 0회이고, 좌표를 얻었을 때만 주소를 채우려고 역지오코딩 1회가 나간다.
+     *
+     * <p>본문 텍스트에서 주소를 뽑는 경로는 <b>의도적으로 없다</b> — 이유는
+     * {@link LocationResolver} javadoc에 있다.
      *
      * <p>후보 URL에 <b>원본 {@code item.getUrl()}까지</b> 넣는 이유: {@link UrlNormalizer}가
      * fragment를 버리고 일부 파라미터를 지우는데, 구형 구글맵은 좌표를 {@code #} 뒤에 담았다.
@@ -144,8 +151,10 @@ public class UrlItemProcessor implements ItemProcessor {
      * {@link MapLinkCoordinateParser}의 호스트 게이트에서 그냥 탈락하므로 넣어도 무해하다 —
      * 단 하나 위험한 구글 스태틱맵은 그쪽에서 명시적으로 거부한다(요청자 IP 기준 좌표라서).
      *
-     * <p>텍스트 후보는 og:description → title → 본문 순이다. 앞쪽이 이 페이지의 주제를
-     * 설명하는 텍스트라, 맛집 후기에 섞인 "근처 다른 가게" 주소를 잡을 확률이 낮다.
+     * <p>마지막으로 <b>본문에 임베드된 지도</b>를 붙인다. 맛집 블로그는 글 안에 지도를 심는데
+     * 그 정적 지도 이미지 URL에 <b>글쓴이가 직접 찍은 핀</b> 좌표가 들어있다. 이게 이 앱에서
+     * 가장 흔한 "장소가 있는 글"이고, 지식·기술 글은 지도를 심지 않으므로 이 신호만으로
+     * 두 부류가 갈린다.
      *
      * <p>모든 실패를 흡수한다. {@code tryGenerateThumbnail}과 같은 이유이면서 여기선 더
      * 치명적인데, {@code process}가 {@code @Transactional}이라 예외가 새어나가면 트랜잭션이
@@ -153,21 +162,18 @@ public class UrlItemProcessor implements ItemProcessor {
      * RETRYABLE로 판단해 AI 호출까지 포함한 파이프라인 전체가 재실행된다. {@code Geocoder}
      * 계약도 "예외를 던지지 않는다"지만 이중으로 막는다.
      */
-    private void tryResolveLocation(Item item, String normalizedUrl, Document doc,
-            UrlPreview preview, String content) {
+    private void tryResolveLocation(Item item, String normalizedUrl, Document doc) {
         try {
-            List<String> candidateUrls = Stream.of(
-                            item.getUrl(), normalizedUrl, doc != null ? doc.location() : null,
-                            metaContent(doc, "meta[name='twitter:image']"),
-                            metaContent(doc, "meta[property='og:image']"))
+            List<String> candidateUrls = Stream.concat(
+                            Stream.of(item.getUrl(), normalizedUrl,
+                                    doc != null ? doc.location() : null,
+                                    metaContent(doc, "meta[name='twitter:image']"),
+                                    metaContent(doc, "meta[property='og:image']")),
+                            embeddedMapUrls(doc).stream())
                     .filter(url -> url != null && !url.isBlank())
                     .toList();
-            List<String> candidateTexts = Stream.of(
-                            preview.description(), item.getTitle(), preview.title(), content)
-                    .filter(text -> text != null && !text.isBlank())
-                    .toList();
 
-            locationResolver.resolveForUrlItem(candidateUrls, candidateTexts).ifPresent(location ->
+            locationResolver.resolveForUrlItem(candidateUrls).ifPresent(location ->
                     item.applyLocation(location.lat(), location.lng(), location.address()));
         } catch (Exception e) {
             log.warn("위치 확보 실패(무시): itemId={}, cause={}", item.getId(), e.toString());
@@ -181,6 +187,25 @@ public class UrlItemProcessor implements ItemProcessor {
         }
         Element meta = doc.selectFirst(selector);
         return meta == null ? null : meta.attr("content");
+    }
+
+    /**
+     * 본문에 임베드된 정적 지도 이미지 URL을 모은다. 선택자는 <b>값싼 사전 필터</b>일 뿐이고
+     * 호스트 판별은 {@link MapLinkCoordinateParser}가 한다 — 그래서 여기서 조금 넉넉하게 잡아도
+     * 엉뚱한 이미지가 좌표가 되지는 않는다.
+     *
+     * <p>사진이 많은 글에서 후보가 폭발하지 않게 상한을 둔다. 지도는 보통 글에 하나뿐이라
+     * 상한에 걸려 놓칠 일은 사실상 없다.
+     */
+    private List<String> embeddedMapUrls(Document doc) {
+        if (doc == null) {
+            return List.of();
+        }
+        return doc.select("img[src*=static.map], img[src*=staticmap]").stream()
+                .map(img -> img.attr("abs:src").isBlank() ? img.attr("src") : img.attr("abs:src"))
+                .filter(src -> !src.isBlank())
+                .limit(MAX_EMBEDDED_MAP_CANDIDATES)
+                .toList();
     }
 
     private Document tryFetch(String url) {

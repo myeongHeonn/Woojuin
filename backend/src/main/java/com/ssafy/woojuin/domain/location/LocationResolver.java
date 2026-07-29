@@ -6,71 +6,56 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * 위치 확보 전략 (FR-023). 싸고 정확한 것부터 시도하고 첫 성공에서 멈춘다.
+ * 위치 확보 전략 (FR-023).
  *
- * <p>전략만 여기서 정하고, "어떤 문자열이 후보인가"는 호출부(프로세서)가 정한다 — 프로세서마다
- * 가진 재료가 다르기 때문이다.
+ * <p><b>원칙: 좌표는 지도에서만 온다. 추측하지 않는다.</b> 받아들이는 소스는 셋뿐이다 —
+ * 지도 공유 링크, 페이지에 임베드된 지도, 사진의 EXIF GPS. 전부 사람이 명시적으로 지도에
+ * 찍은 위치라서 "이 콘텐츠의 장소가 어디인가"를 추론할 필요가 없다.
+ *
+ * <p><b>본문 텍스트에서 주소를 정규식으로 뽑는 경로는 의도적으로 없다.</b> 초기엔 있었지만
+ * 걷어냈다. 이유는 정확도보다 <b>제품 정의</b>다 — 지식·기술 글을 저장했을 때 지도에 핀이
+ * 뜨는 건 사용자가 원하는 동작이 아니고, 반대로 지도에서 공유한 링크와 사진은 뜨는 게 유용하다.
+ * 글에 흘러가듯 적힌 주소(회사 footer의 사업자 주소, "근처 다른 가게", 행사장 언급)를 그 글의
+ * 주제로 단정할 방법이 정규식에는 없다.
+ *
+ * <p>이 결정으로 잃는 게 거의 없다는 것도 확인했다 — 맛집 블로그는 본문에 지도를 임베드하기
+ * 때문에 {@link MapLinkCoordinateParser}가 그 핀을 그대로 읽는다. 같은 글에서 두 방식을
+ * 비교했을 때 임베드 핀이 본문 주소 지오코딩보다 26m 더 정확했다(글쓴이가 직접 찍은 위치다).
  *
  * <p>URL 아이템:
  * <ol>
- *   <li>URL에 박힌 좌표 파싱 — 좌표 자체는 네트워크 0회로 얻는다. 지도 공유 링크의 정답
- *       경로다. 주소는 없으므로 역지오코딩 1회로 채운다</li>
- *   <li>텍스트에서 뽑은 한국 주소를 지오코딩 — 좌표와 정규화된 주소를 함께 얻는다</li>
- *   <li>실패 → 위치 없음. <b>정상 결과다</b> (대부분의 아이템에 위치가 없다)</li>
+ *   <li>후보 URL들(원본·정규화·최종 URL → 페이지가 실어준 지도 이미지 → 본문에 임베드된 지도)에서
+ *       좌표를 파싱한다. <b>네트워크 0회</b>다</li>
+ *   <li>좌표를 얻었으면 역지오코딩 1회로 주소를 채운다 — 장소 패널과 팝업이 주소를 노출한다</li>
+ *   <li>좌표가 없으면 위치 없음. <b>정상 결과다</b> (대부분의 아이템에 위치가 없다)</li>
  * </ol>
  *
- * <p>1단계가 성공하면 2단계를 아예 건너뛰므로 <b>아이템당 지오코딩은 최대 1번</b>이다
- * (카카오 주소→키워드 폴백 때문에 2단계의 HTTP 요청은 2회가 될 수 있다 —
- * {@link KakaoLocalGeocoder#forwardAddress} 참고). 그리고 그 1번은 아이템을 저장할 때
- * 한 번이고 지도를 열 때마다가 아니다.
+ * <p>그래서 <b>아이템당 지오코딩은 최대 1회</b>이고, 그것도 좌표를 이미 얻은 경우에만 나가는
+ * 역방향 호출이다. 저장할 때 한 번이고 지도를 열 때마다가 아니다.
  *
- * <p>묶음 F의 실제 AI 분석기가 오면 LLM이 뽑은 장소명이 1과 2 사이에 소스로 추가된다.
- * 그때 {@code AiAnalysis}를 확장하고 프로세서의 호출 위치를 AI 뒤로 옮기면 되며, 지금은
- * 아무도 채우지 않는 필드를 위해 공유 계약을 흔들지 않는다.
+ * <p>묶음 F의 AI 분석기가 오면 LLM이 글의 <i>주제</i> 장소를 뽑아줄 수 있다. 그건 정규식이
+ * 못 하던 "이 글이 어느 장소에 관한 글인가"를 실제로 판단하는 것이라 다시 검토할 가치가 있다.
+ * 그때 이 클래스에 소스를 하나 앞에 끼우고 {@link Geocoder#forwardKeyword}를 쓰면 된다.
  */
 @Slf4j
 @Component
 public class LocationResolver {
 
     private final MapLinkCoordinateParser mapLinkParser;
-    private final KoreanAddressExtractor addressExtractor;
     private final Geocoder geocoder;
 
-    public LocationResolver(MapLinkCoordinateParser mapLinkParser,
-            KoreanAddressExtractor addressExtractor, Geocoder geocoder) {
+    public LocationResolver(MapLinkCoordinateParser mapLinkParser, Geocoder geocoder) {
         this.mapLinkParser = mapLinkParser;
-        this.addressExtractor = addressExtractor;
         this.geocoder = geocoder;
     }
 
     /**
-     * @param candidateUrls 원본 URL, 정규화된 URL, 리다이렉트 해소된 최종 URL (우선순위 순)
-     * @param candidateTexts og:description → title → 본문 순. 앞쪽이 이 페이지의 주제를
-     *                       설명하는 텍스트라 "다른 가게 주소"를 잡을 확률이 낮다
+     * @param candidateUrls 원본 URL, 정규화된 URL, 리다이렉트 해소된 최종 URL, 페이지 메타의 지도
+     *                      이미지, 본문에 임베드된 지도 — 이 순서로 넘기면 정확한 것이 먼저 걸린다
      */
-    public Optional<ResolvedLocation> resolveForUrlItem(List<String> candidateUrls,
-            List<String> candidateTexts) {
-
-        Optional<GeoPoint> fromLink = mapLinkParser.parse(toArray(candidateUrls));
-        if (fromLink.isPresent()) {
-            // 좌표는 URL에서 공짜로 얻었지만 주소는 없다. 장소 패널과 지도 팝업이 주소를
-            // 노출하고, 맛집·여행 링크가 이 경로의 주 시나리오라 그냥 두면 주소 없는 핀이
-            // 다수가 된다 — 역지오코딩 1회를 들여 채운다. 저장 시 1회이고 지도를 열 때마다가
-            // 아니라 비용이 작다. 실패하면 좌표만 남는다.
-            return Optional.of(resolveForCoordinates(fromLink.get()));
-        }
-
-        Optional<String> address = addressExtractor.extract(toArray(candidateTexts));
-        if (address.isEmpty()) {
-            return Optional.empty();
-        }
-        // 지오코더가 검증기 역할을 한다 — 정규식이 잡은 게 실제 주소가 아니면 결과가 없고,
-        // 그러면 그냥 버린다. 이 덕분에 정규식 오탐이 무해해진다.
-        Optional<ResolvedLocation> geocoded = geocoder.forwardAddress(address.get());
-        if (geocoded.isEmpty()) {
-            log.debug("주소 후보를 지오코딩하지 못해 버린다: '{}'", address.get());
-        }
-        return geocoded;
+    public Optional<ResolvedLocation> resolveForUrlItem(List<String> candidateUrls) {
+        return mapLinkParser.parse(toArray(candidateUrls))
+                .map(this::resolveForCoordinates);
     }
 
     /**

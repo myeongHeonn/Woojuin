@@ -15,13 +15,20 @@ import java.util.Optional;
  *
  * <p>정방향을 주소용·키워드용으로 나눈 건 호출부가 자기가 든 문자열의 종류를 실제로 알고
  * 있고, 카카오의 두 엔드포인트 동작이 많이 다르기 때문이다.
+ *
+ * <p><b>지금 파이프라인이 쓰는 건 {@link #reverse}뿐이다.</b> 좌표는 지도에서만 받기로 했고
+ * (이유는 {@link LocationResolver} javadoc), 지도에서 온 좌표에 주소를 붙이는 게 역방향이다.
+ * 정방향 둘은 <b>묶음 F의 AI 분석기</b>를 위해 남겨 뒀다 — LLM이 글의 주제 장소를 이름이나
+ * 주소로 뽑아주면 그때 좌표로 바꿔야 하고, 그건 정규식이 못 하던 "이 글이 어느 장소에 관한
+ * 글인가"를 실제로 판단한 결과라 다시 쓸 값이 있다. 라이브 API로 계약을 검증해 둔 코드라
+ * 지웠다가 다시 만드는 쪽이 손해다({@code KakaoLocalGeocoderTest}가 계속 지킨다).
  */
 public interface Geocoder {
 
-    /** 도로명·지번 주소 문자열 → 좌표. 본문에서 정규식으로 뽑은 주소가 여기로 온다. */
+    /** 도로명·지번 주소 문자열 → 좌표. 현재 미사용 — 위 javadoc 참고. */
     Optional<ResolvedLocation> forwardAddress(String address);
 
-    /** 상호·장소명 → 좌표. "성수동 어니언" 처럼 주소가 아니라 이름만 있을 때. */
+    /** 상호·장소명 → 좌표. "성수동 어니언" 처럼 이름만 있을 때. 현재 미사용 — 위 javadoc 참고. */
     Optional<ResolvedLocation> forwardKeyword(String keyword);
 
     /** 좌표 → 주소 문자열. EXIF GPS로 좌표만 얻은 IMAGE 아이템의 address를 채운다. */
