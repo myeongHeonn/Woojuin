@@ -2,7 +2,16 @@
 # 사용: docker compose up -d
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector 번들 이미지. 같은 PG16이라 기존 postgres-data 볼륨 그대로 호환된다.
+    # 임베딩 저장(item_embeddings.embedding vector(1536))과 이후 의미 기반 검색에 필요.
+    #
+    # ⚠️ 기존 postgres:16-alpine 볼륨을 이 이미지로 처음 올릴 땐 **REINDEX가 필수**다:
+    #     docker exec <postgres 컨테이너> psql -U <user> -d <db> -c "REINDEX DATABASE <db>;"
+    # alpine(musl)과 이 이미지(debian/glibc)는 텍스트 정렬(collation) 구현이 달라, musl에서
+    # 만들어진 텍스트 btree 인덱스가 glibc에선 조용히 틀어진다 — 인덱스를 타는 등호 조회가
+    # 행이 있는데도 0건을 돌려준다(실제로 겪음: 카테고리 이름 매칭·"기타" 폴백이 전부 실패,
+    # users.email 유니크 인덱스도 같은 위험). 데이터가 새 볼륨이면 해당 없음.
+    image: pgvector/pgvector:pg16
     container_name: woojuin-postgres
     environment:
       POSTGRES_DB: woojuin

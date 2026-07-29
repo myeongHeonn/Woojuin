@@ -121,6 +121,83 @@ public class AiMixClient {
         return textOrNull(data.path("description"));
     }
 
+    /** 임베딩 입력의 카테고리 참조. */
+    public record EmbeddingCategory(Long id, String name) {
+    }
+
+    /** 임베딩 결과. inputHash가 저장돼 있으면 입력이 안 바뀐 재계산을 건너뛸 수 있다. */
+    public record EmbeddingResult(String model, String inputHash, float[] embedding) {
+    }
+
+    /**
+     * 아이템 임베딩 생성. 입력 텍스트("카테고리+제목+요약")는 ai-mix가 조립한다 —
+     * 백엔드가 텍스트를 직접 만들면 해시 버전 관리가 두 곳으로 갈라진다.
+     */
+    public EmbeddingResult createEmbedding(Long itemId, String title, String summary,
+            List<EmbeddingCategory> categories) {
+        List<Map<String, Object>> categoryPayload = categories.stream()
+                .map(category -> Map.<String, Object>of(
+                        "categoryId", category.id(),
+                        "name", truncate(category.name(), 100)))
+                .toList();
+        JsonNode data = post("/v1/embeddings", Map.of(
+                "itemId", itemId,
+                "title", truncate(firstNonBlank(title, "제목 없음"), 100),
+                "summary", truncate(firstNonBlank(summary, title), 1_000),
+                "categories", categoryPayload));
+
+        JsonNode vector = data.path("embedding");
+        if (!vector.isArray() || vector.isEmpty()) {
+            throw new IllegalStateException("ai-mix 임베딩 응답에 벡터가 없음");
+        }
+        float[] embedding = new float[vector.size()];
+        for (int i = 0; i < vector.size(); i++) {
+            embedding[i] = (float) vector.get(i).asDouble();
+        }
+        return new EmbeddingResult(
+                textOrNull(data.path("embeddingModel")),
+                textOrNull(data.path("inputHash")),
+                embedding);
+    }
+
+    /** 3차원 좌표 축소 입력(아이템 하나의 임베딩). */
+    public record ItemVector(Long itemId, float[] embedding) {
+    }
+
+    /** 3차원 좌표 축소 결과. */
+    public record ItemPoint(Long itemId, double x, double y, double z) {
+    }
+
+    /**
+     * 워크스페이스 전체 임베딩을 3차원 좌표로 축소한다(UMAP, 표본 부족·미설치 시 PCA 폴백은
+     * ai-mix가 알아서 한다). 아이템이 추가될 때마다 전체 좌표가 다시 나오는 구조다.
+     */
+    public List<ItemPoint> reduceCoordinates(List<ItemVector> items) {
+        List<Map<String, Object>> itemPayload = items.stream()
+                .map(item -> Map.<String, Object>of(
+                        "itemId", item.itemId(),
+                        "embedding", toDoubleList(item.embedding())))
+                .toList();
+        JsonNode data = post("/v1/coordinates/reduce", Map.of("items", itemPayload));
+
+        List<ItemPoint> points = new ArrayList<>();
+        data.path("coordinates").forEach(node -> points.add(new ItemPoint(
+                node.path("itemId").asLong(),
+                node.path("x").asDouble(),
+                node.path("y").asDouble(),
+                node.path("z").asDouble())));
+        return points;
+    }
+
+    /** float[]을 JSON 직렬화 가능한 리스트로. Jackson이 float[]도 처리하지만 명시가 안전하다. */
+    private static List<Double> toDoubleList(float[] values) {
+        List<Double> list = new ArrayList<>(values.length);
+        for (float value : values) {
+            list.add((double) value);
+        }
+        return list;
+    }
+
     /** 공통 POST. 공통 응답 형식 {@code {status, message, data}}의 data 노드를 돌려준다. */
     private JsonNode post(String path, Map<String, Object> body) {
         String raw = restClient.post()
