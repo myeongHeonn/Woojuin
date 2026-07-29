@@ -1,3 +1,9 @@
+server:
+  # 호스트 nginx가 TLS를 종료하고 http로 프록시하므로, 이 값이 없으면 Spring이
+  # 요청을 그대로 http로 보고 OAuth2 redirect_uri(등)를 http://...로 잘못 생성한다
+  # (nginx가 보내는 X-Forwarded-Proto: https를 신뢰하지 않기 때문).
+  forward-headers-strategy: framework
+
 spring:
   application:
     name: woojuin
