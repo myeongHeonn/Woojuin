@@ -21,6 +21,12 @@ import org.springframework.stereotype.Component;
  * 넣어야 한다. 단축 링크는 리다이렉트가 끝난 최종 URL(jsoup {@code Document.location()})이
  * 후보로 들어온다 — 그 fetch는 홉마다 SSRF 검사를 통과한 경로다.
  *
+ * <p>후보에는 <b>페이지가 실어준 지도 이미지 URL</b>(og:image / twitter:image)도 들어온다.
+ * 카카오 장소 페이지({@code place.map.kakao.com/{id}})는 URL에 좌표가 없지만 미리보기용
+ * 스태틱맵 이미지 URL에 정확한 좌표를 담고 있어서, <b>이미 받아온 HTML만으로</b> 좌표를
+ * 얻을 수 있다(추가 네트워크 0회). 카카오맵 앱의 '공유'가 주는 링크가 이 형태라 실사용
+ * 빈도가 가장 높은 경로다.
+ *
  * <p>투영 좌표(카카오 {@code ?urlX=507000&urlY=1120000} WCONGNAMUL)는 정수라서 모든
  * 패턴이 소수점을 요구하는 것만으로 자동으로 걸러진다. 그대로 저장하면 핀이 바다에 꽂힌다.
  * 변환이 필요해지면 카카오 {@code /v2/local/geo/transcoord.json}을 쓸 수 있지만 지금은
@@ -33,17 +39,29 @@ public class MapLinkCoordinateParser {
     /** 좌표는 소수점을 반드시 포함해야 한다 — 투영 좌표·장소 id 같은 정수를 배제한다. */
     private static final String COORD = "(-?\\d{1,3}\\.\\d+)";
 
-    private enum Provider { KAKAO, NAVER, GOOGLE }
+    private enum Provider { KAKAO, KAKAO_STATICMAP, NAVER, GOOGLE }
 
-    private record NamedPattern(String name, Pattern regex) {
+    /**
+     * @param lngFirst 경도가 먼저 나오는 패턴인지. 대부분은 위도가 먼저지만 카카오 스태틱맵의
+     *                 {@code m=} 은 {@code 경도,위도} 순이다 — 뒤바꿔 읽으면 핀이 중국 어딘가에
+     *                 꽂히므로 패턴마다 명시한다
+     */
+    private record NamedPattern(String name, Pattern regex, boolean lngFirst) {
+
+        private NamedPattern(String name, Pattern regex) {
+            this(name, regex, false);
+        }
     }
 
     private static final List<NamedPattern> GOOGLE_PATTERNS = List.of(
             // data= 안의 !3d!4d — 장소 핀의 실제 좌표다. 아래 뷰포트보다 반드시 먼저 본다.
+            // 구글 지도 앱의 '공유'(maps.app.goo.gl)가 리다이렉트 끝에 주는 형태가 이것이다.
             new NamedPattern("google-place", Pattern.compile("!3d" + COORD + "!4d" + COORD)),
             // Maps URLs API: /maps/search/?api=1&query=lat,lng (%2C 인코딩도 허용)
-            new NamedPattern("google-query",
-                    Pattern.compile("[?&](?:q|query|ll|center)=" + COORD + "(?:,|%2[Cc])" + COORD)),
+            // destination/daddr 은 길찾기 링크의 도착지다. saddr(출발지)는 일부러 제외했다 —
+            // 사용자가 저장하려는 장소는 도착지이고, 출발지를 잡으면 엉뚱한 핀이 된다.
+            new NamedPattern("google-query", Pattern.compile(
+                    "[?&](?:q|query|ll|center|destination|daddr)=" + COORD + "(?:,|%2[Cc])" + COORD)),
             // /@lat,lng,17z — 지도 화면 중심이지 핀 좌표가 아니라 마지막 순위다.
             new NamedPattern("google-viewport", Pattern.compile("/@" + COORD + "," + COORD)));
 
@@ -54,6 +72,24 @@ public class MapLinkCoordinateParser {
             new NamedPattern("kakao-link",
                     Pattern.compile("/link/(?:map|to)/[^?#]*," + COORD + "," + COORD)));
 
+    /**
+     * 카카오 장소 페이지가 미리보기 이미지로 싣는 스태틱맵. {@code m=경도,위도} 순이다.
+     *
+     * <p>실측으로 확인했다 — 서울시청·부산역의 장소 페이지에서 뽑은 값이 카카오 로컬 API가
+     * 주는 좌표와 소수점 10자리까지 일치했다. 즉 <b>요청자 위치가 아니라 그 장소의 좌표</b>다
+     * (구글은 정반대다 — {@link #detectProvider} 참고).
+     */
+    private static final List<NamedPattern> KAKAO_STATICMAP_PATTERNS = List.of(
+            new NamedPattern("kakao-staticmap",
+                    Pattern.compile("[?&]m=" + COORD + "(?:,|%2[Cc])" + COORD), true));
+
+    /**
+     * 스태틱맵 좌표계 표기. 이게 없으면 좌표를 쓰지 않는다 — 카카오가 이 파라미터를
+     * WCONGNAMUL 같은 투영 좌표계로 바꾸는 날, 핀을 바다에 꽂는 대신 조용히 포기한다.
+     */
+    private static final Pattern WGS84_MARKER =
+            Pattern.compile("[?&]srs=wgs84", Pattern.CASE_INSENSITIVE);
+
     /** 이름 있는 파라미터는 순서가 고정이 아니라 위도·경도를 따로 찾는다. x=경도, y=위도. */
     private static final Pattern LAT_PARAM = Pattern.compile("[?&](?:lat|y)=" + COORD);
     private static final Pattern LNG_PARAM = Pattern.compile("[?&](?:lng|lon|x)=" + COORD);
@@ -61,7 +97,10 @@ public class MapLinkCoordinateParser {
     /**
      * 후보 URL들을 순서대로 보고 첫 성공에서 멈춘다.
      *
-     * @param candidateUrls 원본 URL, 정규화된 URL, 리다이렉트 해소된 최종 URL 등 (null 허용)
+     * @param candidateUrls 원본 URL, 정규화된 URL, 리다이렉트 해소된 최종 URL, 그리고 페이지가
+     *                      실어준 지도 이미지 URL(og:image / twitter:image) 등 (null 허용).
+     *                      <b>실제 링크를 앞에, 페이지 에셋을 뒤에</b> 두면 우선순위가 맞는다 —
+     *                      링크에 박힌 좌표가 페이지 미리보기 이미지보다 정확하다
      */
     public Optional<GeoPoint> parse(String... candidateUrls) {
         if (candidateUrls == null) {
@@ -84,17 +123,28 @@ public class MapLinkCoordinateParser {
         if (provider == null) {
             return Optional.empty();
         }
+        if (provider == Provider.KAKAO_STATICMAP && !WGS84_MARKER.matcher(url).find()) {
+            log.debug("카카오 스태틱맵에 srs=wgs84 표기가 없어 좌표를 쓰지 않는다: url={}", url);
+            return Optional.empty();
+        }
 
         for (NamedPattern pattern : patternsFor(provider)) {
             Matcher matcher = pattern.regex().matcher(url);
             if (matcher.find()) {
-                Optional<GeoPoint> point = GeoPoint.parse(matcher.group(1), matcher.group(2));
+                String latText = matcher.group(pattern.lngFirst() ? 2 : 1);
+                String lngText = matcher.group(pattern.lngFirst() ? 1 : 2);
+                Optional<GeoPoint> point = GeoPoint.parse(latText, lngText);
                 if (point.isPresent() && acceptable(provider, point.get(), pattern.name(), url)) {
                     log.debug("지도 링크에서 좌표 추출: pattern={}, lat={}, lng={}",
                             pattern.name(), point.get().lat(), point.get().lng());
                     return point;
                 }
             }
+        }
+        // 스태틱맵은 전용 패턴만 신뢰한다. lat/x 같은 이름 있는 파라미터를 함께 훑으면
+        // 이미지 크기·줌 같은 무관한 값을 좌표로 오독할 여지가 생긴다.
+        if (provider == Provider.KAKAO_STATICMAP) {
+            return Optional.empty();
         }
         return parseNamedParams(provider, url);
     }
@@ -135,6 +185,7 @@ public class MapLinkCoordinateParser {
         return switch (provider) {
             case GOOGLE -> GOOGLE_PATTERNS;
             case KAKAO -> KAKAO_PATTERNS;
+            case KAKAO_STATICMAP -> KAKAO_STATICMAP_PATTERNS;
             case NAVER -> List.of();   // 네이버는 이름 있는 파라미터만 신뢰한다 (아래 주석)
         };
     }
@@ -148,6 +199,17 @@ public class MapLinkCoordinateParser {
      * <p>네이버 {@code /p/entry/place/{id}?c=...} 의 {@code c=} 튜플은 <b>지원하지 않는다</b>.
      * 포맷이 버전마다 달라(구 v5는 경도가 먼저) 실제 공유 링크로 실측하지 않으면 위도·경도를
      * 뒤바꿔 저장할 위험이 크다. 이름 있는 파라미터(lat/lng, x/y)만 신뢰한다.
+     *
+     * <p><b>구글 스태틱맵({@code /maps/api/staticmap})은 반드시 거부한다.</b> 구글 지도
+     * 페이지의 og:image·twitter:image가 이 URL을 싣는데, 그 {@code center=} 값은 장소가 아니라
+     * <b>요청자 IP의 위치</b>다 — 서울시청·부산역·에펠탑 페이지를 각각 요청했을 때 셋 다 동일한
+     * 좌표(요청한 사무실 위치)가 돌아오는 것을 실측으로 확인했다. 거부하지 않으면 모든 구글
+     * 지도 링크가 서버 데이터센터에 핀을 꽂으면서 그럴듯해 보이기까지 한다.
+     *
+     * <p>{@code share.google} 단축 링크도 지원할 수 없다. 리다이렉트 끝이 JS 전용 인터스티셜
+     * ({@code http-equiv=refresh} → {@code /httpservice/retry/enablejs})이라 좌표도 장소 정보도
+     * HTML에 없다. 구글 지도 <i>앱</i>의 '공유'가 주는 {@code maps.app.goo.gl} 링크는 최종 URL에
+     * {@code !3d!4d}가 들어와서 정상 동작한다.
      */
     private Provider detectProvider(String url) {
         String host;
@@ -164,6 +226,15 @@ public class MapLinkCoordinateParser {
         }
         host = host.toLowerCase(Locale.ROOT);
 
+        // 위 javadoc 참고 — IP 기반 좌표라 신뢰할 수 없다. 구글 판별보다 먼저 걸러낸다.
+        if (host.equals("maps.googleapis.com") || path.startsWith("/maps/api/staticmap")) {
+            log.debug("구글 스태틱맵은 요청자 IP 기준 좌표라 무시한다: url={}", url);
+            return null;
+        }
+        // staticmap.kakao.com 은 아래 map.kakao.com 검사에도 걸리므로(endsWith) 반드시 먼저 본다.
+        if (host.equals("staticmap.kakao.com")) {
+            return Provider.KAKAO_STATICMAP;
+        }
         if (host.endsWith("map.kakao.com") || host.equals("kko.kr")) {
             return Provider.KAKAO;
         }

@@ -74,6 +74,27 @@ class MapLinkCoordinateParserTest {
         assertCoord(parser.parse("https://maps.google.com/maps?ll=37.5445,127.0561"), 37.5445, 127.0561);
     }
 
+    @Test
+    void 구글_길찾기_도착지_좌표를_읽는다() {
+        assertCoord(parser.parse("https://www.google.com/maps/dir/?api=1&destination=37.5445,127.0561"),
+                37.5445, 127.0561);
+        assertCoord(parser.parse("https://maps.google.com/maps?daddr=37.5445%2C127.0561"),
+                37.5445, 127.0561);
+    }
+
+    @Test
+    void 구글_스태틱맵_center는_요청자_IP_위치라_거부한다() {
+        // 실측: 서울시청·부산역·에펠탑 지도 페이지를 각각 요청했는데 og:image의 center 값이
+        // 셋 다 동일했다(요청한 사무실 위치). 이걸 믿으면 모든 구글 지도 링크가 서버
+        // 데이터센터에 핀을 꽂으면서 그럴듯해 보인다. 이 테스트가 그 회귀를 막는다.
+        String ogImage = "https://maps.google.com/maps/api/staticmap?center=35.2062608%2C126.81437965"
+                + "&zoom=15&size=900x900&language=en&sensor=false&key=AIza";
+
+        assertThat(parser.parse(ogImage)).isEmpty();
+        assertThat(parser.parse("https://maps.googleapis.com/maps/api/staticmap?center=35.2062,126.8143"))
+                .isEmpty();
+    }
+
     // ---------- 카카오 ----------
 
     @Test
@@ -104,6 +125,60 @@ class MapLinkCoordinateParserTest {
     void 카카오_WCONGNAMUL_투영좌표는_거부한다() {
         // urlX/urlY 는 WGS84가 아니다. 그대로 저장하면 핀이 바다에 꽂힌다.
         assertThat(parser.parse("https://map.kakao.com/?urlX=507000&urlY=1120000")).isEmpty();
+    }
+
+    // ---------- 카카오 장소 페이지의 스태틱맵 (경도가 먼저!) ----------
+
+    /**
+     * 카카오맵 앱의 '공유'가 주는 {@code place.map.kakao.com/{id}}는 URL에 좌표가 없지만,
+     * 페이지가 미리보기로 싣는 스태틱맵 이미지 URL에 정확한 좌표가 들어있다. 실측 표본이다
+     * (수완초밥, 장소 id 15586602).
+     */
+    private static final String KAKAO_STATICMAP =
+            "http://staticmap.kakao.com/staticmap/og?type=place&srs=wgs84&size=400x200"
+            + "&service=placeweb&m=126.81519384985194%2C35.18968663709063";
+
+    @Test
+    void 카카오_스태틱맵의_m_파라미터는_경도가_먼저다() {
+        // 이 순서를 뒤집으면 위도 126은 범위를 벗어나 조용히 버려지거나(운이 좋을 때),
+        // 값에 따라 중국 어딘가에 핀이 꽂힌다. 스태틱맵 지원의 핵심 계약이다.
+        assertCoord(parser.parse(KAKAO_STATICMAP), 35.18968663709063, 126.81519384985194);
+    }
+
+    @Test
+    void 스태틱맵에_srs_wgs84_표기가_없으면_쓰지_않는다() {
+        // 카카오가 이 파라미터를 투영 좌표계로 바꾸는 날, 바다에 핀을 꽂는 대신 포기해야 한다.
+        String noSrs = "http://staticmap.kakao.com/staticmap/og?type=place&size=400x200"
+                + "&m=126.81519384985194%2C35.18968663709063";
+
+        assertThat(parser.parse(noSrs)).isEmpty();
+    }
+
+    @Test
+    void 스태틱맵은_링크_좌표보다_뒤_순위다() {
+        // 후보 순서(링크 먼저, 페이지 에셋 나중)가 지켜지는지. 링크에 박힌 핀 좌표가 더 정확하다.
+        Optional<GeoPoint> result = parser.parse(
+                "https://map.kakao.com/link/map/cafe,37.5445,127.0561", KAKAO_STATICMAP);
+
+        assertCoord(result, 37.5445, 127.0561);
+    }
+
+    @Test
+    void 장소id_링크는_스태틱맵이_함께_오면_좌표를_얻는다() {
+        // 실제 시나리오 — place URL 자체는 좌표가 없고, 같은 페이지의 twitter:image가 채워준다.
+        Optional<GeoPoint> result = parser.parse(
+                "https://place.map.kakao.com/15586602", KAKAO_STATICMAP);
+
+        assertCoord(result, 35.18968663709063, 126.81519384985194);
+    }
+
+    @Test
+    void 스태틱맵_호스트는_카카오_링크_패턴으로_오독되지_않는다() {
+        // staticmap.kakao.com 은 map.kakao.com 으로 끝나서 호스트 판별 순서가 틀리면
+        // /link/map/ 패턴 쪽으로 흘러가 좌표를 못 찾는다.
+        assertCoord(parser.parse(KAKAO_STATICMAP), 35.18968663709063, 126.81519384985194);
+        assertThat(parser.parse("http://staticmap.kakao.com/staticmap/og?srs=wgs84&size=400x200"))
+                .isEmpty();
     }
 
     // ---------- 네이버 ----------
