@@ -60,6 +60,18 @@ woojuin:
     base-url: ${AI_BASE_URL:https://gms.ssafy.io/gmsapi/api.openai.com/v1}
     model: ${AI_MODEL:gpt-5-mini}
     timeout-ms: ${AI_TIMEOUT_MS:8000}
+  # 이미지 분석(OCR·설명·태그 추출). OpenRouter 경유 Qwen3-VL — 위 ai(텍스트) 블록과
+  # 프로바이더가 달라 별도 블록이다(모델·키·과금 주체가 다르다). 묶음 F의 이미지 모델
+  # 평가(ai-test 브랜치 ai/ai-image)에서 확정한 qwen3-vl 8b instruct를 그대로 쓴다.
+  # API 키(OPENROUTER_API_KEY)는 여기가 아니라 ImageTextExtractorConfig에서 직접 읽는다 —
+  # 이유는 위 ai 블록 주석과 동일(빈 줄을 "키 있음"으로 오해하는 문제). 키가 없으면
+  # 이미지 텍스트 추출만 꺼지고(NoOp) 썸네일·EXIF 좌표·저장은 계속 동작한다.
+  # timeout이 ai(8000)보다 긴 건 VL 추론이 이미지 크기에 따라 수 초를 넘기 때문이다.
+  # 컨슈머가 순차 처리라 커넥션 점유가 겹치진 않지만, 늘릴 땐 그 점을 같이 볼 것.
+  vision:
+    base-url: ${VISION_BASE_URL:https://openrouter.ai/api/v1}
+    model: ${VISION_MODEL:qwen/qwen3-vl-8b-instruct}
+    timeout-ms: ${VISION_TIMEOUT_MS:20000}
   # 지도 좌표 변환(FR-023). 카카오 로컬 API — 주소↔좌표 REST 호출이지 지도 SDK가 아니다.
   # REST 키(KAKAO_REST_API_KEY)는 여기가 아니라 GeocoderConfig에서 직접 읽는다 — 이유는
   # 위 ai 블록 주석과 동일(빈 줄을 "키 있음"으로 오해하는 문제).
