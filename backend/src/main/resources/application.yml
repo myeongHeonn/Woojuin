@@ -1,3 +1,9 @@
+server:
+  # 호스트 nginx가 TLS를 종료하고 http로 프록시하므로, 이 값이 없으면 Spring이
+  # 요청을 그대로 http로 보고 OAuth2 redirect_uri(등)를 http://...로 잘못 생성한다
+  # (nginx가 보내는 X-Forwarded-Proto: https를 신뢰하지 않기 때문).
+  forward-headers-strategy: framework
+
 spring:
   application:
     name: woojuin
@@ -13,15 +19,87 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+            client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
+            scope: openid, email, profile
+        # 카카오는 client-id/secret 발급 후 재추가 예정 (S15P11C105-31 후속 사이클).
+        # 빈 값인 채로 registration을 등록해두면 ClientRegistration 검증에서
+        # "clientId cannot be empty"로 부팅 자체가 실패하니 그 전엔 비워둔다.
 
 woojuin:
+  # 프론트 origin. FE/BE를 서브도메인으로 분리해 운영하므로(prod=woojuin.store,
+  # api=api.woojuin.store) 모든 API 호출이 CORS를 탄다. 이 값이 실제 프론트 주소와
+  # 다르면 브라우저가 응답을 버려서 상태코드도 안 남는다(SecurityConfig 주석 참고).
+  # 아래 oauth.redirect-base-url 과 **같은 origin**이어야 한다.
+  cors:
+    allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
+  oauth:
+    redirect-base-url: ${OAUTH_REDIRECT_BASE_URL:http://localhost:5173/oauth/callback}
   jwt:
-    secret: ${JWT_SECRET:change-me-to-long-random-string}
+    secret: ${JWT_SECRET:change-me-to-a-long-random-string-of-at-least-32-bytes}
     access-token-validity: 3600000      # 1h
     refresh-token-validity: 1209600000  # 14d
-  openai:
-    api-key: ${OPENAI_API_KEY:}
-    model: gpt-4o-mini
+  # OpenAI 호환 Chat Completions 엔드포인트. 팀은 SSAFY GMS 프록시를 통해 OpenAI 모델을
+  # 쓴다(ai/ai-text/config.yaml과 같은 값). base-url만 바꾸면 OpenAI 직접 호출이나 로컬
+  # Ollama(http://localhost:11434/v1)로도 붙는다 — 묶음 F의 모델 비교가 아직 진행 중이라
+  # 특정 프로바이더에 묶지 않았다.
+  # api-key가 비어 있으면 AI 질의 해석이 규칙 기반으로 동작한다(앱은 정상 기동).
+  # API 키(OPENAI_API_KEY)는 여기가 아니라 AiQueryConfig에서 직접 읽는다 — yml의 ${VAR:기본값}은
+  # 변수가 "없을 때"만 기본값을 쓰므로 `OPENAI_API_KEY=` 같은 빈 줄을 "키 있음"으로 오해한다.
+  # 값은 SSAFY GMS 키다(base-url이 GMS 프록시라 OpenAI 직접 키가 아니다).
+  ai:
+    base-url: ${AI_BASE_URL:https://gms.ssafy.io/gmsapi/api.openai.com/v1}
+    model: ${AI_MODEL:gpt-5-mini}
+    timeout-ms: ${AI_TIMEOUT_MS:8000}
+  # 지도 좌표 변환(FR-023). 카카오 로컬 API — 주소↔좌표 REST 호출이지 지도 SDK가 아니다.
+  # REST 키(KAKAO_REST_API_KEY)는 여기가 아니라 GeocoderConfig에서 직접 읽는다 — 이유는
+  # 위 ai 블록 주석과 동일(빈 줄을 "키 있음"으로 오해하는 문제).
+  # 키가 없으면 지오코딩만 꺼지고, 지도 공유 링크·사진 EXIF 좌표는 계속 저장된다.
+  # timeout이 ai(8000)보다 짧은 건 의도적이다 — 이 호출이 @Transactional 프로세서 안에서
+  # 일어나 DB 커넥션을 붙잡는 시간을 늘리기 때문이다(UrlItemProcessor 주석 참고).
+  geo:
+    base-url: ${GEO_BASE_URL:https://dapi.kakao.com}
+    timeout-ms: ${GEO_TIMEOUT_MS:3000}
   queue:
     stream-key: woojuin:item-processing
     consumer-group: ai-workers
+    max-delivery: 3            # 이 횟수만큼 배달·재시도한 뒤에도 실패하면 FAILED 확정
+    reclaim-idle-ms: 60000     # pending이 이 시간 이상 방치되면 회수 대상(처리 중 유예)
+    reclaim-interval-ms: 30000 # 회수 스케줄러 실행 주기
+    reclaim-batch-size: 32     # 한 주기에 살펴볼 pending 최대 건수
+  fetch:
+    timeout-ms: 5000
+    max-body-bytes: 3145728   # 3MB. 미리보기/본문 추출에 이보다 큰 HTML은 불필요
+    max-redirects: 5
+
+aws:
+  region: ${AWS_REGION:ap-northeast-2}
+  s3:
+    bucket: ${AWS_S3_BUCKET:woojuin-items}
+    endpoint: ${AWS_S3_ENDPOINT:http://localhost:9000}   # 로컬 MinIO. 운영(AWS S3)에서는 빈 값으로 오버라이드
+    # presigned URL "서명용" 공개 주소. 브라우저가 이 주소로 파일에 직접 접근하므로
+    # 브라우저에서 해석 가능한 도메인이어야 한다. 컨테이너 배포에서 endpoint(minio:9000)로
+    # 서명하면 내부 호스트명이 URL 에 박혀 ERR_NAME_NOT_RESOLVED 가 난다(dev 실측, 2026-07-29).
+    # 비어 있으면 endpoint 를 그대로 쓴다 — 로컬은 localhost 라 브라우저도 닿는다.
+    public-endpoint: ${AWS_S3_PUBLIC_ENDPOINT:}
+    access-key: ${AWS_S3_ACCESS_KEY:woojuin}
+    secret-key: ${AWS_S3_SECRET_KEY:woojuin-local}
+
+# 컨테이너 헬스체크·무중단 배포 전환 게이트용. health 외에는 노출하지 않는다.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never   # UP/DOWN만 노출 (DB·Redis 상세는 감춤)

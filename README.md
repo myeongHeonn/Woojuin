@@ -29,7 +29,8 @@ S15P11C105/
 | DB | PostgreSQL (AWS RDS) |
 | 비동기 큐 | Redis (Redis Streams) |
 | AI | OpenAI API (gpt-4o-mini) |
-| 지도 | **미정** (어댑터 패턴으로 추상화 예정) |
+| 지도 | OpenFreeMap + MapLibre GL (타일 무료·API 키 없음, 어댑터 패턴으로 추상화) |
+| 지오코딩 | 카카오 로컬 REST API (주소↔좌표 변환. 키 없으면 자동 비활성) |
 | 푸시 알림 | PWA + Web Push (FCM) |
 | 인증 | JWT + OAuth (카카오/구글) |
 | 인프라 | AWS EC2 + Docker + Nginx, S3 |

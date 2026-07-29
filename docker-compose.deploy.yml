@@ -1,0 +1,217 @@
+# 서버(EC2) 배포용 스택 — test/prod 공용
+#
+# 로컬 개발용 docker-compose.yml 과는 별개 파일이다.
+#   - 로컬용: 인프라만(postgres/redis/minio/crawler), 백엔드는 IDE에서 실행
+#   - 이 파일: 백엔드까지 포함한 풀스택 + 하드닝(격리·자원제한·헬스체크)
+#
+# 한 파일로 dev/prod 두 환경을 같은 EC2에 띄운다(결정 #16).
+# 그래서 container_name 을 쓰지 않고(=프로젝트명 접두사가 붙게), 호스트 포트는 변수로 뺀다.
+#
+#   docker compose -p woojuin-prod --env-file .env.prod -f docker-compose.deploy.yml up -d
+#   docker compose -p woojuin-dev  --env-file .env.dev  -f docker-compose.deploy.yml up -d
+#
+# 정문은 컨테이너 nginx가 아니라 **호스트 nginx**다(기존 HTTPS·Jenkins 프록시 보존).
+# 호스트 nginx가 api.woojuin.store → 127.0.0.1:${BACKEND_HOST_PORT} 로 프록시한다.
+#
+# 값은 --env-file 로 넘긴 파일에서 온다. 어떤 키가 필요한지는 아래 environment
+# 블록의 ${...} 를 보면 된다. 실제 .env 파일은 서버에만 두고 커밋하지 않는다.
+#
+# ${VAR:?} = 필수. 값이 없거나 **빈 문자열**이면 compose 가 기동을 거부한다.
+# ${VAR:-기본값} = 옵셔널.
+# 그냥 ${VAR} 로 두면 compose 는 경고만 찍고 빈 문자열을 넣어버려서, .env 의 오타·누락이
+# 60초 뒤 앱 로그에서야 드러난다. 그래서 필수 값에는 전부 :? 를 붙였다.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    # 같은 키가 아래 healthcheck 에도 나오지만, :? 는 한 곳에만 붙여도
+    # 그 변수가 비면 파일 전체 해석이 실패하므로 여기서만 표시한다.
+    environment:
+      POSTGRES_DB: ${DB_NAME:?}
+      POSTGRES_USER: ${DB_USERNAME:?}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?}
+    # 루프백만 바인딩. 로컬 DBeaver는 SSH 터널로 접속(결정 #5)
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:?}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks: [internal]
+    restart: always
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    # 호스트 바인딩 없음 = 외부 도달 경로 0. backend만 internal 네트워크로 접근
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks: [internal]
+    restart: always
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_S3_ACCESS_KEY:?}
+      MINIO_ROOT_PASSWORD: ${AWS_S3_SECRET_KEY:?}
+    # S3 API(9000)를 **루프백으로** 노출한다 — 정문은 호스트 nginx.
+    #   브라우저 → https://minio.<env>.woojuin.store (nginx) → 127.0.0.1:이 포트 → MinIO
+    # 백엔드가 presigned URL 을 발급하는 구조로 바뀌면서(2026-07-29) 브라우저가 MinIO 에
+    # 직접 닿아야 해졌다. 내부 호스트명(minio:9000)으로 서명된 URL 은 브라우저가
+    # DNS 해석을 못 해 ERR_NAME_NOT_RESOLVED 가 난다 — 그래서 공개 도메인 경유가 필요.
+    # (예전 주석 "S3 API 미노출"은 백엔드 중계 방식이던 시절의 결정이라 폐기)
+    # 콘솔(9001)은 그대로 루프백만 — 관리 접속은 SSH 터널.
+    ports:
+      - "127.0.0.1:${MINIO_API_HOST_PORT:?}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_HOST_PORT:?}:9001"
+    volumes:
+      - minio-data:/data
+    networks: [internal]
+    restart: always
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # Scrapling 크롤러 사이드카(폴백 전용).
+  # Jsoup이 JS 렌더링·봇차단 페이지에서 실패할 때만 호출된다(crawler/README.md).
+  # 실제 브라우저(camoufox)를 띄우므로 이 스택에서 가장 무거운 서비스다.
+  #   - 메모리 스파이크 주의: 동시 렌더 수 × 수백MB~1GB
+  #   - 이미지 빌드가 오래 걸린다(브라우저 바이너리 다운로드) → CI는 crawler/ 변경 시에만 재빌드
+  # ★ profile 뒤에 둔다 = 기본 `up -d` 에는 아예 포함되지 않고, 켤 때만 켠다.
+  #    `docker compose --profile crawler ... up -d`
+  #
+  #    왜 profile 인가: crawler/ 는 아직 develop 에 없어(feature/BE-scrapling-crawler)
+  #    이미지를 만들 수도 없다. 그런데 compose 는 **띄우지 않을 서비스의 이미지까지 먼저
+  #    해석**하므로, 그냥 두면 없는 이미지를 pull 하려다 스택 전체가 기동 실패한다.
+  #    (`--scale crawler=0` 으로는 안 된다 — scale 0 이어도 이미지 해석은 그대로 일어남.
+  #     실제로 검증했고, profile 만이 서비스를 프로젝트에서 빼준다.)
+  #
+  #    앱 쪽 스위치는 별개다: 크롤러를 안 띄웠으면 .env 의 CRAWLER_ENABLED=false 도 같이 꺼서
+  #    백엔드가 호출조차 안 하게 한다.
+  #
+  # 변수에 :? 를 걸지 않는 이유: 크롤러를 안 쓰는 경우에도 compose 는 이 블록을 해석하므로,
+  # 필수로 걸면 안 쓰는 서비스 때문에 .env 를 채워야 하는 상황이 된다.
+  crawler:
+    profiles: ["crawler"]
+    image: ${CRAWLER_IMAGE:-woojuin-crawler:latest}
+    environment:
+      CRAWLER_SOLVE_CLOUDFLARE: ${CRAWLER_SOLVE_CLOUDFLARE:-true}
+      CRAWLER_MAX_CONCURRENCY: ${CRAWLER_MAX_CONCURRENCY:-2}
+    shm_size: "1gb"   # 브라우저 렌더 중 /dev/shm 부족 크래시 방지
+    networks: [internal]
+    restart: always
+    mem_limit: ${CRAWLER_MEM_LIMIT:-2g}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8001/health')\" || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    # Jenkins가 EC2에서 직접 빌드하고 커밋 SHA로 태깅한 이미지(결정 #9).
+    # 빌드하는 곳 = 실행하는 곳이라 별도 레지스트리가 필요 없다.
+    image: ${BACKEND_IMAGE:?}
+    # ── 값 전달: 2단 하이브리드 (2026-07-29, 전체 명시 방식에서 전환) ──────────────
+    #
+    # env_file:    .env 파일을 **통째로** 컨테이너에 주입한다.
+    #              → 백엔드에 새 변수가 생기면 .env(+Jenkins credential)만 고치면 전달된다.
+    #                (전체 명시 시절엔 여기도 고쳐야 했고, 빼먹으면 조용히 빈 값이었다 —
+    #                 KAKAO_REST_API_KEY 누락 사례)
+    # environment: env_file 을 **이기는** 항목만 남긴다 (compose 규칙: environment 우선).
+    #   ① 배선 하드 오버라이드 — .env 에 localhost 가 남아 있어도 무시(복사 사고 차단)
+    #   ② 크리티컬 ${VAR:?} — 누락 시 앱이 yml 의 개발용 기본값으로 **조용히 회귀**하는
+    #      값들을 compose 파싱 단계에서 즉시 실패시킨다. 값 자체는 env_file 로도 들어가지만
+    #      여기 이중 선언은 "검증"이 목적이다(같은 변수라 값도 동일).
+    #   ③ 이름 매핑 — .env 의 BACKEND_JAVA_OPTS 를 컨테이너의 JAVA_OPTS 로
+    #
+    # 대가: compose 전용 변수(포트·멤리밋·이미지 태그)도 컨테이너 env 에 새어든다.
+    #       앱이 안 읽는 값이라 무해한 노이즈로 수용한다.
+    #
+    # ⚠️ ${ENV_FILE} 치환값의 출처 두 가지 (compose 는 셸 env > --env-file 순으로 읽음):
+    #   - Jenkins: withCredentials 가 ENV_FILE 셸 변수를 제공(임시 파일 경로) → 그걸 사용
+    #   - 수동 실행: 서버 .env 파일 **안에** ENV_FILE=<자기 자신의 절대경로> 한 줄이 있어
+    #     --env-file 로 읽히면서 자기 경로를 알려준다 → 명령은 기존 그대로
+    env_file:
+      - ${ENV_FILE:?ENV_FILE 이 없다 — Jenkins 밖 수동 실행이면 .env 파일 안에 ENV_FILE=<절대경로> 줄이 있는지 확인}
+    environment:
+      # ① 컨테이너 네트워크 주소로 못박는 것들 (.env 에 localhost 가 남아 있어도 무시됨)
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:?}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # 운영도 자체 MinIO를 쓴다(결정 #19). 비우면 백엔드가 실제 AWS S3 모드로
+      # 전환되는데 AWS 계정이 없어 버킷 확인 단계에서 기동이 실패한다.
+      AWS_S3_ENDPOINT: http://minio:9000
+      CRAWLER_BASE_URL: http://crawler:8001
+
+      # ③ 이름 매핑
+      JAVA_OPTS: ${BACKEND_JAVA_OPTS:-}
+
+      # ② 크리티컬 검증 — 누락되면 배포는 성공한 것처럼 보이는데 실제로는:
+      JWT_SECRET: ${JWT_SECRET:?}                              # 레포에 커밋된 개발용 시크릿으로 토큰 서명(위조 가능)
+      DB_PASSWORD: ${DB_PASSWORD:?}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:?}      # 기동 자체가 실패(ClientRegistration 검증)
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:?}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:?}            # localhost 로 회귀 → 브라우저 API 전부 차단
+      OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:?}    # localhost 로 회귀 → 로그인 후 엉뚱한 곳으로
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:?}                        # 기본 버킷으로 회귀 → dev/prod 데이터 섞임
+      AWS_S3_PUBLIC_ENDPOINT: ${AWS_S3_PUBLIC_ENDPOINT:?}      # 내부 주소로 서명 → 브라우저에서 이미지 깨짐
+      #
+      # 나머지(OPENAI_API_KEY, KAKAO_*, AWS_REGION, FCM_PROJECT_ID, CRAWLER_ENABLED,
+      # DB_USERNAME, AWS_S3_ACCESS/SECRET_KEY ...)는 env_file 로 들어온다.
+      # 누락 시 해당 기능만 NoOp 으로 꺼지거나(OPENAI/KAKAO_REST), 다른 서비스의 :? 가
+      # 잡아준다(MinIO 키는 minio 서비스가 검증).
+    # 8080은 Jenkins가 쓰고 있으므로 호스트 포트를 달리 잡는다(prod 8081 / dev 8091)
+    ports:
+      - "127.0.0.1:${BACKEND_HOST_PORT:?}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      # crawler 는 일부러 넣지 않는다.
+      #   - profile 로 뺀 서비스를 depends_on 에 남기면 compose 가
+      #     `depends on undefined service "crawler"` 로 프로젝트 자체를 거부한다(검증함).
+      #   - 애초에 `condition: service_started` 는 "떴다"만 보장하고 준비 완료를 보장하지
+      #     않는다(크롤러 healthcheck 의 start_period 가 30s). 폴백 전용이라 백엔드는
+      #     어차피 런타임에 "크롤러 없음"을 견뎌야 하므로, 이 의존은 얻는 게 없었다.
+    networks: [internal]
+    restart: always
+    mem_limit: ${BACKEND_MEM_LIMIT:?}
+    # actuator 의 health 는 DataSource·Redis 를 실제로 확인해 하나라도 끊기면 DOWN(503)을
+    # 반환한다. 그래서 이 판정을 무중단 배포의 전환 게이트로 쓸 수 있다
+    # (새 슬롯이 healthy 일 때만 트래픽을 넘기고, 아니면 전환하지 않아 구버전이 유지됨).
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+# 외부에 열린 문은 호스트 nginx(80/443)뿐이고, 이 네트워크는 컨테이너끼리만 쓴다.
+networks:
+  internal:
+
+# -p 프로젝트명이 접두사로 붙어 dev/prod 데이터가 서로 섞이지 않는다.
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
