@@ -137,7 +137,7 @@ class UrlItemProcessorTest {
     }
 
     @Test
-    void fetch_실패하면_도메인폴백_PARTIAL() {
+    void fetch_실패하면_URL_폴백_PARTIAL() {
         Item item = urlItem();
         aiReturnsEmpty();
         when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
@@ -146,7 +146,37 @@ class UrlItemProcessorTest {
         processor.process(message());
 
         assertThat(item.getStatus()).isEqualTo(ItemStatus.PARTIAL);
-        assertThat(item.getTitle()).isEqualTo("example.com");   // 호스트 폴백
+        assertThat(item.getTitle()).isEqualTo("example.com/a");   // 호스트 + 경로
+    }
+
+    @Test
+    void 폴백_제목은_경로까지_담고_추적파라미터는_버린다() {
+        // 쇼핑몰 링크를 여러 개 저장했을 때 카드가 전부 호스트명으로 보이면 구별이 안 된다.
+        // 네이버 스토어는 봇 차단·레이트리밋으로 미리보기가 자주 실패하고, NaPm 추적
+        // 파라미터가 수백 자라 제목에 넣으면 방해만 된다.
+        Item item = urlItem("https://smartstore.naver.com/flytojapan/products/11409077567"
+                + "?NaPm=ct%3Dms5t04fc%7Cci%3D738959d4f1cb55ee2f35f2b662cdba1c");
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenThrow(new HtmlFetchException("429 레이트리밋"));
+
+        processor.process(message());
+
+        assertThat(item.getTitle())
+                .isEqualTo("smartstore.naver.com/flytojapan/products/11409077567");
+    }
+
+    @Test
+    void 폴백_제목은_호스트를_못_읽어도_견딘다() {
+        Item item = urlItem("not a url");
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenThrow(new HtmlFetchException("잘못된 URL"));
+
+        processor.process(message());
+
+        assertThat(item.getTitle()).isEqualTo("not a url");
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.PARTIAL);
     }
 
     @Test

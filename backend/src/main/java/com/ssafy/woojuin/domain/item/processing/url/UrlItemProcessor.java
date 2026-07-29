@@ -48,6 +48,9 @@ public class UrlItemProcessor implements ItemProcessor {
     /** 본문에서 모을 지도 이미지 후보 상한. 지도는 보통 글에 하나뿐이다. */
     private static final int MAX_EMBEDDED_MAP_CANDIDATES = 5;
 
+    /** {@code items.title} 컬럼 길이. 폴백 제목이 이걸 넘기면 안 된다. */
+    private static final int MAX_TITLE_LENGTH = 500;
+
     private final ItemRepository itemRepository;
     private final UrlNormalizer urlNormalizer;
     private final OEmbedClient oEmbedClient;
@@ -112,7 +115,7 @@ public class UrlItemProcessor implements ItemProcessor {
             preview = (doc != null) ? openGraphScraper.scrape(doc) : UrlPreview.empty();
         }
         if (preview.hasNothing()) {
-            preview = new UrlPreview(domainOf(normalizedUrl), null, null);
+            preview = new UrlPreview(fallbackTitleOf(item.getUrl()), null, null);
         }
         item.applyPreview(preview.title(), preview.thumbnailUrl(), preview.description());
 
@@ -234,11 +237,8 @@ public class UrlItemProcessor implements ItemProcessor {
             return null;
         }
         String resolved = doc.location();
-        if (resolved == null || resolved.isBlank()) {
-            return doc;
-        }
-        String renormalized = urlNormalizer.normalize(resolved);
-        if (renormalized == null || renormalized.equals(resolved)) {
+        String renormalized = urlNormalizer.betterUrlOnAnotherHost(resolved).orElse(null);
+        if (renormalized == null) {
             return doc;
         }
         log.info("리다이렉트 해소 후 정규화가 달라져 다시 받아온다: {} → {}", resolved, renormalized);
@@ -246,6 +246,23 @@ public class UrlItemProcessor implements ItemProcessor {
         return better != null ? better : doc;
     }
 
+    /**
+     * fetch 실패를 흡수하고 null을 돌려준다 — 호출부는 미리보기 없이 진행한다.
+     *
+     * <p><b>일시적 실패(429·503)라도 재시도하지 않는다. 의도된 선택이다.</b> 예외를 밖으로
+     * 던지면 디스패처가 RETRYABLE로 보고 스트림이 최대 3번 재배달하는데, 그 대가가 이득보다
+     * 크다 — 파이프라인 전체(AI 호출 포함)가 다시 돌고, 계속 막히는 상대라면 결말이 PARTIAL이
+     * 아니라 <b>FAILED</b>가 되어 사용자 입장에선 더 나빠진다.
+     *
+     * <p>네이버 스토어가 이 케이스다. IP 단위 레이트리밋이라 같은 링크가 시점에 따라 되다
+     * 안 되다 하고, 호스트·UA를 바꿔도 스텔스 크롤러까지 함께 막힌다. 대신 아이템은 남고
+     * 폴백 제목이 호스트+경로를 담으므로({@link #fallbackTitleOf}) 사용자가 무엇인지 알아보고
+     * 상세에서 원본 링크로 갈 수 있다. 다시 저장하면 그때는 대개 성공한다.
+     *
+     * <p>재처리가 정말 필요해지면 재시도가 아니라 별도 경로여야 한다 — 프로세서는
+     * {@code status != PROCESSING}이면 조기 반환하고, 일괄 재처리는 사용자의 수동 편집을
+     * 덮어쓸 위험이 있다({@code ItemService.update} javadoc 참고).
+     */
     private Document tryFetch(String url) {
         try {
             return htmlFetcher.fetch(url);
@@ -283,12 +300,37 @@ public class UrlItemProcessor implements ItemProcessor {
         log.info("URL 가공 완료: itemId={}, status={}", item.getId(), item.getStatus());
     }
 
-    private String domainOf(String url) {
+    /**
+     * 미리보기를 하나도 못 얻었을 때 쓸 제목. <b>호스트만 쓰지 않고 경로까지 붙인다</b> —
+     * 같은 쇼핑몰 링크를 여러 개 저장했을 때 카드가 전부 "smartstore.naver.com"으로 보이면
+     * 어느 게 어느 상품인지 구별할 수 없다. 경로가 있으면 최소한 사용자가 알아볼 단서가 남고,
+     * 상세 화면의 원본 URL과도 이어진다.
+     *
+     * <p>스킴과 쿼리는 버린다 — {@code https://}는 정보가 없고 쿼리는 추적 파라미터(네이버
+     * {@code NaPm=...} 등)로 수백 자가 되기도 해서 제목으로는 방해만 된다.
+     *
+     * <p>미리보기 실패는 대개 일시적이다(봇 차단·레이트리밋). 그래도 아이템은 남아야 하고,
+     * 사용자가 원본 링크로 갈 수 있으면 최소한의 값은 한다.
+     */
+    private String fallbackTitleOf(String url) {
         try {
-            String host = new URI(url).getHost();
-            return host != null ? host : url;
+            URI uri = new URI(url);
+            String host = uri.getHost();
+            if (host == null) {
+                return truncateTitle(url);
+            }
+            String path = uri.getPath() == null ? "" : uri.getPath();
+            if (path.endsWith("/")) {
+                path = path.substring(0, path.length() - 1);
+            }
+            return truncateTitle(host + path);
         } catch (Exception e) {
-            return url;
+            return truncateTitle(url);
         }
+    }
+
+    /** title 컬럼이 500자라 넘치지 않게 자른다. */
+    private String truncateTitle(String value) {
+        return value.length() <= MAX_TITLE_LENGTH ? value : value.substring(0, MAX_TITLE_LENGTH);
     }
 }
