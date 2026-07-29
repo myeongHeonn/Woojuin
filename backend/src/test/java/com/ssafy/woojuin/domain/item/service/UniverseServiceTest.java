@@ -42,8 +42,8 @@ class UniverseServiceTest {
         return c;
     }
 
-    private CoordinateRow row(long itemId, String type, String url) {
-        return new CoordinateRow(itemId, type, "제목" + itemId, url, 1.0, 2.0, 3.0);
+    private CoordinateRow row(long itemId, String type) {
+        return new CoordinateRow(itemId, type, "제목" + itemId, 1.0, 2.0, 3.0);
     }
 
     @BeforeEach
@@ -55,7 +55,7 @@ class UniverseServiceTest {
     @Test
     void 카테고리별로_묶고_기타_전용은_unclassified로_분리한다() {
         when(embeddingRepository.findCoordinates(1L)).thenReturn(List.of(
-                row(10L, "MEMO", null), row(11L, "URL", "https://example.com")));
+                row(10L, "MEMO"), row(11L, "URL")));
         when(itemCategoryQueryService.categoryIdsByItemIds(anyCollection())).thenReturn(Map.of(
                 10L, List.of(2L),          // 학습·지식
                 11L, List.of(9L)));        // 기타만 → unclassified
@@ -72,13 +72,13 @@ class UniverseServiceTest {
         assertThat(universe.constellations().get(0).items().get(0).position())
                 .containsExactly(1.0, 2.0, 3.0);
         assertThat(universe.unclassified()).hasSize(1);
-        assertThat(universe.unclassified().get(0).url()).isEqualTo("https://example.com");
+        assertThat(universe.unclassified().get(0).id()).isEqualTo(11L);
     }
 
     /** 프론트 목업 계약: 여러 카테고리에 속한 아이템은 각 별자리에 중복으로 들어간다. */
     @Test
     void 다중_카테고리_아이템은_각_별자리에_중복으로_들어간다() {
-        when(embeddingRepository.findCoordinates(1L)).thenReturn(List.of(row(10L, "MEMO", null)));
+        when(embeddingRepository.findCoordinates(1L)).thenReturn(List.of(row(10L, "MEMO")));
         when(itemCategoryQueryService.categoryIdsByItemIds(anyCollection()))
                 .thenReturn(Map.of(10L, List.of(2L, 5L)));
         when(categoryRepository.findByWorkspaceId(1L)).thenReturn(List.of(
@@ -96,7 +96,7 @@ class UniverseServiceTest {
     /** 기타 + 실제 카테고리에 함께 속하면 실제 별자리에만 나온다(기타는 폴백일 뿐). */
     @Test
     void 기타와_실제_카테고리에_함께_속하면_별자리에만_나온다() {
-        when(embeddingRepository.findCoordinates(1L)).thenReturn(List.of(row(10L, "MEMO", null)));
+        when(embeddingRepository.findCoordinates(1L)).thenReturn(List.of(row(10L, "MEMO")));
         when(itemCategoryQueryService.categoryIdsByItemIds(anyCollection()))
                 .thenReturn(Map.of(10L, List.of(2L, 9L)));
         when(categoryRepository.findByWorkspaceId(1L)).thenReturn(List.of(

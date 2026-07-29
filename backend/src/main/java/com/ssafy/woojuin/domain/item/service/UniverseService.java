@@ -99,7 +99,7 @@ public class UniverseService {
 
     private StarResponse toStar(CoordinateRow row) {
         return new StarResponse(row.itemId(), new double[] {row.x(), row.y(), row.z()},
-                row.title(), row.type(), row.url());
+                row.title(), row.type());
     }
 
     private boolean isEtc(List<Category> categories, Long categoryId) {

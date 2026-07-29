@@ -28,8 +28,10 @@ public record UniverseResponse(List<ConstellationResponse> constellations,
 
     /**
      * @param position [x, y, z]
-     * @param url      URL 타입일 때만 채워진다 — 프론트가 별 클릭 시 바로 이동에 쓴다
+     *
+     * <p>url은 의도적으로 없다 — 별 클릭 동작을 타입과 무관하게 상세 모달로 통일했다
+     * (URL 별만 새 탭으로 튀면 동작이 갈라진다). 원본 링크는 상세 조회 응답에 있다.
      */
-    public record StarResponse(Long id, double[] position, String title, String type, String url) {
+    public record StarResponse(Long id, double[] position, String title, String type) {
     }
 }
