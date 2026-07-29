@@ -128,64 +128,55 @@ services:
     # Jenkins가 EC2에서 직접 빌드하고 커밋 SHA로 태깅한 이미지(결정 #9).
     # 빌드하는 곳 = 실행하는 곳이라 별도 레지스트리가 필요 없다.
     image: ${BACKEND_IMAGE:?}
-    # 컨테이너에 넘길 값을 전부 여기 명시한다. 값의 출처는 `--env-file` 로 넘긴 파일이다.
+    # ── 값 전달: 2단 하이브리드 (2026-07-29, 전체 명시 방식에서 전환) ──────────────
     #
-    # env_file: 로 파일을 통째로 주입하지 않는 이유 (env_file 도 절대경로를 받으므로
-    # "경로 문제" 때문은 아니다. 애초에 둘은 대안 관계가 아니다):
-    #   - --env-file 은 이 파일 안의 ${...} **치환용**이고 컨테이너에 자동 전달되지 않는다.
-    #     env_file: 은 컨테이너 **주입용**이고 치환에는 쓸 수 없다. 이 파일은 호스트 포트·
-    #     이미지 태그·mem_limit 에 치환이 필요하므로 --env-file 이 어차피 필수다.
-    #   - ★ 아래 배선 값(DB_URL/REDIS_HOST/AWS_S3_ENDPOINT)을 **하드 오버라이드**할 수 있다.
-    #     서버 .env 는 로컬 .env 를 보고 만들게 되는데, localhost 가 한 줄이라도 남으면
-    #     env_file: 방식은 그대로 주입돼 컨테이너가 자기 자신을 찾다 죽는다.
-    #   - compose 전용 변수(BACKEND_HOST_PORT·*_MEM_LIMIT 등)가 앱 환경에 새어들지 않는다.
-    #   - .gitignore 의 .env.* 규칙 때문에 템플릿을 레포에 둘 수 없어, 이 블록이 레포 안에서
-    #     "앱이 무엇을 받는지"를 보여주는 유일한 명세다.
-    # 대가: 백엔드가 새 변수를 추가하면 여기도 고쳐야 한다(안 고치면 옵셔널 값은 조용히 빔).
+    # env_file:    .env 파일을 **통째로** 컨테이너에 주입한다.
+    #              → 백엔드에 새 변수가 생기면 .env(+Jenkins credential)만 고치면 전달된다.
+    #                (전체 명시 시절엔 여기도 고쳐야 했고, 빼먹으면 조용히 빈 값이었다 —
+    #                 KAKAO_REST_API_KEY 누락 사례)
+    # environment: env_file 을 **이기는** 항목만 남긴다 (compose 규칙: environment 우선).
+    #   ① 배선 하드 오버라이드 — .env 에 localhost 가 남아 있어도 무시(복사 사고 차단)
+    #   ② 크리티컬 ${VAR:?} — 누락 시 앱이 yml 의 개발용 기본값으로 **조용히 회귀**하는
+    #      값들을 compose 파싱 단계에서 즉시 실패시킨다. 값 자체는 env_file 로도 들어가지만
+    #      여기 이중 선언은 "검증"이 목적이다(같은 변수라 값도 동일).
+    #   ③ 이름 매핑 — .env 의 BACKEND_JAVA_OPTS 를 컨테이너의 JAVA_OPTS 로
+    #
+    # 대가: compose 전용 변수(포트·멤리밋·이미지 태그)도 컨테이너 env 에 새어든다.
+    #       앱이 안 읽는 값이라 무해한 노이즈로 수용한다.
+    #
+    # ⚠️ ${ENV_FILE} 치환값의 출처 두 가지 (compose 는 셸 env > --env-file 순으로 읽음):
+    #   - Jenkins: withCredentials 가 ENV_FILE 셸 변수를 제공(임시 파일 경로) → 그걸 사용
+    #   - 수동 실행: 서버 .env 파일 **안에** ENV_FILE=<자기 자신의 절대경로> 한 줄이 있어
+    #     --env-file 로 읽히면서 자기 경로를 알려준다 → 명령은 기존 그대로
+    env_file:
+      - ${ENV_FILE:?ENV_FILE 이 없다 — Jenkins 밖 수동 실행이면 .env 파일 안에 ENV_FILE=<절대경로> 줄이 있는지 확인}
     environment:
-      # 컨테이너 네트워크 주소로 못박는 것들 (.env 에 localhost 가 남아 있어도 무시됨)
-      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      # ① 컨테이너 네트워크 주소로 못박는 것들 (.env 에 localhost 가 남아 있어도 무시됨)
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:?}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       # 운영도 자체 MinIO를 쓴다(결정 #19). 비우면 백엔드가 실제 AWS S3 모드로
       # 전환되는데 AWS 계정이 없어 버킷 확인 단계에서 기동이 실패한다.
       AWS_S3_ENDPOINT: http://minio:9000
-      # presigned URL **서명용** 공개 엔드포인트 (2026-07-29).
-      # 파일 I/O 는 위의 내부 주소(minio:9000)로 하고, 브라우저에 줄 URL 만 이 주소로
-      # 서명한다. 내부 주소로 서명하면 브라우저가 호스트명을 해석 못 한다.
-      # 환경별로 다르다: dev=https://minio.dev.woojuin.store / prod=https://minio.woojuin.store
-      AWS_S3_PUBLIC_ENDPOINT: ${AWS_S3_PUBLIC_ENDPOINT:?}
       CRAWLER_BASE_URL: http://crawler:8001
+
+      # ③ 이름 매핑
       JAVA_OPTS: ${BACKEND_JAVA_OPTS:-}
 
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET:?}
-      # 비어 있으면 ClientRegistration 검증에서 기동 자체가 실패한다.
-      # :? 로 걸어 60초 뒤 앱 로그가 아니라 compose 단계에서 즉시 드러나게 한다.
-      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:?}
+      # ② 크리티컬 검증 — 누락되면 배포는 성공한 것처럼 보이는데 실제로는:
+      JWT_SECRET: ${JWT_SECRET:?}                              # 레포에 커밋된 개발용 시크릿으로 토큰 서명(위조 가능)
+      DB_PASSWORD: ${DB_PASSWORD:?}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:?}      # 기동 자체가 실패(ClientRegistration 검증)
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:?}
-      KAKAO_OAUTH_CLIENT_ID: ${KAKAO_OAUTH_CLIENT_ID:-}
-      KAKAO_OAUTH_CLIENT_SECRET: ${KAKAO_OAUTH_CLIENT_SECRET:-}
-      # 프론트 origin. 빠지면 yml 기본값 http://localhost:5173 로 조용히 떨어져서
-      # 브라우저의 모든 API 호출이 CORS 로 막힌다(curl 로는 안 잡히는 종류의 사고).
-      # OAUTH_REDIRECT_BASE_URL 과 같은 origin 이어야 한다.
-      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:?}
-      OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:?}
-      # 없으면 AI 분석이 NoOp 으로 대체될 뿐 기동은 된다.
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      # 카카오 로컬(주소↔좌표) REST 키. 없으면 백엔드가 NoOp 지오코더로 **조용히** 폴백한다
-      # (GeocoderConfig — 기동은 되지만 지도 기능이 꺼짐). 배포 후 지도가 안 되면 이 값부터 의심.
-      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
-      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:?}
-      AWS_S3_ACCESS_KEY: ${AWS_S3_ACCESS_KEY}
-      AWS_S3_SECRET_KEY: ${AWS_S3_SECRET_KEY}
-      # 기본값은 false — 컨테이너가 profile 로 기본 OFF 이므로 앱 스위치도 기본 OFF 로 맞춘다.
-      # true 였다면 .env 에 이 줄을 빼먹었을 때 "없는 크롤러를 있다고 믿고 호출"하게 되어
-      # 요청 실패·타임아웃으로 번진다. 변수 누락이 기능을 켜는 쪽으로 기울면 안 된다.
-      CRAWLER_ENABLED: ${CRAWLER_ENABLED:-false}
-      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:?}            # localhost 로 회귀 → 브라우저 API 전부 차단
+      OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:?}    # localhost 로 회귀 → 로그인 후 엉뚱한 곳으로
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:?}                        # 기본 버킷으로 회귀 → dev/prod 데이터 섞임
+      AWS_S3_PUBLIC_ENDPOINT: ${AWS_S3_PUBLIC_ENDPOINT:?}      # 내부 주소로 서명 → 브라우저에서 이미지 깨짐
+      #
+      # 나머지(OPENAI_API_KEY, KAKAO_*, AWS_REGION, FCM_PROJECT_ID, CRAWLER_ENABLED,
+      # DB_USERNAME, AWS_S3_ACCESS/SECRET_KEY ...)는 env_file 로 들어온다.
+      # 누락 시 해당 기능만 NoOp 으로 꺼지거나(OPENAI/KAKAO_REST), 다른 서비스의 :? 가
+      # 잡아준다(MinIO 키는 minio 서비스가 검증).
     # 8080은 Jenkins가 쓰고 있으므로 호스트 포트를 달리 잡는다(prod 8081 / dev 8091)
     ports:
       - "127.0.0.1:${BACKEND_HOST_PORT:?}:8080"

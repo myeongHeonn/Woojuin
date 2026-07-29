@@ -1,6 +1,30 @@
 import { api, type ApiResponse } from './client';
-import type { ItemCreateResponse, ItemDetail, ItemListResponse } from '@/types/item';
+import type {
+  ItemCreateResponse,
+  ItemDetail,
+  ItemListResponse,
+  ItemSearchResponse,
+  ItemAiSearchResponse,
+} from '@/types/item';
 import type { MapPlace } from '@/types/map';
+
+// ── 검색 ────────────────────────────────────────
+// 일반(키워드)과 AI(자연어)를 경로로 나눈다 — 응답 content 는 동일해 카드 재사용.
+export async function searchItems(workspaceId: number, q: string, page: number, size: number) {
+  const params = new URLSearchParams({ q, page: String(page), size: String(size) });
+  const res = await api.get<ApiResponse<ItemSearchResponse>>(
+    `/workspaces/${workspaceId}/search?${params}`,
+  );
+  return res.data.data;
+}
+
+export async function aiSearchItems(workspaceId: number, q: string, page: number, size: number) {
+  const params = new URLSearchParams({ q, page: String(page), size: String(size) });
+  const res = await api.get<ApiResponse<ItemAiSearchResponse>>(
+    `/workspaces/${workspaceId}/ai/search?${params}`,
+  );
+  return res.data.data;
+}
 
 //워크스페이스 아이템 받아오기
 //필터는 전부 서버가 처리한다(즐겨찾기·카테고리·정렬) — queryKey 로 캐싱/재요청을 태운다.
