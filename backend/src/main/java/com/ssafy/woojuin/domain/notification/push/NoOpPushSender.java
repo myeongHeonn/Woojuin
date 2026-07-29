@@ -1,15 +1,14 @@
 package com.ssafy.woojuin.domain.notification.push;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 /**
- * Firebase 프로젝트가 아직 없어 로그만 남기고 실제 발송은 건너뛴다.
- * FCM 구현체가 생기면 이 빈은 {@code @ConditionalOnMissingBean(PushSender.class)}로
- * 전환해 실제 구현이 있을 때는 물러나게 한다(AiAnalyzerConfig와 동일한 패턴).
+ * FCM 서비스 계정 키가 없을 때 쓰는 폴백 — 로그만 남기고 실제 발송은 건너뛴다.
+ * 어떤 구현을 빈으로 올릴지는 {@link PushSenderConfig}가 자격증명 유무로 결정한다
+ * (AiQueryConfig와 동일한 패턴 — 팀원 파트 부재가 아니라 자격증명 유무로 갈리므로
+ * ImageTextExtractorConfig류의 @ConditionalOnMissingBean과는 다르다).
  */
 @Slf4j
-@Component
 public class NoOpPushSender implements PushSender {
 
     @Override
