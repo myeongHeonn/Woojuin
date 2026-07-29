@@ -48,6 +48,9 @@ public class UrlItemProcessor implements ItemProcessor {
     /** 본문에서 모을 지도 이미지 후보 상한. 지도는 보통 글에 하나뿐이다. */
     private static final int MAX_EMBEDDED_MAP_CANDIDATES = 5;
 
+    /** {@code items.title} 컬럼 길이. 폴백 제목이 이걸 넘기면 안 된다. */
+    private static final int MAX_TITLE_LENGTH = 500;
+
     private final ItemRepository itemRepository;
     private final UrlNormalizer urlNormalizer;
     private final OEmbedClient oEmbedClient;
@@ -112,7 +115,7 @@ public class UrlItemProcessor implements ItemProcessor {
             preview = (doc != null) ? openGraphScraper.scrape(doc) : UrlPreview.empty();
         }
         if (preview.hasNothing()) {
-            preview = new UrlPreview(domainOf(normalizedUrl), null, null);
+            preview = new UrlPreview(fallbackTitleOf(item.getUrl()), null, null);
         }
         item.applyPreview(preview.title(), preview.thumbnailUrl(), preview.description());
 
@@ -280,12 +283,37 @@ public class UrlItemProcessor implements ItemProcessor {
         log.info("URL 가공 완료: itemId={}, status={}", item.getId(), item.getStatus());
     }
 
-    private String domainOf(String url) {
+    /**
+     * 미리보기를 하나도 못 얻었을 때 쓸 제목. <b>호스트만 쓰지 않고 경로까지 붙인다</b> —
+     * 같은 쇼핑몰 링크를 여러 개 저장했을 때 카드가 전부 "smartstore.naver.com"으로 보이면
+     * 어느 게 어느 상품인지 구별할 수 없다. 경로가 있으면 최소한 사용자가 알아볼 단서가 남고,
+     * 상세 화면의 원본 URL과도 이어진다.
+     *
+     * <p>스킴과 쿼리는 버린다 — {@code https://}는 정보가 없고 쿼리는 추적 파라미터(네이버
+     * {@code NaPm=...} 등)로 수백 자가 되기도 해서 제목으로는 방해만 된다.
+     *
+     * <p>미리보기 실패는 대개 일시적이다(봇 차단·레이트리밋). 그래도 아이템은 남아야 하고,
+     * 사용자가 원본 링크로 갈 수 있으면 최소한의 값은 한다.
+     */
+    private String fallbackTitleOf(String url) {
         try {
-            String host = new URI(url).getHost();
-            return host != null ? host : url;
+            URI uri = new URI(url);
+            String host = uri.getHost();
+            if (host == null) {
+                return truncateTitle(url);
+            }
+            String path = uri.getPath() == null ? "" : uri.getPath();
+            if (path.endsWith("/")) {
+                path = path.substring(0, path.length() - 1);
+            }
+            return truncateTitle(host + path);
         } catch (Exception e) {
-            return url;
+            return truncateTitle(url);
         }
+    }
+
+    /** title 컬럼이 500자라 넘치지 않게 자른다. */
+    private String truncateTitle(String value) {
+        return value.length() <= MAX_TITLE_LENGTH ? value : value.substring(0, MAX_TITLE_LENGTH);
     }
 }
