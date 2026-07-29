@@ -45,6 +45,7 @@ const SearchItems = ({ q, aiMode, onOpenItem }: SearchItemsProps) => {
   return (
     <div className="pt-2 pb-24">
       <SearchMeta
+        className="pl-9"
         partialMatch={partialMatch}
         interpretedQuery={interpretedQuery}
         aiPlanned={aiPlanned}

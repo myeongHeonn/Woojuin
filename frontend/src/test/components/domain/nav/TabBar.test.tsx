@@ -24,14 +24,13 @@ const tab = (c: HTMLElement, label: string) =>
   tabs(c).find((t) => t.getAttribute('aria-label') === label)!;
 
 describe('TabBar', () => {
-  it('탭 다섯 개를 순서대로 보여준다', async () => {
+  it('탭 네 개를 순서대로 보여준다', async () => {
     const { container } = await renderTabBar();
     expect(tabs(container).map((t) => t.getAttribute('aria-label'))).toEqual([
       '우주',
       '보관함',
       '지도',
       '마이',
-      '휴지통',
     ]);
   });
 
@@ -43,11 +42,9 @@ describe('TabBar', () => {
       expect(tab(container, '지도')).toHaveAttribute('href', '/workspace/3/map');
     });
 
-    it('마이·휴지통은 워크스페이스와 무관한 절대 경로다', async () => {
-      // 사이드바의 휴지통과 같은 경로여야 한다
+    it('마이는 워크스페이스와 무관한 절대 경로다', async () => {
       const { container } = await renderTabBar('/workspace/3/universe');
       expect(tab(container, '마이')).toHaveAttribute('href', '/my');
-      expect(tab(container, '휴지통')).toHaveAttribute('href', '/trash');
     });
   });
 

@@ -51,14 +51,7 @@ describe('SideBar (통합)', () => {
   it('브랜드·네비·워크스페이스·저장공간·유저를 모두 렌더한다', async () => {
     const { container } = await renderSideBar();
     const text = aside(container).textContent ?? '';
-    for (const part of [
-      'WooJuIn',
-      'Personal Space',
-      '휴지통',
-      'SPACE',
-      'Workspaces',
-      '몽골 여행',
-    ]) {
+    for (const part of ['WooJuIn', 'Personal Space', 'SPACE', 'Workspaces', '몽골 여행']) {
       expect(text).toContain(part);
     }
     expect(text).toContain('저장 공간');
@@ -157,22 +150,6 @@ describe('SideBar (통합)', () => {
       // 목록 토글·새 워크스페이스는 이동이 아니다
       expect(rowByText(container, 'Workspaces').tagName).toBe('BUTTON');
       expect(rowByText(container, 'New workspace').tagName).toBe('BUTTON');
-    });
-
-    it('휴지통은 워크스페이스와 무관한 /trash 로 간다', async () => {
-      // 모바일 탭바와 같은 경로다 — 한쪽만 바뀌면 두 내비가 다른 곳을 가리킨다
-      const { container } = await renderSideBar();
-      const trash = rowByText(container, '휴지통');
-
-      expect(trash.tagName).toBe('A');
-      expect(trash).toHaveAttribute('href', '/trash');
-    });
-
-    it('휴지통 화면에서는 휴지통에만 선택 표시가 뜬다', async () => {
-      const { container } = await renderSideBar('/trash');
-
-      expect(dotIn(rowByText(container, '휴지통'))).not.toBeNull();
-      expect(dotIn(rowByText(container, 'Personal Space'))).toBeNull();
     });
   });
 });
