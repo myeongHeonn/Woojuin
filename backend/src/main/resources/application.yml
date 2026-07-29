@@ -86,7 +86,8 @@ woojuin:
     enabled: ${CRAWLER_ENABLED:true}
     base-url: ${CRAWLER_BASE_URL:http://localhost:8001}
     timeout-ms: 40000                # 브라우저 렌더가 느려 크롤러 자체 타임아웃보다 넉넉히
-    fallback-min-text-length: 200    # Jsoup 본문이 이보다 짧고 og:title도 없으면 폴백
+    # 폴백 기준은 별도 임계치를 두지 않고 woojuin.content.min-length(트랙 B 성공 조건)를
+    # 그대로 쓴다 — 정적 HTML로 본문이 안 나오면 브라우저로 한 번 더 시도한다.
 
 aws:
   region: ${AWS_REGION:ap-northeast-2}

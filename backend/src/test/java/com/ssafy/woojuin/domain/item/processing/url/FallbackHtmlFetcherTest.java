@@ -16,18 +16,34 @@ class FallbackHtmlFetcherTest {
 
     private static final String URL = "https://example.com/a";
 
+    /** readability가 기사로 인식할 만큼의 본문. 폴백 기준이 '본문 추출 성공'이므로 실물이 필요하다. */
+    private static final String ARTICLE_BODY = "<article><h1>제목</h1>"
+            + "<p>이 글은 폴백 판정을 위해 충분한 길이의 본문을 담고 있습니다. readability가"
+            + " 기사 본문으로 인식하려면 문단이 어느 정도 길어야 하므로 의미 있는 문장을"
+            + " 여러 개 둡니다. 정적 HTML만으로 본문이 확보되는 정상 페이지를 흉내 냅니다.</p>"
+            + "<p>두 번째 문단입니다. 임계치(200자)를 넉넉히 넘기도록 서술을 이어갑니다."
+            + " 이렇게 하면 ContentExtractor가 null이 아닌 값을 돌려주고, 폴백이 걸리지"
+            + " 않는 것이 정상 동작입니다.</p></article>";
+
     private Document richDoc() {
         return Jsoup.parse("<html><head><meta property=\"og:title\" content=\"T\">"
-                + "</head><body><p>충분한 본문</p></body></html>", URL);
+                + "</head><body>" + ARTICLE_BODY + "</body></html>", URL);
     }
 
     private Document emptyShell() {
-        // og:title 없음 + 본문 텍스트 거의 없음 → SPA 껍데기로 간주되어 폴백 대상.
+        // 본문이 JS로 렌더되는 SPA 껍데기 → 본문 추출 실패 → 폴백 대상.
         return Jsoup.parse("<html><head></head><body><div id=\"root\"></div></body></html>", URL);
     }
 
+    /** og:title은 있지만 본문이 없는 SPA. 예전 기준(og:title)으로는 폴백을 놓쳤던 형태. */
+    private Document previewOnlyShell() {
+        return Jsoup.parse("<html><head><meta property=\"og:title\" content=\"기술블로그\">"
+                + "</head><body><div id=\"root\">로딩중</div></body></html>", URL);
+    }
+
     private FallbackHtmlFetcher fetcher(HtmlFetcher jsoup, HtmlFetcher crawler, boolean enabled) {
-        return new FallbackHtmlFetcher(jsoup, crawler, new UrlNormalizer(), enabled, 200);
+        return new FallbackHtmlFetcher(
+                jsoup, crawler, new UrlNormalizer(), new ContentExtractor(200), enabled);
     }
 
     @Test
@@ -58,6 +74,59 @@ class FallbackHtmlFetcherTest {
 
         assertThat(crawlerCalls.get()).isEqualTo(1);
         assertThat(result.body().text()).contains("크롤러가 렌더한 본문");
+    }
+
+    @Test
+    void og_title이_있어도_본문이_없으면_폴백한다() {
+        // 우아한형제들·토스 같은 SPA가 이 형태다. 예전 기준(og:title이 있으면 충분)으로는
+        // 폴백을 놓쳐 본문이 영원히 안 나왔다 — 실측으로 확인하고 기준을 바꿨다.
+        AtomicInteger crawlerCalls = new AtomicInteger();
+        HtmlFetcher jsoup = url -> previewOnlyShell();
+        HtmlFetcher crawler = url -> {
+            crawlerCalls.incrementAndGet();
+            return richDoc();
+        };
+
+        Document result = fetcher(jsoup, crawler, true).fetch(URL);
+
+        assertThat(crawlerCalls.get()).isEqualTo(1);
+        assertThat(result.selectFirst("article")).isNotNull();
+    }
+
+    @Test
+    void 폴백해도_정적_HTML의_메타를_유지한다() {
+        // 카카오 장소 페이지 실측 사례 — 원본 twitter:image에는 좌표를 담은 스태틱맵 URL이
+        // 있는데 페이지 JS가 리뷰 사진으로 덮어쓴다. 렌더 결과를 통째로 쓰면 지도 좌표를 잃는다.
+        Document staticDoc = Jsoup.parse("<html><head>"
+                + "<meta property=\"og:title\" content=\"한마음정육식당\">"
+                + "<meta name=\"twitter:image\" content=\"http://staticmap.kakao.com/staticmap/og"
+                + "?srs=wgs84&m=126.796,35.180\">"
+                + "</head><body><div id=\"root\"></div></body></html>", URL);
+        Document rendered = Jsoup.parse("<html><head>"
+                + "<meta property=\"og:title\" content=\"한마음정육식당\">"
+                + "<meta name=\"twitter:image\" content=\"//img1.kakaocdn.net/review/photo.jpg\">"
+                + "</head><body>" + ARTICLE_BODY + "</body></html>", URL);
+
+        Document result = fetcher(url -> staticDoc, url -> rendered, true).fetch(URL);
+
+        // 좌표 소스(스태틱맵)가 살아있고
+        assertThat(result.selectFirst("meta[name='twitter:image']").attr("content"))
+                .contains("staticmap.kakao.com");
+        // 본문은 렌더된 쪽을 쓴다
+        assertThat(result.selectFirst("article")).isNotNull();
+    }
+
+    @Test
+    void 정적_HTML에_미리보기가_없었으면_렌더_결과를_그대로_쓴다() {
+        // 네이버 D2처럼 og:title조차 없는 경우 — 이때는 렌더 쪽 head가 더 낫다.
+        Document rendered = Jsoup.parse("<html><head>"
+                + "<meta property=\"og:title\" content=\"렌더로 생긴 제목\">"
+                + "</head><body>" + ARTICLE_BODY + "</body></html>", URL);
+
+        Document result = fetcher(url -> emptyShell(), url -> rendered, true).fetch(URL);
+
+        assertThat(result.selectFirst("meta[property=og:title]").attr("content"))
+                .isEqualTo("렌더로 생긴 제목");
     }
 
     @Test

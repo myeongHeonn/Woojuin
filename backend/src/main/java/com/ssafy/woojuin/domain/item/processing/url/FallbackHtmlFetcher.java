@@ -17,9 +17,36 @@ import org.springframework.stereotype.Component;
  * <p><b>폴백 트리거</b> (둘 중 하나):
  * <ul>
  *   <li>Jsoup이 예외로 실패 — 403/503 봇 차단, 타임아웃 등</li>
- *   <li>Jsoup은 200을 받았지만 결과가 빈약함 — JS 렌더링 SPA의 빈 껍데기 등.
- *       og:title도 없고 본문 텍스트도 임계치 미만이면 브라우저 렌더가 필요하다고 본다.</li>
+ *   <li>Jsoup은 200을 받았지만 <b>본문이 안 나옴</b> — 판정을 {@link ContentExtractor}에
+ *       위임한다. 트랙 B의 성공 조건과 같은 기준이라 "본문이 필요한데 없다"가 곧 폴백
+ *       조건이 되고, 임계치가 두 곳에 흩어지지 않는다.</li>
  * </ul>
+ *
+ * <p>판정 기준을 og:title·body 텍스트 길이에서 본문 추출로 바꾼 이유는 실측 때문이다.
+ * 둘 다 이 문제를 못 가른다.
+ * <pre>
+ *   techblog.woowahan.com   og:title 있음, body 2101자 → 본문 추출 null   ← 폴백 필요
+ *   place.map.kakao.com     og:title 있음, body    0자 → 본문 추출 null
+ * </pre>
+ * og:title로 판단하면 앞의 것을 놓치고(SPA 본문이 영원히 안 나온다), body 길이로 판단하면
+ * 순서가 뒤집힌다. 실제로 우아한형제들은 크롤러가 렌더하면 본문이 3349자 나온다.
+ *
+ * <p><b>렌더 결과가 메타를 망칠 수 있어 head는 정적 HTML 쪽을 쓴다.</b> 카카오 장소 페이지는
+ * 원본 HTML의 {@code twitter:image}에 좌표를 담은 스태틱맵 URL을 두는데, 페이지 JS가 로드 후
+ * 그 값을 리뷰 사진으로 <b>덮어쓴다</b>. 렌더 결과를 통째로 쓰면 지도 좌표를 잃는다(실측으로
+ * 확인했다 — 이 폴백을 켜자 카카오 장소 아이템의 lat/lng이 사라졌다).
+ *
+ * <pre>
+ *   원본 HTML   twitter:image = staticmap.kakao.com/...&amp;m=126.796,35.180   ← 좌표
+ *   렌더 후      twitter:image = img1.kakaocdn.net/cthumb/...                 ← 리뷰 사진
+ * </pre>
+ *
+ * <p>그래서 정적 HTML에 이미 미리보기가 있으면(og:title 존재) <b>그 head를 유지</b>하고 렌더된
+ * body만 취한다 — 메타는 서버가 준 게 정확하고 본문은 브라우저가 그린 게 정확하다. 정적
+ * HTML에 미리보기가 아예 없었으면 렌더 결과를 그대로 쓴다(그쪽이 더 나은 유일한 경우다).
+ *
+ * <p>대가: 본문이 원래 없는 페이지(장소 페이지 등)도 폴백을 한 번 타서 수 초를 쓴다.
+ * 문제가 되면 {@code woojuin.crawler.enabled=false}로 전체를 끌 수 있다.
  *
  * <p><b>실패 처리</b>: 크롤러 폴백까지 실패해도, Jsoup이 그나마 문서를 받아뒀다면
  * 그걸(빈약하더라도) 돌려준다 — best-effort. Jsoup·크롤러가 모두 실패했을 때만
@@ -47,20 +74,20 @@ public class FallbackHtmlFetcher implements HtmlFetcher {
     private final HtmlFetcher jsoup;
     private final HtmlFetcher crawler;
     private final UrlNormalizer urlNormalizer;
+    private final ContentExtractor contentExtractor;
     private final boolean crawlerEnabled;
-    private final int minTextLength;
 
     public FallbackHtmlFetcher(
             @Qualifier("jsoupHtmlFetcher") HtmlFetcher jsoup,
             @Qualifier("scraplingHtmlFetcher") HtmlFetcher crawler,
             UrlNormalizer urlNormalizer,
-            @Value("${woojuin.crawler.enabled:false}") boolean crawlerEnabled,
-            @Value("${woojuin.crawler.fallback-min-text-length:200}") int minTextLength) {
+            ContentExtractor contentExtractor,
+            @Value("${woojuin.crawler.enabled:false}") boolean crawlerEnabled) {
         this.jsoup = jsoup;
         this.crawler = crawler;
         this.urlNormalizer = urlNormalizer;
+        this.contentExtractor = contentExtractor;
         this.crawlerEnabled = crawlerEnabled;
-        this.minTextLength = minTextLength;
     }
 
     @Override
@@ -89,7 +116,7 @@ public class FallbackHtmlFetcher implements HtmlFetcher {
         }
 
         try {
-            return crawler.fetch(url);
+            return preferStaticHead(jsoupDoc, crawler.fetch(url));
         } catch (HtmlFetchException e) {
             if (jsoupDoc != null) {
                 // 크롤러가 못 뚫어도 Jsoup이 받아둔 빈약한 문서라도 쓴다.
@@ -102,16 +129,32 @@ public class FallbackHtmlFetcher implements HtmlFetcher {
     }
 
     /**
-     * Jsoup이 받은 문서가 이미 쓸 만한지 가볍게 판단한다. og:title이 있으면 최소한의
-     * 미리보기가 나오므로 충분하다고 보고, 없더라도 본문 텍스트가 임계치 이상이면
-     * 정적 HTML만으로 내용이 담긴 것이다. 둘 다 아니면(SPA 껍데기·차단 페이지) 폴백.
+     * 렌더된 문서를 쓰되, 정적 HTML에 이미 미리보기가 있었다면 그 {@code <head>}를 유지한다.
+     * 이유는 클래스 javadoc의 카카오 스태틱맵 사례 — 페이지 JS가 메타를 덮어써서 렌더 결과의
+     * head는 좌표를 잃는다.
+     */
+    private Document preferStaticHead(Document staticDoc, Document rendered) {
+        if (staticDoc == null || staticDoc.selectFirst("meta[property=og:title]") == null) {
+            return rendered;   // 정적 HTML에 미리보기가 없었으면 렌더 쪽이 낫다
+        }
+        Element renderedHead = rendered.head();
+        if (renderedHead == null || staticDoc.head() == null) {
+            return rendered;
+        }
+        renderedHead.replaceWith(staticDoc.head().clone());
+        log.info("렌더된 본문 + 정적 HTML의 head를 함께 쓴다(메타 덮어쓰기 방지): url={}",
+                rendered.location());
+        return rendered;
+    }
+
+    /**
+     * 정적 HTML만으로 본문이 나오는지. 판정을 {@link ContentExtractor}에 맡겨 트랙 B와 같은
+     * 기준을 쓴다 — 클래스 javadoc의 실측 표 참고.
+     *
+     * <p>readability는 문서를 복제해서 다루므로 여기서 한 번 더 돌려도 원본이 변형되지 않는다.
+     * CPU만 쓰는 작업이라 폴백 여부를 정하는 값으로는 충분히 싸다.
      */
     private boolean looksSufficient(Document doc) {
-        if (doc.selectFirst("meta[property=og:title]") != null) {
-            return true;
-        }
-        Element body = doc.body();
-        String text = (body != null) ? body.text().trim() : "";
-        return text.length() >= minTextLength;
+        return contentExtractor.extract(doc) != null;
     }
 }
