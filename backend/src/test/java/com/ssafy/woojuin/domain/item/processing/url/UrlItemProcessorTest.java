@@ -186,7 +186,7 @@ class UrlItemProcessorTest {
         when(htmlFetcher.fetch(any())).thenReturn(doc);
         when(openGraphScraper.scrape(doc)).thenReturn(new UrlPreview("제목", null, null));
         when(contentExtractor.extract(doc)).thenReturn("본문");
-        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis("요약문", List.of("학습·지식")));
+        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis(null, "요약문", List.of("학습·지식")));
 
         processor.process(message());
 

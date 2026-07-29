@@ -52,6 +52,20 @@ services:
       CRAWLER_MAX_CONCURRENCY: ${CRAWLER_MAX_CONCURRENCY:-2}
     shm_size: "1gb"   # 브라우저 렌더 중 /dev/shm 부족으로 인한 크래시 방지
 
+  # AI Mix 사이드카 — 제목·요약 생성, 카테고리 분류, 임베딩, 3차원 좌표 축소(UMAP).
+  # ai/ai-mix(묶음 F 산출물) 그대로 컨테이너화한 것. OpenRouter를 호출하므로 키가 필수다 —
+  # 키가 없으면 컨테이너는 뜨지만 호출이 실패하고, 백엔드는 AiAnalyzer 폴백(빈 결과)으로
+  # 동작한다(앱 기동엔 지장 없음).
+  aimix:
+    build: ./ai/ai-mix
+    container_name: woojuin-aimix
+    ports:
+      - "8002:8002"
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_CHAT_MODEL: ${OPENROUTER_CHAT_MODEL:-qwen/qwen3-8b}
+      OPENROUTER_EMBEDDING_MODEL: ${OPENROUTER_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+
 volumes:
   postgres-data:
   minio-data:

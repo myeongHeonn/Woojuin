@@ -39,7 +39,8 @@ public class CategorySeeder {
                     ? CategoryColors.UNCATEGORIZED
                     : CategoryColors.forOrdinal(ordinal++);
             categoryRepository.save(
-                    Category.builder().workspaceId(workspaceId).name(name).color(color).build());
+                    Category.builder().workspaceId(workspaceId).name(name).color(color)
+                            .description(CategoryDefaults.DESCRIPTIONS.get(name)).build());
         }
         log.info("기본 카테고리 {}개 시드 완료: workspaceId={}", CategoryDefaults.NAMES.size(), workspaceId);
     }

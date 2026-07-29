@@ -22,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,6 +31,7 @@ class CategoryServiceTest {
     @Mock CategoryRepository categoryRepository;
     @Mock ItemCategoryRepository itemCategoryRepository;
     @Mock WorkspaceMemberRepository workspaceMemberRepository;
+    @Mock ApplicationEventPublisher eventPublisher;
     @InjectMocks CategoryService service;
 
     private Category category(long id, long workspaceId, String name) {
