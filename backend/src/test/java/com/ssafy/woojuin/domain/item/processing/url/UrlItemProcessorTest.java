@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -15,6 +16,12 @@ import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
+import com.ssafy.woojuin.domain.location.GeoPoint;
+import com.ssafy.woojuin.domain.location.Geocoder;
+import com.ssafy.woojuin.domain.location.KoreanAddressExtractor;
+import com.ssafy.woojuin.domain.location.LocationResolver;
+import com.ssafy.woojuin.domain.location.MapLinkCoordinateParser;
+import com.ssafy.woojuin.domain.location.ResolvedLocation;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +47,7 @@ class UrlItemProcessorTest {
     @Mock ContentExtractor contentExtractor;
     @Mock AiAnalyzer aiAnalyzer;
     @Mock CategoryAssignmentService categoryAssignmentService;
+    @Mock Geocoder geocoder;
 
     UrlItemProcessor processor;
 
@@ -54,13 +62,21 @@ class UrlItemProcessorTest {
                 return rawUrl;
             }
         };
+        // 파서·추출기는 순수 함수라 실제 구현을 쓰고 외부 호출이 필요한 지오코더만 목으로 둔다.
+        LocationResolver locationResolver = new LocationResolver(
+                new MapLinkCoordinateParser(), new KoreanAddressExtractor(), geocoder);
         processor = new UrlItemProcessor(itemRepository, normalizer, oEmbedClient,
-                htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer, categoryAssignmentService);
+                htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer,
+                categoryAssignmentService, locationResolver);
     }
 
     private Item urlItem() {
+        return urlItem("https://example.com/a");
+    }
+
+    private Item urlItem(String url) {
         Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.URL)
-                .url("https://example.com/a").build();
+                .url(url).build();
         when(itemRepository.findById(any())).thenReturn(Optional.of(item));
         return item;
     }
@@ -168,5 +184,132 @@ class UrlItemProcessorTest {
         processor.process(message());
 
         verifyNoInteractions(oEmbedClient, htmlFetcher, contentExtractor, aiAnalyzer, categoryAssignmentService);
+    }
+
+    // ---------- 위치 확보 (FR-023) ----------
+
+    @Test
+    void 지도_공유링크는_URL에서_좌표를_얻고_주소는_역지오코딩한다() {
+        Item item = urlItem("https://map.kakao.com/link/map/cafe,37.5445,127.0561");
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(doc);
+        when(openGraphScraper.scrape(doc)).thenReturn(new UrlPreview("성수동 카페", null, null));
+        when(contentExtractor.extract(doc)).thenReturn("본문");
+        when(geocoder.reverse(any())).thenReturn(Optional.of("서울특별시 성동구 아차산로 100"));
+
+        processor.process(message());
+
+        assertThat(item.getLat()).isEqualTo(37.5445);
+        assertThat(item.getLng()).isEqualTo(127.0561);
+        assertThat(item.getAddress()).isEqualTo("서울특별시 성동구 아차산로 100");
+        // 좌표를 URL에서 얻었으므로 본문 주소를 지오코딩하지는 않는다.
+        verify(geocoder, never()).forwardAddress(any());
+    }
+
+    @Test
+    void 지도_공유링크의_역지오코딩이_실패해도_좌표는_저장된다() {
+        Item item = urlItem("https://map.kakao.com/link/map/cafe,37.5445,127.0561");
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(doc);
+        when(openGraphScraper.scrape(doc)).thenReturn(new UrlPreview("성수동 카페", null, null));
+        when(contentExtractor.extract(doc)).thenReturn("본문");
+        when(geocoder.reverse(any())).thenReturn(Optional.empty());
+
+        processor.process(message());
+
+        assertThat(item.hasCoordinates()).isTrue();
+        assertThat(item.getAddress()).isNull();
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
+    }
+
+    @Test
+    void 지도_링크가_아니면_본문_주소를_지오코딩해_저장한다() {
+        Item item = urlItem("https://blog.naver.com/someone/123");
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(doc);
+        when(openGraphScraper.scrape(doc))
+                .thenReturn(new UrlPreview("성수동 맛집", null, "서울 성동구 아차산로 49"));
+        when(contentExtractor.extract(doc)).thenReturn("본문");
+        when(geocoder.forwardAddress("서울 성동구 아차산로 49")).thenReturn(Optional.of(
+                new ResolvedLocation(new GeoPoint(37.5445, 127.0561), "서울 성동구 아차산로17길 49")));
+
+        processor.process(message());
+
+        assertThat(item.getLat()).isEqualTo(37.5445);
+        assertThat(item.getAddress()).isEqualTo("서울 성동구 아차산로17길 49");
+    }
+
+    @Test
+    void 위치가_없어도_상태는_평소와_같다() {
+        Item item = urlItem();
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(doc);
+        when(openGraphScraper.scrape(doc)).thenReturn(new UrlPreview("아티클", null, null));
+        when(contentExtractor.extract(doc)).thenReturn("위치와 무관한 본문");
+
+        processor.process(message());
+
+        assertThat(item.hasCoordinates()).isFalse();
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);   // 위치 없음은 정상이다
+        verifyNoInteractions(geocoder);
+    }
+
+    @Test
+    void 지오코더가_예외를_던져도_상태와_본문이_유지된다() {
+        // @Transactional 안에서 예외가 새면 rollback-only로 찍혀 이미 확보한 미리보기·본문이
+        // 전부 버려지고, 디스패처가 RETRYABLE로 판단해 AI 호출까지 다시 돈다.
+        Item item = urlItem("https://blog.naver.com/someone/123");
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(doc);
+        when(openGraphScraper.scrape(doc))
+                .thenReturn(new UrlPreview("성수동 맛집", "https://img", "서울 성동구 아차산로 49"));
+        when(contentExtractor.extract(doc)).thenReturn("확보한 본문");
+        when(geocoder.forwardAddress(any())).thenThrow(new RuntimeException("지오코딩 폭발"));
+
+        processor.process(message());   // 예외가 밖으로 나오지 않아야 한다
+
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
+        assertThat(item.getContent()).isEqualTo("확보한 본문");
+        assertThat(item.getPreviewThumbnailUrl()).isEqualTo("https://img");
+        assertThat(item.hasCoordinates()).isFalse();
+    }
+
+    @Test
+    void fetch가_실패해도_원본_URL에서_좌표를_뽑는다() {
+        // doc이 null이라 doc.location()은 못 쓰지만 원본 URL만으로도 충분한 경우.
+        Item item = urlItem("https://map.kakao.com/link/map/cafe,37.5445,127.0561");
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenThrow(new HtmlFetchException("차단됨"));
+        when(geocoder.reverse(any())).thenReturn(Optional.of("서울특별시 성동구 아차산로 100"));
+
+        processor.process(message());
+
+        assertThat(item.getLat()).isEqualTo(37.5445);
+        assertThat(item.getAddress()).isEqualTo("서울특별시 성동구 아차산로 100");
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.PARTIAL);
+    }
+
+    @Test
+    void 역지오코딩이_예외를_던져도_상태와_본문이_유지된다() {
+        // 지도 링크 경로에서도 예외가 트랜잭션으로 새면 안 된다(정방향과 같은 위험).
+        Item item = urlItem("https://map.kakao.com/link/map/cafe,37.5445,127.0561");
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(doc);
+        when(openGraphScraper.scrape(doc)).thenReturn(new UrlPreview("성수동 카페", null, null));
+        when(contentExtractor.extract(doc)).thenReturn("확보한 본문");
+        when(geocoder.reverse(any())).thenThrow(new RuntimeException("역지오코딩 폭발"));
+
+        processor.process(message());   // 예외가 밖으로 나오지 않아야 한다
+
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
+        assertThat(item.getContent()).isEqualTo("확보한 본문");
+        assertThat(item.hasCoordinates()).isFalse();   // 좌표까지 함께 유실된다(호출부 catch)
     }
 }

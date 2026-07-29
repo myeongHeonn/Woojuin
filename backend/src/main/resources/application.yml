@@ -60,6 +60,15 @@ woojuin:
     base-url: ${AI_BASE_URL:https://gms.ssafy.io/gmsapi/api.openai.com/v1}
     model: ${AI_MODEL:gpt-5-mini}
     timeout-ms: ${AI_TIMEOUT_MS:8000}
+  # 지도 좌표 변환(FR-023). 카카오 로컬 API — 주소↔좌표 REST 호출이지 지도 SDK가 아니다.
+  # REST 키(KAKAO_REST_API_KEY)는 여기가 아니라 GeocoderConfig에서 직접 읽는다 — 이유는
+  # 위 ai 블록 주석과 동일(빈 줄을 "키 있음"으로 오해하는 문제).
+  # 키가 없으면 지오코딩만 꺼지고, 지도 공유 링크·사진 EXIF 좌표는 계속 저장된다.
+  # timeout이 ai(8000)보다 짧은 건 의도적이다 — 이 호출이 @Transactional 프로세서 안에서
+  # 일어나 DB 커넥션을 붙잡는 시간을 늘리기 때문이다(UrlItemProcessor 주석 참고).
+  geo:
+    base-url: ${GEO_BASE_URL:https://dapi.kakao.com}
+    timeout-ms: ${GEO_TIMEOUT_MS:3000}
   queue:
     stream-key: woojuin:item-processing
     consumer-group: ai-workers

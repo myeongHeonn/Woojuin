@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.domain.category.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ssafy.woojuin.domain.category.dto.CategoryResponse;
@@ -63,5 +64,34 @@ class ItemCategoryQueryServiceTest {
         Map<Long, List<CategoryResponse>> result = service.categoriesByItemIds(List.of(1L));
 
         assertThat(result.get(1L)).extracting(CategoryResponse::name).containsExactly("학습·지식");
+    }
+
+    @Test
+    void categoryIds만_뽑을_때는_카테고리를_읽지_않는다() {
+        when(itemCategoryRepository.findByItemIdIn(List.of(1L, 2L)))
+                .thenReturn(List.of(link(1L, 11L), link(1L, 10L), link(2L, 10L)));
+
+        Map<Long, List<Long>> result = service.categoryIdsByItemIds(List.of(1L, 2L));
+
+        assertThat(result.get(1L)).containsExactly(10L, 11L);   // 정렬해서 응답 순서를 고정한다
+        assertThat(result.get(2L)).containsExactly(10L);
+        verifyNoInteractions(categoryRepository);
+    }
+
+    @Test
+    void categoryIds_입력이_비면_빈_맵을_반환한다() {
+        assertThat(service.categoryIdsByItemIds(List.of())).isEmpty();
+        verifyNoInteractions(itemCategoryRepository, categoryRepository);
+    }
+
+    @Test
+    void 연결이_없는_아이템은_맵에_들어가지_않는다() {
+        when(itemCategoryRepository.findByItemIdIn(List.of(1L, 2L)))
+                .thenReturn(List.of(link(1L, 10L)));
+
+        Map<Long, List<Long>> result = service.categoryIdsByItemIds(List.of(1L, 2L));
+
+        assertThat(result).containsOnlyKeys(1L);
+        assertThat(result.getOrDefault(2L, List.of())).isEmpty();
     }
 }
