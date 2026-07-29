@@ -108,7 +108,7 @@ public class UrlItemProcessor implements ItemProcessor {
         if (oembed.isPresent() && !oembed.get().hasNothing()) {
             preview = oembed.get();   // 미디어 제공자는 본문이 없어 트랙 B 대상이 아니다(doc=null)
         } else {
-            doc = tryFetch(normalizedUrl);
+            doc = refetchIfRedirectRevealedBetterUrl(tryFetch(normalizedUrl));
             preview = (doc != null) ? openGraphScraper.scrape(doc) : UrlPreview.empty();
         }
         if (preview.hasNothing()) {
@@ -201,11 +201,49 @@ public class UrlItemProcessor implements ItemProcessor {
         if (doc == null) {
             return List.of();
         }
-        return doc.select("img[src*=static.map], img[src*=staticmap]").stream()
-                .map(img -> img.attr("abs:src").isBlank() ? img.attr("src") : img.attr("abs:src"))
-                .filter(src -> !src.isBlank())
+        return Stream.concat(
+                        doc.select("img[src*=static.map], img[src*=staticmap]").stream()
+                                .map(img -> attrOrAbs(img, "src")),
+                        // 네이버 장소 페이지의 '길찾기' 링크가 좌표를 담는다(nso_path).
+                        doc.select("a[href*=nso_path]").stream()
+                                .map(a -> attrOrAbs(a, "href")))
+                .filter(url -> !url.isBlank())
                 .limit(MAX_EMBEDDED_MAP_CANDIDATES)
                 .toList();
+    }
+
+    /** 상대 경로도 절대화해서 호스트 판별이 되게 한다. 절대화가 안 되면 원본을 쓴다. */
+    private String attrOrAbs(Element element, String attribute) {
+        String absolute = element.attr("abs:" + attribute);
+        return absolute.isBlank() ? element.attr(attribute) : absolute;
+    }
+
+    /**
+     * 단축 링크는 <b>리다이렉트가 끝나야</b> 정규화 대상이 드러난다. {@code naver.me/xxxx}는
+     * 정규화 시점엔 불투명한 토큰이고, 해소된 뒤에야 네이버 지도 장소나 블로그 글임을 알 수 있다.
+     * 그 최종 URL을 다시 정규화해 달라지면 <b>한 번만</b> 다시 받아온다.
+     *
+     * <p>이게 없으면 {@code naver.me} 지도 링크는 2.3KB SPA 껍데기에서 끝나고(미리보기·좌표 전무),
+     * {@code naver.me} 블로그 링크도 본문 없는 데스크톱 껍데기를 받는다.
+     *
+     * <p>추가 요청은 최대 1회이고, 정규화가 URL을 바꾸는 단축 링크에서만 발생한다. 재요청이
+     * 실패하면 <b>원래 문서를 그대로 쓴다</b> — 이 최적화 때문에 아이템 가공이 실패하면 안 된다.
+     */
+    private Document refetchIfRedirectRevealedBetterUrl(Document doc) {
+        if (doc == null) {
+            return null;
+        }
+        String resolved = doc.location();
+        if (resolved == null || resolved.isBlank()) {
+            return doc;
+        }
+        String renormalized = urlNormalizer.normalize(resolved);
+        if (renormalized == null || renormalized.equals(resolved)) {
+            return doc;
+        }
+        log.info("리다이렉트 해소 후 정규화가 달라져 다시 받아온다: {} → {}", resolved, renormalized);
+        Document better = tryFetch(renormalized);
+        return better != null ? better : doc;
     }
 
     private Document tryFetch(String url) {

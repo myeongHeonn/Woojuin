@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
@@ -48,6 +49,13 @@ public class UrlNormalizer {
 
     private static final Set<String> NAVER_BLOG_HOSTS =
             Set.of("blog.naver.com", "m.blog.naver.com");
+
+    /** 네이버 장소를 가리키는 호스트들. 전부 모바일 장소 페이지로 모은다 — 아래 javadoc 참고. */
+    private static final Set<String> NAVER_PLACE_HOSTS =
+            Set.of("map.naver.com", "m.place.naver.com", "place.naver.com");
+    private static final String NAVER_PLACE_MOBILE_HOST = "m.place.naver.com";
+    /** 경로에서 장소 id를 찾는다 — /p/entry/place/{id}, /place/{id}, /restaurant/{id}/home 등. */
+    private static final Pattern NAVER_PLACE_ID = Pattern.compile("/(\\d{6,20})(?:/|$)");
     private static final String NAVER_BLOG_MOBILE_HOST = "m.blog.naver.com";
     /** 사용자 URL에서 뽑은 값으로 새 URL을 조립하므로 형태를 검증한다(경로 주입 방지). */
     private static final Pattern NAVER_BLOG_ID = Pattern.compile("[A-Za-z0-9_-]{1,64}");
@@ -89,6 +97,12 @@ public class UrlNormalizer {
         // 네이버 블로그(데스크톱·모바일·PostView 어느 형태로 저장했든) → 모바일 포스트 URL.
         // 클래스 javadoc의 실측 표 참고. 아래 m.* 제거 규칙보다 먼저 반환해야 한다 —
         // 그러지 않으면 모바일 링크가 본문 없는 데스크톱 껍데기로 되돌아간다.
+        // 네이버 장소(지도 링크·플레이스) → 모바일 장소 페이지. 아래 m.* 제거 규칙보다 먼저다.
+        if (NAVER_PLACE_HOSTS.contains(host)) {
+            URI mobilePlace = naverMobilePlace(uri);
+            return mobilePlace != null ? mobilePlace : uri;
+        }
+
         if (NAVER_BLOG_HOSTS.contains(host)) {
             URI mobilePost = naverBlogMobilePost(uri);
             // 글 단위로 특정하지 못하면(블로그 홈 등) 손대지 않는다. m.도 떼지 않는다 —
@@ -103,6 +117,24 @@ public class UrlNormalizer {
         }
 
         return uri;
+    }
+
+    /**
+     * 네이버 장소 URL에서 장소 id를 찾아 모바일 장소 페이지로 만든다.
+     *
+     * <p>지도 링크({@code map.naver.com/p/entry/place/{id}})는 URL에 좌표가 없고 페이지도
+     * 2.3KB SPA 껍데기라서 <b>미리보기도 좌표도 얻을 수 없다</b>. 모바일 장소 페이지는 같은 장소를
+     * 580KB로 주면서 og:title·썸네일과 '길찾기' 링크(좌표 포함)를 함께 담는다.
+     *
+     * @return 모바일 장소 URI. 장소 id를 못 찾으면(지도 검색 화면 등) null
+     */
+    private URI naverMobilePlace(URI uri) throws URISyntaxException {
+        String path = uri.getPath() == null ? "" : uri.getPath();
+        Matcher id = NAVER_PLACE_ID.matcher(path);
+        if (!id.find()) {
+            return null;
+        }
+        return new URI("https", NAVER_PLACE_MOBILE_HOST, "/place/" + id.group(1), null, null);
     }
 
     /**

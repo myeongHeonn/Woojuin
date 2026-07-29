@@ -248,6 +248,70 @@ class UrlItemProcessorTest {
     }
 
     @Test
+    void 단축링크가_해소된_뒤_정규화가_달라지면_다시_받아온다() {
+        // naver.me 는 정규화 시점엔 불투명한 토큰이고, 해소된 뒤에야 지도 장소임을 알 수 있다.
+        // 이게 없으면 2.3KB SPA 껍데기에서 끝나 미리보기도 좌표도 못 얻는다.
+        Item item = urlItem("https://naver.me/GzE9COFR");
+        aiReturnsEmpty();
+        // 이 테스트는 실제 정규화 규칙을 써야 의미가 있으므로 setUp의 통과 스텁을 대체한다.
+        processor = new UrlItemProcessor(itemRepository, new UrlNormalizer(), oEmbedClient,
+                htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer,
+                categoryAssignmentService,
+                new LocationResolver(new MapLinkCoordinateParser(), geocoder));
+
+        Document shell = Jsoup.parse("<html><head><title>네이버 지도</title></head></html>",
+                "https://map.naver.com/p/entry/place/1301934134?placePath=%2Fhome");
+        Document placePage = Jsoup.parse("""
+                <html><body>
+                  <a href="https://m.search.naver.com/search.naver?nso_path=code%5E1301934134\
+                %3Blongitude%5E126.7989859%3Blatitude%5E35.1820806">길찾기</a>
+                </body></html>""", "https://m.place.naver.com/place/1301934134");
+
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch("https://naver.me/GzE9COFR")).thenReturn(shell);
+        when(htmlFetcher.fetch("https://m.place.naver.com/place/1301934134")).thenReturn(placePage);
+        when(openGraphScraper.scrape(placePage))
+                .thenReturn(new UrlPreview("푸드박스 광주점 : 네이버", null, null));
+        when(contentExtractor.extract(placePage)).thenReturn(null);
+        when(geocoder.reverse(any()))
+                .thenReturn(Optional.of("전남광주통합특별시 광산구 하남대로 100"));
+
+        processor.process(message());
+
+        // 두 번째 문서를 썼다 — 미리보기도 좌표도 그쪽에서 나온다.
+        assertThat(item.getTitle()).isEqualTo("푸드박스 광주점 : 네이버");
+        assertThat(item.getLat()).isEqualTo(35.1820806);
+        assertThat(item.getLng()).isEqualTo(126.7989859);
+        verify(htmlFetcher).fetch("https://m.place.naver.com/place/1301934134");
+    }
+
+    @Test
+    void 재요청이_실패하면_원래_문서를_그대로_쓴다() {
+        // 최적화 때문에 아이템 가공이 실패하면 안 된다.
+        Item item = urlItem("https://naver.me/GzE9COFR");
+        aiReturnsEmpty();
+        processor = new UrlItemProcessor(itemRepository, new UrlNormalizer(), oEmbedClient,
+                htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer,
+                categoryAssignmentService,
+                new LocationResolver(new MapLinkCoordinateParser(), geocoder));
+
+        Document shell = Jsoup.parse("<html></html>",
+                "https://map.naver.com/p/entry/place/1301934134");
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch("https://naver.me/GzE9COFR")).thenReturn(shell);
+        when(htmlFetcher.fetch("https://m.place.naver.com/place/1301934134"))
+                .thenThrow(new HtmlFetchException("차단됨"));
+        when(openGraphScraper.scrape(shell)).thenReturn(new UrlPreview("네이버 지도", null, null));
+        when(contentExtractor.extract(shell)).thenReturn(null);
+
+        processor.process(message());
+
+        assertThat(item.getTitle()).isEqualTo("네이버 지도");
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.PARTIAL);
+        assertThat(item.hasCoordinates()).isFalse();
+    }
+
+    @Test
     void 본문에_주소가_적혀_있어도_지도가_없으면_위치를_만들지_않는다() {
         // 의도된 동작이다 — 자유 텍스트 주소 경로를 없앴다(LocationResolver javadoc 참고).
         // 지식·기술 글이나 회사 footer 주소에 핀이 꽂히는 것을 구조적으로 막는다.

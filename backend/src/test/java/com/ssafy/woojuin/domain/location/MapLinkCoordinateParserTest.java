@@ -229,6 +229,48 @@ class MapLinkCoordinateParserTest {
         assertThat(parser.parse(tm)).isEmpty();
     }
 
+    // ---------- 네이버 장소 페이지의 '길찾기' 링크 (경도가 먼저!) ----------
+
+    /**
+     * 네이버 지도 링크는 URL에 좌표가 없고 페이지도 SPA 껍데기다. 모바일 장소 페이지의 '길찾기'
+     * 링크가 장소 id와 좌표를 함께 담는다. 실측 표본(푸드박스 광주점, id 1301934134).
+     */
+    private static final String NAVER_DIRECTIONS =
+            "https://m.search.naver.com/search.naver?where=m&query=%EB%B9%A0%EB%A5%B8%EA%B8%B8"
+            + "&nso_path=placeType%5Eplace%3Bname%5E%3Baddress%5E%3Bcode%5E1301934134"
+            + "%3Blongitude%5E126.7989859%3Blatitude%5E35.1820806%7Cobjtype%5Epath";
+
+    @Test
+    void 네이버_길찾기_링크는_경도가_먼저다() {
+        assertCoord(parser.parse(NAVER_DIRECTIONS), 35.1820806, 126.7989859);
+    }
+
+    @Test
+    void 인코딩되지_않은_길찾기_링크는_URI로_읽히지_않아_포기한다() {
+        // '^'는 URI에 쓸 수 없는 문자라 URI.create가 거부한다 — 실제 페이지는 %5E로 인코딩해서
+        // 내려주므로 도달하지 않는 경우다. 좌표를 잘못 만드는 대신 포기하는 쪽이 맞다.
+        String raw = "https://m.search.naver.com/search.naver?nso_path=code^1301934134"
+                + ";longitude^126.7989859;latitude^35.1820806";
+
+        assertThat(parser.parse(raw)).isEmpty();
+    }
+
+    @Test
+    void 좌표가_없는_네이버_검색_URL은_무시한다() {
+        assertThat(parser.parse("https://m.search.naver.com/search.naver?query=%EB%A7%9B%EC%A7%91"))
+                .isEmpty();
+        assertThat(parser.parse("https://search.naver.com/search.naver?where=nexearch&y=10&x=20"))
+                .isEmpty();
+    }
+
+    @Test
+    void 네이버_지도_장소_링크_자체에는_좌표가_없다() {
+        // 정규화가 모바일 장소 페이지로 보내고 그 페이지의 길찾기 링크에서 좌표를 얻는다.
+        assertThat(parser.parse("https://map.naver.com/p/entry/place/1301934134?placePath=%2Fhome"))
+                .isEmpty();
+        assertThat(parser.parse("https://naver.me/GzE9COFR")).isEmpty();
+    }
+
     @Test
     void 지도가_아닌_pstatic_이미지는_무시한다() {
         // 같은 CDN이 블로그 사진도 서비스한다. 경로로 갈라야 한다.

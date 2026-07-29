@@ -80,6 +80,45 @@ class UrlNormalizerTest {
                 .isEqualTo("https://blog.naver.com/PostView.naver");
     }
 
+    // ---------- 네이버 장소 (모바일 장소 페이지로 모은다) ----------
+
+    /**
+     * 지도 링크는 URL에 좌표가 없고 페이지도 2.3KB SPA 껍데기라 미리보기도 좌표도 못 얻는다.
+     * 모바일 장소 페이지는 같은 장소를 580KB로 주면서 og:title·썸네일과 좌표를 담은
+     * '길찾기' 링크를 함께 싣는다.
+     */
+    @Test
+    void 네이버_지도_장소링크를_모바일_장소페이지로_바꾼다() {
+        String result = normalizer.normalize(
+                "https://map.naver.com/p/entry/place/1301934134?placePath=%2Fhome");
+
+        assertThat(result).isEqualTo("https://m.place.naver.com/place/1301934134");
+    }
+
+    @Test
+    void 네이버_플레이스_카테고리_경로도_장소페이지로_모은다() {
+        assertThat(normalizer.normalize("https://m.place.naver.com/restaurant/1301934134/home"))
+                .isEqualTo("https://m.place.naver.com/place/1301934134");
+        assertThat(normalizer.normalize("https://place.naver.com/restaurant/1301934134/home"))
+                .isEqualTo("https://m.place.naver.com/place/1301934134");
+    }
+
+    @Test
+    void 네이버_플레이스_모바일_링크는_데스크톱으로_되돌리지_않는다() {
+        // 일반 m.* → 데스크톱 규칙이 먼저 걸리면 place.naver.com이 되어 버린다.
+        assertThat(normalizer.normalize("https://m.place.naver.com/place/1301934134"))
+                .isEqualTo("https://m.place.naver.com/place/1301934134");
+    }
+
+    @Test
+    void 네이버_지도에서_장소를_특정할수_없으면_손대지_않는다() {
+        // 지도 검색 화면·좌표 보기 등은 특정 장소가 아니다. 호스트도 경로도 그대로 남는다.
+        assertThat(normalizer.normalize("https://map.naver.com/p/search/cafe"))
+                .isEqualTo("https://map.naver.com/p/search/cafe");
+        assertThat(normalizer.normalize("https://map.naver.com/p/favorite/place"))
+                .isEqualTo("https://map.naver.com/p/favorite/place");
+    }
+
     // ---------- 일반 규칙 ----------
 
     @Test
