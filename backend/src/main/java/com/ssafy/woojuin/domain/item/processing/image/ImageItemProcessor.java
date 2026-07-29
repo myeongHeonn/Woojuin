@@ -6,6 +6,7 @@ import com.ssafy.woojuin.domain.ai.AiAnalyzer;
 import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
+import com.ssafy.woojuin.domain.item.event.ItemDoneEvent;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
@@ -13,6 +14,7 @@ import com.ssafy.woojuin.domain.item.service.S3Uploader;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,16 +39,19 @@ public class ImageItemProcessor implements ItemProcessor {
     private final ImageThumbnailGenerator thumbnailGenerator;
     private final AiAnalyzer aiAnalyzer;
     private final CategoryAssignmentService categoryAssignmentService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ImageItemProcessor(ItemRepository itemRepository, S3Uploader s3Uploader,
             ImageTextExtractor imageTextExtractor, ImageThumbnailGenerator thumbnailGenerator,
-            AiAnalyzer aiAnalyzer, CategoryAssignmentService categoryAssignmentService) {
+            AiAnalyzer aiAnalyzer, CategoryAssignmentService categoryAssignmentService,
+            ApplicationEventPublisher eventPublisher) {
         this.itemRepository = itemRepository;
         this.s3Uploader = s3Uploader;
         this.imageTextExtractor = imageTextExtractor;
         this.thumbnailGenerator = thumbnailGenerator;
         this.aiAnalyzer = aiAnalyzer;
         this.categoryAssignmentService = categoryAssignmentService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -144,6 +149,7 @@ public class ImageItemProcessor implements ItemProcessor {
     private void finalizeStatus(Item item, boolean textAcquired) {
         if (textAcquired) {
             item.markDone();
+            eventPublisher.publishEvent(new ItemDoneEvent(item.getId()));
         } else {
             item.markPartial();
         }

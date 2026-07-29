@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * 오케스트레이션 + 상태 전이 검증. 각 조각은 mock으로 대체하고, 어떤 조합에서 DONE/
@@ -40,6 +41,7 @@ class UrlItemProcessorTest {
     @Mock ContentExtractor contentExtractor;
     @Mock AiAnalyzer aiAnalyzer;
     @Mock CategoryAssignmentService categoryAssignmentService;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     UrlItemProcessor processor;
 
@@ -55,7 +57,8 @@ class UrlItemProcessorTest {
             }
         };
         processor = new UrlItemProcessor(itemRepository, normalizer, oEmbedClient,
-                htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer, categoryAssignmentService);
+                htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer, categoryAssignmentService,
+                eventPublisher);
     }
 
     private Item urlItem() {

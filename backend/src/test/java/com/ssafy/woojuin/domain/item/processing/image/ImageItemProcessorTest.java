@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class ImageItemProcessorTest {
@@ -32,6 +33,7 @@ class ImageItemProcessorTest {
     @Mock ImageThumbnailGenerator thumbnailGenerator;
     @Mock AiAnalyzer aiAnalyzer;
     @Mock CategoryAssignmentService categoryAssignmentService;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     ImageItemProcessor processor;
 
@@ -48,7 +50,7 @@ class ImageItemProcessorTest {
 
     private void newProcessor() {
         processor = new ImageItemProcessor(itemRepository, s3Uploader, imageTextExtractor,
-                thumbnailGenerator, aiAnalyzer, categoryAssignmentService);
+                thumbnailGenerator, aiAnalyzer, categoryAssignmentService, eventPublisher);
     }
 
     @Test
