@@ -2,6 +2,8 @@ package com.ssafy.woojuin.domain.location;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -37,16 +39,32 @@ class LocationResolverTest {
     }
 
     @Test
-    void 지도_링크가_있으면_지오코더를_부르지_않는다() {
+    void 지도_링크가_있으면_좌표는_URL에서_얻고_주소만_역지오코딩한다() {
+        when(geocoder.reverse(new GeoPoint(37.5445, 127.0561)))
+                .thenReturn(Optional.of("서울특별시 성동구 아차산로 100"));
+
         Optional<ResolvedLocation> result = resolver.resolveForUrlItem(
                 List.of(KAKAO_LINK), List.of("서울 성동구 아차산로 49 도 본문에 있다"));
 
         assertThat(result).isPresent();
         assertThat(result.get().lat()).isEqualTo(37.5445);
         assertThat(result.get().lng()).isEqualTo(127.0561);
-        // 지도 링크는 주소를 주지 않는다. 핀에 주소가 필요 없으니 역지오코딩도 하지 않는다.
+        assertThat(result.get().address()).isEqualTo("서울특별시 성동구 아차산로 100");
+        // 좌표를 URL에서 얻었으므로 본문 주소를 지오코딩하지는 않는다(정방향 호출 없음).
+        verify(geocoder, never()).forwardAddress(any());
+        verify(geocoder, never()).forwardKeyword(any());
+    }
+
+    @Test
+    void 지도_링크의_역지오코딩이_실패해도_좌표는_남는다() {
+        when(geocoder.reverse(any())).thenReturn(Optional.empty());
+
+        Optional<ResolvedLocation> result = resolver.resolveForUrlItem(
+                List.of(KAKAO_LINK), List.of());
+
+        assertThat(result).isPresent();
+        assertThat(result.get().lat()).isEqualTo(37.5445);
         assertThat(result.get().address()).isNull();
-        verifyNoInteractions(geocoder);
     }
 
     @Test

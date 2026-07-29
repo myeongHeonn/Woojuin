@@ -8,10 +8,6 @@ package com.ssafy.woojuin.domain.location;
  */
 public record ResolvedLocation(GeoPoint point, String address) {
 
-    public static ResolvedLocation of(GeoPoint point) {
-        return new ResolvedLocation(point, null);
-    }
-
     public double lat() {
         return point.lat();
     }

@@ -13,14 +13,16 @@ import org.springframework.stereotype.Component;
  *
  * <p>URL 아이템:
  * <ol>
- *   <li>URL에 박힌 좌표 파싱 — 네트워크 0회, 가장 정확. 지도 공유 링크의 정답 경로다</li>
- *   <li>텍스트에서 뽑은 한국 주소를 지오코딩 — 외부 호출이 발생하는 유일한 지점</li>
+ *   <li>URL에 박힌 좌표 파싱 — 좌표 자체는 네트워크 0회로 얻는다. 지도 공유 링크의 정답
+ *       경로다. 주소는 없으므로 역지오코딩 1회로 채운다</li>
+ *   <li>텍스트에서 뽑은 한국 주소를 지오코딩 — 좌표와 정규화된 주소를 함께 얻는다</li>
  *   <li>실패 → 위치 없음. <b>정상 결과다</b> (대부분의 아이템에 위치가 없다)</li>
  * </ol>
  *
- * <p>1단계가 성공하면 2단계를 아예 건너뛰므로, 지도 링크를 저장할 때는 외부 API를 한 번도
- * 부르지 않는다. 즉 <b>아이템당 지오코딩은 최대 1번</b>이다(카카오 주소→키워드 폴백 때문에
- * HTTP 요청은 2회가 될 수 있다 — {@link KakaoLocalGeocoder#forwardAddress} 참고).
+ * <p>1단계가 성공하면 2단계를 아예 건너뛰므로 <b>아이템당 지오코딩은 최대 1번</b>이다
+ * (카카오 주소→키워드 폴백 때문에 2단계의 HTTP 요청은 2회가 될 수 있다 —
+ * {@link KakaoLocalGeocoder#forwardAddress} 참고). 그리고 그 1번은 아이템을 저장할 때
+ * 한 번이고 지도를 열 때마다가 아니다.
  *
  * <p>묶음 F의 실제 AI 분석기가 오면 LLM이 뽑은 장소명이 1과 2 사이에 소스로 추가된다.
  * 그때 {@code AiAnalysis}를 확장하고 프로세서의 호출 위치를 AI 뒤로 옮기면 되며, 지금은
@@ -51,9 +53,11 @@ public class LocationResolver {
 
         Optional<GeoPoint> fromLink = mapLinkParser.parse(toArray(candidateUrls));
         if (fromLink.isPresent()) {
-            // 지도 링크는 좌표만 주고 주소는 없다. 역지오코딩까지 하면 호출이 늘어나는데,
-            // 지도에 핀을 찍는 데 주소는 필요 없으므로 여기서 멈춘다.
-            return Optional.of(ResolvedLocation.of(fromLink.get()));
+            // 좌표는 URL에서 공짜로 얻었지만 주소는 없다. 장소 패널과 지도 팝업이 주소를
+            // 노출하고, 맛집·여행 링크가 이 경로의 주 시나리오라 그냥 두면 주소 없는 핀이
+            // 다수가 된다 — 역지오코딩 1회를 들여 채운다. 저장 시 1회이고 지도를 열 때마다가
+            // 아니라 비용이 작다. 실패하면 좌표만 남는다.
+            return Optional.of(resolveForCoordinates(fromLink.get()));
         }
 
         Optional<String> address = addressExtractor.extract(toArray(candidateTexts));
