@@ -98,7 +98,7 @@ const MapPlacePanel = ({
       aria-label="저장한 장소"
       data-testid="map-place-panel"
       className={classNames(
-        'absolute z-[9] flex flex-col overflow-hidden border border-border/55 shadow-float',
+        'absolute z-[4] flex flex-col overflow-hidden border border-border/55 shadow-float',
         'bg-sidebar/84 backdrop-blur-[14px] desktop:bg-sidebar/42 desktop:backdrop-blur-[8px]',
         'inset-x-3 bottom-[calc(88px+env(safe-area-inset-bottom))] rounded-lg transition-[height] duration-200 ease-out',
         collapsed ? 'h-[112px]' : 'h-[50%]',
