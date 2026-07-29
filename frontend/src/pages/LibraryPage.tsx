@@ -9,7 +9,6 @@ import LibrarySearch from '@/components/domain/library/LibrarySearch';
 import SearchItems from '@/components/domain/library/SearchItems';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import { useCategories } from '@/hooks/useCategories';
-import { useItems } from '@/hooks/useItems';
 import { toggleCategorySelection } from '@/utils/categorySelection';
 
 /**
@@ -35,10 +34,13 @@ const LibraryPage = () => {
   const q = params.get('q') ?? '';
   const aiMode = params.get('ai') === '1';
 
-  // 보관함이 완전히 비었으면(필터 무관 전체 0개) 검색창을 숨긴다.
-  // 로딩 중(undefined)엔 숨김 판단을 유보해 깜빡임을 막고, 검색 중(q)이면 늘 보인다.
-  const { data: baseItems } = useItems({ workspaceId: Number(workspaceId), size: 20 });
-  const workspaceEmpty = baseItems !== undefined && (baseItems.pages[0]?.totalElements ?? 0) === 0;
+  // 보관함이 완전히 비었으면(필터 무관 전체 0개) 필터·검색을 숨긴다.
+  // 별도 폴링 쿼리를 두지 않고 Items 가 올려주는 전체 개수(onCount)를 재사용한다.
+  // 필터가 걸려 있으면 그 개수는 "필터된 결과"이므로 빈 워크스페이스 판정에서 제외한다
+  // (그 경우는 Items 가 "결과 없음"을 대신 보여준다). 로딩 중(undefined)엔 판단을 유보한다.
+  const [itemCount, setItemCount] = useState<number>();
+  const filtered = favoriteActive || selected.length > 0;
+  const workspaceEmpty = !filtered && itemCount === 0;
 
   return (
     // 좌우 여백(STAGE_PX)은 헤더 제목과 같은 값을 공유해 칩 바·리스트가 한 선에 맞는다.
@@ -72,8 +74,14 @@ const LibraryPage = () => {
         {q ? (
           <SearchItems q={q} aiMode={aiMode} onOpenItem={setOpenItemId} />
         ) : (
-          // 필터는 전부 서버 처리 — Items → useItems queryKey 로 내려간다
-          <Items favorite={favoriteActive} categoryIds={selected} onOpenItem={setOpenItemId} />
+          // 필터는 전부 서버 처리 — Items → useItems queryKey 로 내려간다.
+          // 전체 개수는 onCount 로 올려 받아 빈 워크스페이스 판정에 쓴다(중복 쿼리 제거)
+          <Items
+            favorite={favoriteActive}
+            categoryIds={selected}
+            onOpenItem={setOpenItemId}
+            onCount={setItemCount}
+          />
         )}
       </div>
 
