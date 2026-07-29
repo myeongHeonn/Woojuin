@@ -50,6 +50,8 @@ const CategoryEditor = ({ item, workspaceId }: CategoryEditorProps) => {
 
       <Dropdown
         align="left"
+        // 메모는 편집기가 모달 위쪽 → 아래로, 사진·링크는 아래쪽 → 위로 떠야 안 잘린다
+        direction={item.type === 'MEMO' ? 'down' : 'up'}
         renderTrigger={(toggle) => (
           <button
             type="button"
