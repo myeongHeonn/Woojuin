@@ -111,6 +111,26 @@ describe('SideBar (통합)', () => {
     });
   });
 
+  describe('사용자 프로필 이동', () => {
+    it('사용자 영역은 마이페이지 링크다', async () => {
+      const { container } = await renderSideBar();
+      const myPageLink = container.querySelector(
+        'a[aria-label="마이페이지로 이동"]',
+      ) as HTMLAnchorElement;
+
+      expect(myPageLink).not.toBeNull();
+      expect(myPageLink).toHaveAttribute('href', '/my');
+    });
+
+    it('계정 팝업과 더보기 버튼을 표시하지 않는다', async () => {
+      const { container } = await renderSideBar();
+
+      expect(container.querySelector('button[aria-label="더보기"]')).toBeNull();
+      expect(container.querySelector('button[aria-label="계정 메뉴"]')).toBeNull();
+      expect(container.textContent).not.toContain('로그아웃');
+    });
+  });
+
   describe('워크스페이스 목록', () => {
     it('Workspaces 를 누르면 목록이 접힌다', async () => {
       const { container } = await renderSideBar();

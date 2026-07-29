@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchMyProfile } from '@/services/auth';
 import { USER_MOCK } from '@/stores/mock/user';
-import { SPACEMAN_COLORS } from '@/utils/getSpacemanImage';
 
 /**
  * 현재 로그인한 유저 정보 (닉네임·이메일·아바타색·저장공간).
@@ -18,16 +17,24 @@ export function useUser() {
   });
 
   if (!profile) {
-    return USER_MOCK;
+    return {
+      ...USER_MOCK,
+      profileImageUrl: null,
+      provider: undefined,
+      emailVerified: false,
+    };
   }
 
   return {
     nickName: profile.nickname,
     email: profile.email,
     userId: profile.id,
-    avatarColor: SPACEMAN_COLORS[profile.id % SPACEMAN_COLORS.length],
+    avatarColor: profile.avatarColor,
     remainMemories: USER_MOCK.remainMemories,
     fullMemories: USER_MOCK.fullMemories,
     personalSpaceId: profile.personalSpaceId ?? USER_MOCK.personalSpaceId,
+    profileImageUrl: profile.profileImageUrl,
+    provider: profile.provider,
+    emailVerified: profile.emailVerified,
   };
 }
