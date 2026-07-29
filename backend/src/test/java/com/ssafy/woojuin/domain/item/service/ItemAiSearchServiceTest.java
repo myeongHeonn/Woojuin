@@ -49,7 +49,7 @@ class ItemAiSearchServiceTest {
     }
 
     private ItemSearchResponse searchResult(long total, boolean partialMatch) {
-        return new ItemSearchResponse(List.of(), 0, 28, total, partialMatch);
+        return new ItemSearchResponse(List.of(), 0, 28, total, partialMatch, false);
     }
 
     @Test
