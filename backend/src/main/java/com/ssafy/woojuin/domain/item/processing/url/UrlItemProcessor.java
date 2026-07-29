@@ -9,10 +9,12 @@ import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
+import com.ssafy.woojuin.domain.location.LocationResolver;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Component;
@@ -50,11 +52,13 @@ public class UrlItemProcessor implements ItemProcessor {
     private final ContentExtractor contentExtractor;
     private final AiAnalyzer aiAnalyzer;
     private final CategoryAssignmentService categoryAssignmentService;
+    private final LocationResolver locationResolver;
 
     public UrlItemProcessor(ItemRepository itemRepository, UrlNormalizer urlNormalizer,
             OEmbedClient oEmbedClient, HtmlFetcher htmlFetcher, OpenGraphScraper openGraphScraper,
             ContentExtractor contentExtractor, AiAnalyzer aiAnalyzer,
-            CategoryAssignmentService categoryAssignmentService) {
+            CategoryAssignmentService categoryAssignmentService,
+            LocationResolver locationResolver) {
         this.itemRepository = itemRepository;
         this.urlNormalizer = urlNormalizer;
         this.oEmbedClient = oEmbedClient;
@@ -63,6 +67,7 @@ public class UrlItemProcessor implements ItemProcessor {
         this.contentExtractor = contentExtractor;
         this.aiAnalyzer = aiAnalyzer;
         this.categoryAssignmentService = categoryAssignmentService;
+        this.locationResolver = locationResolver;
     }
 
     @Override
@@ -114,8 +119,49 @@ public class UrlItemProcessor implements ItemProcessor {
             item.applyContent(content);
         }
 
+        // 위치 확보(FR-023). 썸네일과 같은 등급의 부가 정보라 상태에는 영향이 없다.
+        tryResolveLocation(item, normalizedUrl, doc, preview, content);
+
         enrichWithAi(item, content);   // 본문이 없어도 title로 분류 시도(상태에는 영향 없음)
         finalizeStatus(item, preview, contentAcquired);
+    }
+
+    /**
+     * 지도 좌표를 확보해 반영한다 (FR-023). 지도 공유 링크면 URL 파싱만으로 끝나고(네트워크
+     * 0회), 아니면 본문에서 뽑은 주소를 지오코딩한다.
+     *
+     * <p>후보 URL에 <b>원본 {@code item.getUrl()}까지</b> 넣는 이유: {@link UrlNormalizer}가
+     * fragment를 버리고 일부 파라미터를 지우는데, 구형 구글맵은 좌표를 {@code #} 뒤에 담았다.
+     * {@code doc.location()}은 리다이렉트가 끝난 최종 URL이라 단축 링크(naver.me 등)를
+     * <b>추가 요청 없이</b> 커버한다 — 그 fetch는 {@link JsoupHtmlFetcher}가 홉마다 SSRF를
+     * 검사한 경로다.
+     *
+     * <p>텍스트 후보는 og:description → title → 본문 순이다. 앞쪽이 이 페이지의 주제를
+     * 설명하는 텍스트라, 맛집 후기에 섞인 "근처 다른 가게" 주소를 잡을 확률이 낮다.
+     *
+     * <p>모든 실패를 흡수한다. {@code tryGenerateThumbnail}과 같은 이유이면서 여기선 더
+     * 치명적인데, {@code process}가 {@code @Transactional}이라 예외가 새어나가면 트랜잭션이
+     * rollback-only로 찍혀 <b>이미 확보한 미리보기·본문이 전부 버려지고</b> 디스패처가
+     * RETRYABLE로 판단해 AI 호출까지 포함한 파이프라인 전체가 재실행된다. {@code Geocoder}
+     * 계약도 "예외를 던지지 않는다"지만 이중으로 막는다.
+     */
+    private void tryResolveLocation(Item item, String normalizedUrl, Document doc,
+            UrlPreview preview, String content) {
+        try {
+            List<String> candidateUrls = Stream.of(
+                            item.getUrl(), normalizedUrl, doc != null ? doc.location() : null)
+                    .filter(url -> url != null && !url.isBlank())
+                    .toList();
+            List<String> candidateTexts = Stream.of(
+                            preview.description(), item.getTitle(), preview.title(), content)
+                    .filter(text -> text != null && !text.isBlank())
+                    .toList();
+
+            locationResolver.resolveForUrlItem(candidateUrls, candidateTexts).ifPresent(location ->
+                    item.applyLocation(location.lat(), location.lng(), location.address()));
+        } catch (Exception e) {
+            log.warn("위치 확보 실패(무시): itemId={}, cause={}", item.getId(), e.toString());
+        }
     }
 
     private Document tryFetch(String url) {
