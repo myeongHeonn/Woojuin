@@ -1,11 +1,19 @@
-// 우주인 dev 파이프라인 (백엔드 + 프론트엔드) — Multibranch Pipeline 전용
+// 우주인 파이프라인 (백엔드 + 프론트엔드, dev/prod 겸용) — Multibranch Pipeline 전용
 //
-// 흐름: 변경 경로 감지 → (변경된 파트만) Test → Build → Deploy(develop 브랜치만) → Health Check
+// 흐름: 대상 환경 계산 → 변경 경로 감지 → (변경된 파트만) Test → Build → Deploy → Health Check
 //
-// 배포 대상은 **dev 환경**이다(결정 #16: develop→dev, main→prod).
-// prod 배포는 main 용 파이프라인을 따로 만든다. 이 파일은 prod 를 건드리지 않는다.
-//   - 백엔드: dev compose 스택의 backend 컨테이너 교체
-//   - 프론트: 호스트 nginx 가 서빙하는 /var/www/woojuin/dev 에 정적 파일 배치
+// 배포 대상은 **브랜치가 정한다** (결정 #16: develop→dev, main→prod):
+//   develop 브랜치 / develop 대상 MR → TARGET_ENV=dev   (MR 은 검증만)
+//   main    브랜치 / main    대상 MR → TARGET_ENV=prod  (MR 은 검증만 — release MR)
+//
+// main 대상 MR 을 검증하는 이유 (develop 에서 이미 검증됐어도 중복이 아니다):
+//   - 핫픽스로 main 이 develop 과 갈라져 있으면 머지 결과는 처음 보는 코드다
+//   - 프론트는 prod 값(FE_API_BASE_URL)으로 **다시 빌드**되므로, prod 번들 자체가
+//     이 MR 에서 처음 검증된다
+//
+//   - 백엔드: 해당 compose 스택의 backend 컨테이너 교체 (v1 = 단순 재생성, 다운타임 ~30초.
+//     Blue-Green 은 결정 #9 의 다음 단계 — nginx 전환 메커니즘 설계 후 도입)
+//   - 프론트: 호스트 nginx 가 서빙하는 /var/www/woojuin/{env} 에 정적 파일 배치
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 파일은 **Multibranch Pipeline**(GitLab Branch Source) 잡에서 돈다.
@@ -26,7 +34,7 @@
 // 🔀 동시성 설계 — 서로 다른 MR 은 잡이 달라 **동시에 돌 수 있다**:
 //   - 빌드·테스트: **격리** — 이미지를 빌드마다 고유 태그(커밋 SHA)로 만들어 겹칠 것이 없다.
 //     BuildKit 캐시는 태그와 무관한 별도 저장소라 태그를 지워도 캐시는 산다
-//   - 배포: dev 환경은 하나뿐이라 격리가 불가능 → **lock('woojuin-dev-stack')** 으로 직렬화.
+//   - 배포: 각 환경(dev/prod)은 하나뿐이라 격리가 불가능 → **lock(woojuin-<env>-stack)** 으로 직렬화.
 //     (지금은 develop 잡 + disableConcurrentBuilds 만으로도 직렬이지만, 잡이 늘거나 설정이
 //     풀려도 안전하도록 자원 자체에 계약을 건다)
 //
@@ -58,15 +66,9 @@ pipeline {
         // COMPOSE_FILE / COMPOSE_PROJECT_NAME 은 docker compose 가 실제로 읽는 예약 변수명이라
         // 의도치 않은 동작을 피하려고 다른 이름을 쓴다.
         DEPLOY_FILE       = 'docker-compose.deploy.yml'
-        STACK             = 'woojuin-dev'
-        BACKEND_CONTAINER = 'woojuin-dev-backend-1'
 
-        // 프론트 정적 파일이 놓일 **호스트** 경로. nginx `root` 가 여기를 가리킨다.
-        FRONTEND_WEBROOT  = '/var/www/woojuin/dev'
-
-        // 프론트 빌드 시점에 번들에 박히는 값(시크릿 아님 — 공개 API 주소).
-        // dev/prod 가 달라야 하므로 prod 용 파이프라인에서는 다른 값을 쓴다.
-        FE_API_BASE_URL   = 'https://api.dev.woojuin.store/api'
+        // 환경별 값(STACK, FE_API_BASE_URL, 웹루트, credential, lock ...)은 여기 있지 않다 —
+        // 브랜치/MR 타겟에 따라 달라지므로 Checkout 스테이지에서 계산한다(TARGET_ENV).
     }
 
     stages {
@@ -82,8 +84,24 @@ pipeline {
                         script: 'git rev-parse --short HEAD',
                         returnStdout: true
                     ).trim()
+
+                    // ── 대상 환경 계산 ─────────────────────────────────────────
+                    // main 브랜치이거나 main 을 향하는 MR 이면 prod, 나머지는 dev.
+                    // MR 도 대상 환경의 값으로 빌드해야 한다 — 특히 프론트는 FE_API_BASE_URL 이
+                    // 번들에 박히므로, main 대상 MR 은 "prod 번들이 만들어지는가"를 검증한다.
+                    def isProd = (env.BRANCH_NAME == 'main') || (env.CHANGE_TARGET == 'main')
+                    env.TARGET_ENV        = isProd ? 'prod' : 'dev'
+                    env.STACK             = "woojuin-${env.TARGET_ENV}"
+                    env.BACKEND_CONTAINER = "${env.STACK}-backend-1"
+                    env.FRONTEND_WEBROOT  = "/var/www/woojuin/${env.TARGET_ENV}"
+                    env.ENV_CREDENTIAL    = "env-${env.TARGET_ENV}"                 // Jenkins Secret file
+                    env.DEPLOY_LOCK       = "${env.STACK}-stack"                    // Lockable Resources
+                    env.FRONT_HOST        = isProd ? 'woojuin.store' : 'dev.woojuin.store'
+                    env.FE_API_BASE_URL   = isProd ? 'https://api.woojuin.store/api'
+                                                   : 'https://api.dev.woojuin.store/api'
+
                     echo "빌드 대상 커밋: ${env.SHORT_SHA}"
-                    echo "BRANCH_NAME=${env.BRANCH_NAME} / CHANGE_ID=${env.CHANGE_ID} / CHANGE_TARGET=${env.CHANGE_TARGET}"
+                    echo "TARGET_ENV=${env.TARGET_ENV} / BRANCH_NAME=${env.BRANCH_NAME} / CHANGE_ID=${env.CHANGE_ID} / CHANGE_TARGET=${env.CHANGE_TARGET}"
                 }
             }
         }
@@ -277,42 +295,45 @@ pipeline {
         stage('Frontend Build') {
             when { expression { env.CHANGED_FE == 'true' } }
             steps {
-                // VITE_* 는 런타임이 아니라 **빌드 시점에 번들에 박힌다** → dev 전용 빌드다.
-                // (prod 는 main 용 파이프라인에서 다른 값으로 다시 빌드해야 한다)
+                // VITE_* 는 런타임이 아니라 **빌드 시점에 번들에 박힌다** → 환경별로 다른 빌드다.
+                // 그래서 태그에 SHA 만 쓰면 안 되고 **환경을 붙인다** — 같은 커밋이라도
+                // dev 번들과 prod 번들은 내용이 다른 산출물이다(백엔드 이미지는 런타임 주입이라
+                // SHA 만으로 충분한 것과 대조적).
                 sh """
                     docker build \
                         --build-arg VITE_API_BASE_URL=${FE_API_BASE_URL} \
-                        -t woojuin-frontend:${env.SHORT_SHA} \
+                        -t woojuin-frontend:${env.SHORT_SHA}-${env.TARGET_ENV} \
                         -f frontend/Dockerfile frontend
                 """
                 // 번들에 실제로 API 주소가 박혔는지 확인한다.
                 // 값이 안 들어가도 **빌드는 성공**하고 `/api` 상대경로로 폴백하기 때문에
                 // (client.ts 의 `?? '/api'`) 이 검사가 없으면 배포 후 프론트가 조용히 API 를 못 찾는다.
                 sh """
-                    docker run --rm woojuin-frontend:${env.SHORT_SHA} \
+                    docker run --rm woojuin-frontend:${env.SHORT_SHA}-${env.TARGET_ENV} \
                         sh -c 'grep -rqF "${FE_API_BASE_URL}" /dist/assets || (echo "번들에 API 주소가 없다 — VITE_API_BASE_URL 주입 실패"; exit 1)'
                 """
             }
         }
 
-        stage('Deploy Backend (dev)') {
+        stage('Deploy Backend') {
             when {
                 allOf {
-                    // develop 브랜치 잡에서만 배포한다. MR 잡은 branch 조건에서 걸러진다
-                    // (MR 잡의 BRANCH_NAME 은 develop 이 아니라 MR-<번호> 형태).
-                    branch 'develop'
+                    // 배포 브랜치(develop→dev / main→prod)에서만. MR 잡은 branch 조건에서
+                    // 걸러진다 (MR 잡의 BRANCH_NAME 은 MR-<번호> 형태).
+                    anyOf { branch 'develop'; branch 'main' }
                     expression { env.CHANGED_BE == 'true' }
                 }
             }
             steps {
-                // dev 스택은 하나뿐인 공유 자원 — lock 으로 배포를 직렬화한다.
+                // 각 환경의 스택은 하나뿐인 공유 자원 — lock 으로 배포를 직렬화한다.
                 // (같은 이름의 lock 을 쓰는 다른 빌드는 여기서 대기한다. 자원은 미리 등록할
-                //  필요 없이 lock() 이 이름으로 자동 생성한다)
-                lock('woojuin-dev-stack') {
-                    // Jenkins 컨테이너는 호스트의 ~/woojuin/dev/.env.dev 를 볼 수 없다(마운트 안 함).
+                //  필요 없이 lock() 이 이름으로 자동 생성한다. dev/prod 는 락이 달라 서로
+                //  안 기다린다 — 자원이 다르니까.)
+                lock("${env.DEPLOY_LOCK}") {
+                    // Jenkins 컨테이너는 호스트의 ~/woojuin/*/.env.* 를 볼 수 없다(마운트 안 함).
                     // 변수를 개별 Credential 로 10여 개 등록하는 대신 **파일 통째로 Secret file** 로 올린다.
                     // withCredentials 가 임시 파일에 풀어 주고, 빌드가 끝나면 삭제된다(로그에도 안 찍힘).
-                    withCredentials([file(credentialsId: 'env-dev', variable: 'ENV_FILE')]) {
+                    withCredentials([file(credentialsId: "${env.ENV_CREDENTIAL}", variable: 'ENV_FILE')]) {
                         // BACKEND_IMAGE 를 쉘 환경변수로 준다. compose 치환에서 쉘 환경변수가
                         // --env-file 보다 우선하므로 .env.dev 의 값을 이번 커밋 SHA 로 덮어쓴다.
                         sh """
@@ -330,18 +351,18 @@ pipeline {
         stage('Health Check') {
             when {
                 allOf {
-                    branch 'develop'
+                    anyOf { branch 'develop'; branch 'main' }
                     expression { env.CHANGED_BE == 'true' }
                 }
             }
             steps {
-                // 호스트 포트(127.0.0.1:8091)로는 Jenkins 컨테이너에서 닿지 않고,
+                // 호스트 포트(127.0.0.1:809x)로는 Jenkins 컨테이너에서 닿지 않고,
                 // 외부 URL 은 nginx 가 /actuator 를 403 으로 막는다(의도된 설정).
                 // → 컨테이너가 자기 자신을 찌르게 하면 네트워크 문제가 없다.
                 //
                 // 재시도하는 이유: 기동 직후에는 Spring 이 Tomcat 을 올리는 중이라 연결이 안 된다
                 // (실측: `health: starting` 구간에 빈 응답, 4회째 통과). compose 의 start_period 와 같은 맥락.
-                lock('woojuin-dev-stack') {
+                lock("${env.DEPLOY_LOCK}") {
                     sh """
                         for i in \$(seq 1 30); do
                             if docker exec ${BACKEND_CONTAINER} \
@@ -363,10 +384,10 @@ pipeline {
             }
         }
 
-        stage('Deploy Frontend (dev)') {
+        stage('Deploy Frontend') {
             when {
                 allOf {
-                    branch 'develop'
+                    anyOf { branch 'develop'; branch 'main' }
                     expression { env.CHANGED_FE == 'true' }
                 }
             }
@@ -383,11 +404,11 @@ pipeline {
                 //
                 // `cp -r /dist/. /out/` 의 `.` 이 중요하다 — `/dist` 로 쓰면 /out/dist 가 되어
                 // nginx 가 404 를 낸다.
-                lock('woojuin-dev-stack') {
+                lock("${env.DEPLOY_LOCK}") {
                     sh """
                         docker run --rm \
                             -v ${FRONTEND_WEBROOT}:/out \
-                            woojuin-frontend:${env.SHORT_SHA} \
+                            woojuin-frontend:${env.SHORT_SHA}-${env.TARGET_ENV} \
                             sh -c 'rm -rf /out/* && cp -r /dist/. /out/ && ls -1 /out | head'
                     """
                     // nginx 가 실제로 새 파일을 내주는지 확인한다 — 복사만 성공하고 nginx 설정이
@@ -397,10 +418,10 @@ pipeline {
                     // DNS 없이 vhost 를 고르려고 Host 헤더를 직접 준다.
                     sh """
                         docker run --rm --network host \
-                            woojuin-frontend:${env.SHORT_SHA} \
-                            wget -q -O /dev/null --header='Host: dev.woojuin.store' http://127.0.0.1/ \
-                            || (echo 'nginx 가 dev 프론트를 서빙하지 않는다 — server 블록/root 경로 확인'; exit 1)
-                        echo 'nginx 서빙 확인 완료'
+                            woojuin-frontend:${env.SHORT_SHA}-${env.TARGET_ENV} \
+                            wget -q -O /dev/null --header='Host: ${env.FRONT_HOST}' http://127.0.0.1/ \
+                            || (echo 'nginx 가 ${env.TARGET_ENV} 프론트를 서빙하지 않는다 — server 블록/root 경로 확인'; exit 1)
+                        echo 'nginx 서빙 확인 완료 (${env.FRONT_HOST})'
                     """
                 }
             }

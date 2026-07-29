@@ -26,6 +26,25 @@ export async function aiSearchItems(workspaceId: number, q: string, page: number
   return res.data.data;
 }
 
+// ── 휴지통 ───────────────────────────────────────
+// 목록은 일반 목록과 같은 content(카드 재사용). 복구/영구삭제는 아이템 단위.
+export async function fetchTrash(workspaceId: number, page: number, size: number) {
+  const res = await api.get<ApiResponse<ItemListResponse>>(
+    `/workspaces/${workspaceId}/trash?page=${page}&size=${size}`,
+  );
+  return res.data.data;
+}
+
+// 복구 — 원래 카테고리로 되돌아간다
+export async function restoreItem(itemId: number) {
+  await api.post<ApiResponse<ItemDetail>>(`/items/${itemId}/restore`);
+}
+
+// 영구 삭제 — 되돌릴 수 없다
+export async function deleteItemPermanently(itemId: number) {
+  await api.delete<ApiResponse<null>>(`/items/${itemId}/permanent`);
+}
+
 //워크스페이스 아이템 받아오기
 //필터는 전부 서버가 처리한다(즐겨찾기·카테고리·정렬) — queryKey 로 캐싱/재요청을 태운다.
 export interface ItemFilters {

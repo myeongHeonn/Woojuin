@@ -4,6 +4,7 @@ import StageHeader from '@/components/domain/stage/StageHeader';
 import AddBtn from '@/components/domain/header/AddBtn';
 import ShareButton from '@/components/domain/share/ShareButton';
 import MemberStack from '@/components/domain/share/MemberStack';
+import TrashButton from '@/components/domain/trash/TrashButton';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { stageMetaAtom } from '@/stores/stageAtoms';
 
@@ -34,15 +35,16 @@ const StageLayout = () => {
         title={current?.name ?? 'My Universe'}
         meta={meta}
         actions={
-          isTeam ? (
-            <div className="flex items-center gap-2">
-              <MemberStack workspaceId={Number(workspaceId)} />
-              <ShareButton workspaceId={Number(workspaceId)} />
-              <AddBtn />
-            </div>
-          ) : (
+          <div className="flex items-center gap-2">
+            {isTeam && (
+              <>
+                <MemberStack workspaceId={Number(workspaceId)} />
+                <ShareButton workspaceId={Number(workspaceId)} />
+              </>
+            )}
+            <TrashButton />
             <AddBtn />
-          )
+          </div>
         }
       />
     </div>

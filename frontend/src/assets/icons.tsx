@@ -75,6 +75,16 @@ export function TrashIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** 되돌리기(반시계 화살표) — 휴지통 복구 */
+export function RestoreIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 5v5h5" />
+      <path d="M4.5 10a8 8 0 1 1-1.3 5" />
+    </svg>
+  );
+}
+
 /** 돋보기 — 검색 */
 export function SearchIcon(props: SVGProps<SVGSVGElement>) {
   return (
