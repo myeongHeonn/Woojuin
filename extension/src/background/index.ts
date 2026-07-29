@@ -9,30 +9,6 @@ const activeSaves = new Set<string>();
 const FEEDBACK_KEY = 'contextSaveFeedback';
 const NOTIFICATION_ICON = chrome.runtime.getURL('icon128.png');
 
-function truncate(value: string, maxLength: number): string {
-  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1).trimEnd()}…`;
-}
-
-function sourceLabel(tab?: chrome.tabs.Tab): string {
-  const pageTitle = tab?.title?.replace(/\s+/g, ' ').trim();
-  if (pageTitle) return truncate(pageTitle, 30);
-  try {
-    return new URL(tab?.url ?? '').hostname || '웹페이지';
-  } catch {
-    return '웹페이지';
-  }
-}
-
-function memoTitle(content: string, tab?: chrome.tabs.Tab): string {
-  const firstSentence = content.replace(/\s+/g, ' ').trim().split(/[.!?\n]/, 1)[0]?.trim();
-  if (!firstSentence) return `${sourceLabel(tab)}에서 저장한 메모`;
-  return truncate(`${sourceLabel(tab)} 메모: ${truncate(firstSentence, 35)}`, 70);
-}
-
-function imageTitle(tab?: chrome.tabs.Tab): string {
-  return `${sourceLabel(tab)}에서 저장한 이미지`;
-}
-
 function registerMenus(): void {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({ id: 'save-image', title: '선택한 이미지를 우주인에 저장', contexts: ['image'] });
@@ -96,21 +72,20 @@ async function downloadImage(srcUrl: string, permission: Promise<boolean>): Prom
 
 async function handleContextSave(
   info: chrome.contextMenus.OnClickData,
-  tab?: chrome.tabs.Tab,
   imagePermission?: Promise<boolean>,
 ): Promise<void> {
   const workspaceId = await requireSaveContext();
   if (info.menuItemId === 'save-selection') {
     const content = info.selectionText?.trim();
     if (!content) throw new Error('빈 텍스트는 저장할 수 없습니다.');
-    await saveMemo(workspaceId, content, memoTitle(content, tab));
+    await saveMemo(workspaceId, content);
   } else if (info.menuItemId === 'save-image' && info.srcUrl) {
     if (!imagePermission) throw new Error('이미지 출처 권한을 요청하지 못했습니다.');
-    await saveImage(workspaceId, await downloadImage(info.srcUrl, imagePermission), imageTitle(tab));
+    await saveImage(workspaceId, await downloadImage(info.srcUrl, imagePermission));
   }
 }
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
+chrome.contextMenus.onClicked.addListener((info) => {
   // permissions.request는 사용자 제스처가 유지되는 동기 이벤트 구간에서 즉시 호출해야 한다.
   // 인증/워크스페이스 조회를 await한 뒤 호출하면 Chrome이 요청을 거부한다.
   let imagePermission: Promise<boolean> | undefined;
@@ -123,7 +98,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   const requestKey = `${String(info.menuItemId)}:${info.srcUrl ?? info.selectionText?.trim() ?? ''}`;
   if (activeSaves.has(requestKey)) return;
   activeSaves.add(requestKey);
-  void handleContextSave(info, tab, imagePermission)
+  void handleContextSave(info, imagePermission)
     .then(() => showFeedback(true, '우주인으로 보냈습니다.'))
     .catch((error: unknown) => {
       console.error('우주인 저장 실패:', error);

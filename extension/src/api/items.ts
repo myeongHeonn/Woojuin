@@ -14,17 +14,16 @@ export function saveUrl(workspaceId: number, url: string): Promise<ItemCreateRes
   });
 }
 
-export function saveMemo(workspaceId: number, content: string, title?: string): Promise<ItemCreateResponse> {
+export function saveMemo(workspaceId: number, content: string): Promise<ItemCreateResponse> {
   return apiFetch(`/workspaces/${workspaceId}/items`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'MEMO', content, title }),
+    body: JSON.stringify({ type: 'MEMO', content }),
   });
 }
 
-export function saveImage(workspaceId: number, file: File, title?: string): Promise<ItemCreateResponse> {
+export function saveImage(workspaceId: number, file: File): Promise<ItemCreateResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  if (title) formData.append('title', title);
   return apiFetch(`/workspaces/${workspaceId}/items`, { method: 'POST', body: formData });
 }
