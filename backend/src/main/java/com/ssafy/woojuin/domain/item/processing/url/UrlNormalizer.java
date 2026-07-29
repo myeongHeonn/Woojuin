@@ -5,6 +5,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -92,6 +93,44 @@ public class UrlNormalizer {
             return result.toString();
         } catch (URISyntaxException e) {
             return rawUrl;
+        }
+    }
+
+    /**
+     * 정규화가 <b>다른 호스트</b>의 URL을 가리키면 그 URL을 준다. 단축 링크가 리다이렉트로
+     * 풀린 뒤 "더 받아올 만한 곳이 있는가"를 판단하는 공용 기준이다 —
+     * {@code UrlItemProcessor}(다시 받아올지)와 {@link FallbackHtmlFetcher}(브라우저를 굽지 않고
+     * 넘길지)가 같은 기준을 써야 한쪽만 헛돌지 않는다.
+     *
+     * <p>문자열이 달라졌는지로 보지 않는 이유: {@link #normalize}는 추적 파라미터를 떼고
+     * 퍼센트 인코딩된 경로를 디코딩하기도 해서, 같은 페이지인데도 문자열이 달라진다. 그걸
+     * "더 나은 URL"로 취급하면 한국어 경로나 추적 파라미터가 붙은 URL을 전부 두 번 받아온다.
+     * 실제 재작성 규칙(지도 앱링크·네이버 블로그·youtu.be·모바일 호스트)은 모두 호스트를
+     * 바꾸므로 호스트 비교로 충분하다.
+     *
+     * @return 다른 호스트를 가리키는 정규화 URL. 같은 호스트거나 판별 불가면 empty
+     */
+    public Optional<String> betterUrlOnAnotherHost(String url) {
+        if (url == null || url.isBlank()) {
+            return Optional.empty();
+        }
+        String renormalized = normalize(url);
+        if (renormalized == null || renormalized.equals(url)) {
+            return Optional.empty();
+        }
+        String from = hostOf(url);
+        if (from.isEmpty() || from.equals(hostOf(renormalized))) {
+            return Optional.empty();
+        }
+        return Optional.of(renormalized);
+    }
+
+    private String hostOf(String url) {
+        try {
+            String host = new URI(url).getHost();
+            return host == null ? "" : host.toLowerCase(Locale.ROOT);
+        } catch (URISyntaxException e) {
+            return "";
         }
     }
 

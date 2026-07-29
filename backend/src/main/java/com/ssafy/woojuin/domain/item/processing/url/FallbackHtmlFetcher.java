@@ -25,6 +25,19 @@ import org.springframework.stereotype.Component;
  * 그걸(빈약하더라도) 돌려준다 — best-effort. Jsoup·크롤러가 모두 실패했을 때만
  * 원래 Jsoup 예외를 던진다. 크롤러가 꺼져 있으면({@code woojuin.crawler.enabled=false})
  * 폴백을 아예 시도하지 않고 Jsoup 동작을 그대로 노출한다.
+ *
+ * <p><b>정규화가 더 나은 URL을 아는 경우엔 폴백하지 않는다.</b> 지도 앱 공유 링크는
+ * 앱 설치 유도 페이지로 풀리는데(네이버 {@code map.naver.com/p/entry/place/{id}}는 2.3KB SPA
+ * 껍데기라 og:title도 없다) 이건 정확히 "빈약함" 조건에 걸린다. 그대로 두면 <b>버릴 페이지를
+ * 브라우저로 굽는 데 수 초</b>를 쓰고, 그 직후 {@link UrlItemProcessor}가 최종 URL을 재정규화해
+ * 장소 페이지를 다시 받아온다. 호출부가 {@code @Transactional}이라 그 낭비가 트랜잭션 체류
+ * 시간으로 그대로 들어온다.
+ *
+ * <p>그래서 재정규화 결과가 <b>다른 호스트</b>를 가리키면 크롤러를 건너뛰고 빈약한 문서를
+ * 그대로 넘긴다 — 호출부가 더 나은 URL로 다시 받아오고, 그 페이지가 그때도 빈약하면 거기서
+ * 크롤러가 돈다. 문자열이 달라졌는지가 아니라 <b>호스트</b>가 달라졌는지로 보는 이유는
+ * {@code UrlNormalizer.normalize}가 퍼센트 인코딩된 경로를 디코딩하는 성질이 있어서다 —
+ * 문자열 비교로 판단하면 한국어 경로를 가진 URL이 전부 "달라졌다"로 걸려 크롤러가 꺼진다.
  */
 @Slf4j
 @Primary
@@ -33,16 +46,19 @@ public class FallbackHtmlFetcher implements HtmlFetcher {
 
     private final HtmlFetcher jsoup;
     private final HtmlFetcher crawler;
+    private final UrlNormalizer urlNormalizer;
     private final boolean crawlerEnabled;
     private final int minTextLength;
 
     public FallbackHtmlFetcher(
             @Qualifier("jsoupHtmlFetcher") HtmlFetcher jsoup,
             @Qualifier("scraplingHtmlFetcher") HtmlFetcher crawler,
+            UrlNormalizer urlNormalizer,
             @Value("${woojuin.crawler.enabled:false}") boolean crawlerEnabled,
             @Value("${woojuin.crawler.fallback-min-text-length:200}") int minTextLength) {
         this.jsoup = jsoup;
         this.crawler = crawler;
+        this.urlNormalizer = urlNormalizer;
         this.crawlerEnabled = crawlerEnabled;
         this.minTextLength = minTextLength;
     }
@@ -54,6 +70,13 @@ public class FallbackHtmlFetcher implements HtmlFetcher {
         try {
             jsoupDoc = jsoup.fetch(url);
             if (!crawlerEnabled || looksSufficient(jsoupDoc)) {
+                return jsoupDoc;
+            }
+            String better = urlNormalizer.betterUrlOnAnotherHost(jsoupDoc.location()).orElse(null);
+            if (better != null) {
+                // 브라우저를 굽기 전에 호출부가 더 나은 URL로 다시 받아오게 둔다.
+                log.info("빈약하지만 정규화가 더 나은 URL을 알고 있어 크롤러를 건너뛴다: {} → {}",
+                        jsoupDoc.location(), better);
                 return jsoupDoc;
             }
             log.info("Jsoup 결과가 빈약함, 스텔스 크롤러로 폴백: url={}", url);

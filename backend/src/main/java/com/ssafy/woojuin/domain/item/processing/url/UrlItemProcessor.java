@@ -234,11 +234,8 @@ public class UrlItemProcessor implements ItemProcessor {
             return null;
         }
         String resolved = doc.location();
-        if (resolved == null || resolved.isBlank()) {
-            return doc;
-        }
-        String renormalized = urlNormalizer.normalize(resolved);
-        if (renormalized == null || renormalized.equals(resolved)) {
+        String renormalized = urlNormalizer.betterUrlOnAnotherHost(resolved).orElse(null);
+        if (renormalized == null) {
             return doc;
         }
         log.info("리다이렉트 해소 후 정규화가 달라져 다시 받아온다: {} → {}", resolved, renormalized);

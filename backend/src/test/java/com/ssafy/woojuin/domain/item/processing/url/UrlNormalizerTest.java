@@ -166,6 +166,38 @@ class UrlNormalizerTest {
         assertThat(normalizer.normalize(url)).isEqualTo(url);
     }
 
+    // ---------- betterUrlOnAnotherHost (재요청·폴백 판정 공용 기준) ----------
+
+    @Test
+    void 호스트가_바뀌는_정규화는_더_나은_URL로_본다() {
+        assertThat(normalizer.betterUrlOnAnotherHost(
+                "https://applink.map.kakao.com/place?id=1208117084"))
+                .contains("https://place.map.kakao.com/1208117084");
+        assertThat(normalizer.betterUrlOnAnotherHost(
+                "https://map.naver.com/p/entry/place/1301934134"))
+                .contains("https://m.place.naver.com/place/1301934134");
+        assertThat(normalizer.betterUrlOnAnotherHost("https://blog.naver.com/woojuin/223"))
+                .contains("https://m.blog.naver.com/woojuin/223");
+    }
+
+    @Test
+    void 인코딩이나_추적파라미터만_달라지면_더_나은_URL이_아니다() {
+        // normalize는 경로를 디코딩하고 추적 파라미터를 뗀다 — 같은 페이지인데 문자열이 달라진다.
+        // 이걸 '더 나은 URL'로 보면 그런 URL을 전부 두 번 받아오고 크롤러 폴백도 헛돈다.
+        assertThat(normalizer.betterUrlOnAnotherHost(
+                "https://www.google.com/search?q=%EC%88%98%EC%99%84&rlz=abc")).isEmpty();
+        assertThat(normalizer.betterUrlOnAnotherHost(
+                "https://example.com/post?id=1&utm_source=x")).isEmpty();
+    }
+
+    @Test
+    void 정규화할것이_없거나_판별_불가면_비어_있다() {
+        assertThat(normalizer.betterUrlOnAnotherHost("https://example.com/clean")).isEmpty();
+        assertThat(normalizer.betterUrlOnAnotherHost(null)).isEmpty();
+        assertThat(normalizer.betterUrlOnAnotherHost("")).isEmpty();
+        assertThat(normalizer.betterUrlOnAnotherHost("not a url ::: %%%")).isEmpty();
+    }
+
     @Test
     void 파싱_불가능한_입력은_원본을_그대로_반환한다() {
         String bad = "not a url ::: %%%";
