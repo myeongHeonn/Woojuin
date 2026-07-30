@@ -6,16 +6,13 @@ import {
   type StarNode,
   type UniverseScene,
 } from '@/utils/scene';
-import type { Star, UniverseResponse } from '@/stores/mock/universe';
+import type { Star, UniverseResponse } from '@/types/universe';
 import ConstellationLabels from '@/components/domain/universe/ConstellationLabels';
 import StarTooltip from '@/components/ui/StarTooltip';
 
 interface UniverseCanvasProps {
-  /**
-   * 서버 응답. 생략하면 목업 데이터를 쓴다.
-   * TODO: useUniverse(workspaceId) 로 받아 넘긴다
-   */
-  data?: UniverseResponse;
+  /** GET /workspaces/{id}/universe 응답을 화면용으로 정규화한 데이터 */
+  data: UniverseResponse;
   /** 별자리 중심을 클릭 — 대시보드로 이동 */
   onSelectConstellation?: (categoryId: number) => void;
   /** URL 이 아닌 저장물을 클릭 — 상세 조회 API 호출 */
