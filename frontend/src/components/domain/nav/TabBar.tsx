@@ -1,8 +1,8 @@
 import type { ComponentType, SVGProps } from 'react';
 import { Link, useLocation, useMatch } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
-import { useUser } from '@/hooks/useUser';
-import { ConstellationIcon, DashboardIcon, MapIcon, TrashIcon, UserIcon } from '@/assets/icons';
+import { useSpaces } from '@/hooks/useSpaces';
+import { ConstellationIcon, DashboardIcon, MapIcon, UserIcon } from '@/assets/icons';
 
 interface Tab {
   label: string;
@@ -14,8 +14,9 @@ interface Tab {
 }
 
 /**
- * 탭 다섯 개. 앞 셋은 같은 워크스페이스를 다르게 보는 뷰라 segment 를 쓰고,
- * 마이·휴지통은 워크스페이스에 속하지 않아 path 를 쓴다.
+ * 탭 네 개. 앞 셋은 같은 워크스페이스를 다르게 보는 뷰라 segment 를 쓰고,
+ * 마이는 워크스페이스에 속하지 않아 path 를 쓴다.
+ * 휴지통은 워크스페이스별이라 탭이 아니라 스테이지 헤더의 휴지통 아이콘으로 들어간다.
  * 화면에 구분선은 두지 않는다 — 아이콘과 순서로 충분히 읽힌다.
  */
 const TABS: Tab[] = [
@@ -23,7 +24,6 @@ const TABS: Tab[] = [
   { label: '보관함', Icon: DashboardIcon, segment: 'library' },
   { label: '지도', Icon: MapIcon, segment: 'map' },
   { label: '마이', Icon: UserIcon, path: '/my' },
-  { label: '휴지통', Icon: TrashIcon, path: '/trash' },
 ];
 
 /**
@@ -35,14 +35,15 @@ const TABS: Tab[] = [
  */
 const TabBar = ({ className }: { className?: string }) => {
   const { pathname } = useLocation();
-  const { personalSpaceId } = useUser();
+  const { personalSpaceId } = useSpaces();
 
   /**
    * TabBar 는 /workspace/:workspaceId 라우트보다 위에 있어 useParams 로는 id 를 못 읽는다.
    * 마이·휴지통에 있는 동안에는 URL 에 워크스페이스가 없으므로 개인 스페이스로 되돌린다.
    */
   const match = useMatch('/workspace/:workspaceId/*');
-  const workspaceId = match?.params.workspaceId ?? String(personalSpaceId);
+  // 목록 로드 전(personalSpaceId undefined)엔 워크스페이스 탭을 /home 으로 보낸다
+  const workspaceId = match?.params.workspaceId ?? personalSpaceId;
 
   return (
     <nav
@@ -56,7 +57,7 @@ const TabBar = ({ className }: { className?: string }) => {
     >
       <div className="flex gap-1 rounded-[20px] border border-border bg-sidebar/70 p-1.5 backdrop-blur-lg">
         {TABS.map(({ label, Icon, segment, path }) => {
-          const to = path ?? `/workspace/${workspaceId}/${segment}`;
+          const to = path ?? (workspaceId ? `/workspace/${workspaceId}/${segment}` : '/home');
           // 하위 경로(library/:catId)에서도 켜져 보이게 prefix 로 판단
           const active = pathname === to || pathname.startsWith(`${to}/`);
 

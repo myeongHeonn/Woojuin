@@ -60,23 +60,84 @@ woojuin:
     base-url: ${AI_BASE_URL:https://gms.ssafy.io/gmsapi/api.openai.com/v1}
     model: ${AI_MODEL:gpt-5-mini}
     timeout-ms: ${AI_TIMEOUT_MS:8000}
+  # 이미지 분석(OCR·설명·태그 추출). OpenRouter 경유 Qwen3-VL — 위 ai(텍스트) 블록과
+  # 프로바이더가 달라 별도 블록이다(모델·키·과금 주체가 다르다). 묶음 F의 이미지 모델
+  # 평가(ai-test 브랜치 ai/ai-image)에서 확정한 qwen3-vl 8b instruct를 그대로 쓴다.
+  # API 키(OPENROUTER_API_KEY)는 여기가 아니라 ImageTextExtractorConfig에서 직접 읽는다 —
+  # 이유는 위 ai 블록 주석과 동일(빈 줄을 "키 있음"으로 오해하는 문제). 키가 없으면
+  # 이미지 텍스트 추출만 꺼지고(NoOp) 썸네일·EXIF 좌표·저장은 계속 동작한다.
+  # timeout이 ai(8000)보다 긴 건 VL 추론이 이미지 크기에 따라 수 초를 넘기 때문이다.
+  # 컨슈머가 병렬(queue.consumer-count)이라 이 시간만큼의 DB 커넥션 점유가 컨슈머 수만큼
+  # 겹칠 수 있다 — timeout이나 컨슈머 수를 늘릴 땐 커넥션 풀을 같이 볼 것.
+  vision:
+    base-url: ${VISION_BASE_URL:https://openrouter.ai/api/v1}
+    model: ${VISION_MODEL:qwen/qwen3-vl-8b-instruct}
+    timeout-ms: ${VISION_TIMEOUT_MS:20000}
+  # AI 요약·카테고리 분류 (+ 사용자 카테고리 설명 생성). ai/ai-mix 사이드카(묶음 F 산출물,
+  # qwen3-8b via OpenRouter)를 HTTP로 호출한다 — 크롤러와 같은 사이드카 패턴이고,
+  # 임베딩·3차원 좌표 축소(UMAP)도 같은 서비스에 있어 다음 작업이 재사용한다.
+  # aimix는 docker-compose에 포함돼 함께 뜨므로 기본 켜둔다. 사이드카 없이 백엔드만
+  # 돌릴 땐 AIMIX_ENABLED=false로 끄면 요약·분류만 조용히 비활성화된다(NoOp).
+  # timeout이 넉넉한 건 아이템 하나에 LLM 두 번(요약→분류)이 나가는 데다 ai-mix가
+  # 자체 재시도를 하기 때문이다. 커넥션 점유는 컨슈머 수만큼 겹친다(vision 주석 참고).
+  aimix:
+    enabled: ${AIMIX_ENABLED:true}
+    base-url: ${AIMIX_BASE_URL:http://localhost:8002}
+    timeout-ms: ${AIMIX_TIMEOUT_MS:45000}
+    # 의미 검색(키워드 0건 폴백)의 코사인 거리 상한. 이보다 먼 아이템은 "관련 없음"으로
+    # 버린다 — 임계값이 없으면 무관한 검색어에도 가장 덜 먼 아이템이 무조건 나온다.
+    # 0.7은 text-embedding-3-small 한국어 실측으로 잡았다: 관련 구문 쿼리가 0.50~0.70,
+    # 무관 쿼리가 0.72~0.77에 몰려 그 사이를 자른 값이다. 단답형(한 단어) 쿼리는 이 모델의
+    # 변별력이 없어서("초밥"vs"스시"조차 0.72) 임계값을 올려 잡으려 하면 오탐이 더 늘어난다.
+    # 검색이 엉뚱한 걸 물어오면 낮추고 너무 안 잡으면 올리면 된다(백엔드 로그에 거리가 찍힌다).
+    search-max-distance: ${AIMIX_SEARCH_MAX_DISTANCE:0.7}
+  # 지도 좌표 변환(FR-023). 카카오 로컬 API — 주소↔좌표 REST 호출이지 지도 SDK가 아니다.
+  # REST 키(KAKAO_REST_API_KEY)는 여기가 아니라 GeocoderConfig에서 직접 읽는다 — 이유는
+  # 위 ai 블록 주석과 동일(빈 줄을 "키 있음"으로 오해하는 문제).
+  # 키가 없으면 지오코딩만 꺼지고, 지도 공유 링크·사진 EXIF 좌표는 계속 저장된다.
+  # timeout이 ai(8000)보다 짧은 건 의도적이다 — 이 호출이 @Transactional 프로세서 안에서
+  # 일어나 DB 커넥션을 붙잡는 시간을 늘리기 때문이다(UrlItemProcessor 주석 참고).
+  geo:
+    base-url: ${GEO_BASE_URL:https://dapi.kakao.com}
+    timeout-ms: ${GEO_TIMEOUT_MS:3000}
   queue:
     stream-key: woojuin:item-processing
     consumer-group: ai-workers
+    # 병렬 컨슈머 수. 3인 근거: 프로세서가 @Transactional이라 컨슈머 하나가 크롤·LLM 호출
+    # 내내 DB 커넥션 하나를 점유한다 — Hikari 기본 풀 10에서 컨슈머 3 + 회수기 1이면 장기
+    # 점유 최대 4, 나머지 6이 웹 요청 몫이다. 더 올리려면 풀 크기를 같이 늘릴 것.
+    consumer-count: ${QUEUE_CONSUMER_COUNT:3}
     max-delivery: 3            # 이 횟수만큼 배달·재시도한 뒤에도 실패하면 FAILED 확정
-    reclaim-idle-ms: 60000     # pending이 이 시간 이상 방치되면 회수 대상(처리 중 유예)
+    # pending이 이 시간 이상 방치되면 회수 대상. URL 워스트케이스(Scrapling 폴백 40s×2 +
+    # aimix 45s)가 2분을 넘길 수 있어, 그보다 짧으면 아직 처리 중인 메시지를 회수기가
+    # claim해서 같은 아이템을 동시에 두 번 가공한다(AI 이중 호출). 진짜 죽은 메시지의
+    # 재시도가 3분 늦어지는 것과의 트레이드오프.
+    reclaim-idle-ms: 180000
     reclaim-interval-ms: 30000 # 회수 스케줄러 실행 주기
     reclaim-batch-size: 32     # 한 주기에 살펴볼 pending 최대 건수
   fetch:
     timeout-ms: 5000
     max-body-bytes: 3145728   # 3MB. 미리보기/본문 추출에 이보다 큰 HTML은 불필요
     max-redirects: 5
+  crawler:
+    # Scrapling 사이드카 폴백. crawler는 docker-compose에 포함돼 함께 뜨므로 기본 켜둔다.
+    # 크롤러 없이 백엔드만 돌릴 땐 CRAWLER_ENABLED=false로 끄면 Jsoup 결과만 쓴다.
+    enabled: ${CRAWLER_ENABLED:true}
+    base-url: ${CRAWLER_BASE_URL:http://localhost:8001}
+    timeout-ms: 40000                # 브라우저 렌더가 느려 크롤러 자체 타임아웃보다 넉넉히
+    # 폴백 기준은 별도 임계치를 두지 않고 woojuin.content.min-length(트랙 B 성공 조건)를
+    # 그대로 쓴다 — 정적 HTML로 본문이 안 나오면 브라우저로 한 번 더 시도한다.
 
 aws:
   region: ${AWS_REGION:ap-northeast-2}
   s3:
     bucket: ${AWS_S3_BUCKET:woojuin-items}
     endpoint: ${AWS_S3_ENDPOINT:http://localhost:9000}   # 로컬 MinIO. 운영(AWS S3)에서는 빈 값으로 오버라이드
+    # presigned URL "서명용" 공개 주소. 브라우저가 이 주소로 파일에 직접 접근하므로
+    # 브라우저에서 해석 가능한 도메인이어야 한다. 컨테이너 배포에서 endpoint(minio:9000)로
+    # 서명하면 내부 호스트명이 URL 에 박혀 ERR_NAME_NOT_RESOLVED 가 난다(dev 실측, 2026-07-29).
+    # 비어 있으면 endpoint 를 그대로 쓴다 — 로컬은 localhost 라 브라우저도 닿는다.
+    public-endpoint: ${AWS_S3_PUBLIC_ENDPOINT:}
     access-key: ${AWS_S3_ACCESS_KEY:woojuin}
     secret-key: ${AWS_S3_SECRET_KEY:woojuin-local}
 

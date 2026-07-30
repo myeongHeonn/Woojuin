@@ -19,4 +19,6 @@ export interface MapAdapter {
 export interface MapAdapterOptions {
   container: HTMLElement;
   onSelectPoint: (pointId: number) => void;
+  onOpenPoint: (pointId: number) => void;
+  onDeselectPoint: () => void;
 }

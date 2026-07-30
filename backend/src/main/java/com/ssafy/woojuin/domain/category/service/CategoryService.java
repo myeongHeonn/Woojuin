@@ -4,14 +4,17 @@ import com.ssafy.woojuin.domain.category.CategoryColors;
 import com.ssafy.woojuin.domain.category.CategoryDefaults;
 import com.ssafy.woojuin.domain.category.dto.CategoryResponse;
 import com.ssafy.woojuin.domain.category.entity.Category;
+import com.ssafy.woojuin.domain.category.event.CategoryDescriptionNeededEvent;
 import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
 import com.ssafy.woojuin.domain.category.repository.CategoryRepository;
 import com.ssafy.woojuin.domain.category.repository.ItemCategoryRepository;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,14 +31,25 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final ItemCategoryRepository itemCategoryRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public CategoryService(CategoryRepository categoryRepository,
             ItemCategoryRepository itemCategoryRepository,
-            WorkspaceMemberRepository workspaceMemberRepository) {
+            WorkspaceMemberRepository workspaceMemberRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.categoryRepository = categoryRepository;
         this.itemCategoryRepository = itemCategoryRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
+        this.eventPublisher = eventPublisher;
     }
+
+    /**
+     * 순서: 생성 순(id)으로 나열하되 "기타"만 맨 뒤. 폴백 카테고리라 사용자가 새로
+     * 추가한 카테고리보다 앞에 끼어 있으면 어색하다 — 목록 끝에 고정한다.
+     */
+    private static final Comparator<Category> ETC_LAST =
+            Comparator.comparing((Category c) -> CategoryDefaults.ETC.equals(c.getName()))
+                    .thenComparing(Category::getId);
 
     /**
      * hasItems=true면 활성(휴지통 제외) 아이템이 하나라도 있는 카테고리만 반환한다 —
@@ -53,7 +67,7 @@ public class CategoryService {
                     .filter(category -> withItems.contains(category.getId()))
                     .toList();
         }
-        return categories.stream().map(CategoryResponse::from).toList();
+        return categories.stream().sorted(ETC_LAST).map(CategoryResponse::from).toList();
     }
 
     @Transactional
@@ -67,6 +81,9 @@ public class CategoryService {
         Category saved = categoryRepository.save(
                 Category.builder().workspaceId(workspaceId).name(trimmed)
                         .color(CategoryColors.forOrdinal(constellationCount(workspaceId))).build());
+        // AI 분류용 설명은 커밋 후 비동기로 생성한다(CategoryDescriptionGenerator) —
+        // 생성 API가 LLM 호출을 기다리게 하지 않는다.
+        eventPublisher.publishEvent(new CategoryDescriptionNeededEvent(saved.getId(), trimmed));
         return CategoryResponse.from(saved);
     }
 
@@ -83,7 +100,12 @@ public class CategoryService {
                 && categoryRepository.existsByWorkspaceIdAndName(workspaceId, trimmed)) {
             throw new IllegalArgumentException("이미 같은 이름의 카테고리가 있습니다: " + trimmed);
         }
+        boolean nameChanged = !trimmed.equals(category.getName());
         category.rename(trimmed);
+        if (nameChanged) {
+            // 이름이 바뀌면 설명이 비워지므로(Category.rename) 새 설명을 비동기로 다시 생성한다.
+            eventPublisher.publishEvent(new CategoryDescriptionNeededEvent(category.getId(), trimmed));
+        }
         return CategoryResponse.from(category);
     }
 

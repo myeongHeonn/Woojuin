@@ -1,4 +1,4 @@
-import { type Constellation, type Vec3 } from '@/stores/mock/universe';
+import { type Constellation, type Vec3 } from '@/types/universe';
 
 /**
  * 카테고리(별자리)의 위치·크기는 서버가 주지 않는다.

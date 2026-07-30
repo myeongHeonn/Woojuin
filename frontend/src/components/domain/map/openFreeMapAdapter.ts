@@ -1,4 +1,5 @@
 import {
+  LngLat,
   LngLatBounds,
   Map as MapLibreMap,
   Marker,
@@ -11,12 +12,24 @@ import type { MapAdapter, MapAdapterOptions, MapPoint } from '@/components/domai
 
 const OPEN_FREE_MAP_STYLE = 'https://tiles.openfreemap.org/styles/fiord';
 const DEFAULT_CENTER: [number, number] = [127.7669, 35.9078];
+const CLUSTER_RADIUS_PX = 36;
+const CLUSTER_ZOOM_STEP = 2;
+const MAX_CLUSTER_ZOOM = 18;
+const MIN_CLUSTER_SIZE_PX = 28;
+const MAX_CLUSTER_SIZE_PX = 52;
+const CLUSTER_SIZE_STEP_PX = 4;
+const LARGE_CLUSTER_COUNT = 5;
+const DISTANT_PLACE_THRESHOLD_METERS = 800_000;
+const SELECTED_PLACE_ZOOM = 17.5;
 
 setWorkerUrl(maplibreWorkerUrl);
 
-const createPopupContent = (point: MapPoint) => {
+const createPopupContent = (point: MapPoint, onOpen: (pointId: number) => void) => {
   const content = document.createElement('article');
   content.className = 'woojuin-map-popup-content';
+  content.tabIndex = 0;
+  content.setAttribute('role', 'button');
+  content.setAttribute('aria-label', `${point.title} 상세 열기`);
 
   const meta = document.createElement('div');
   meta.className = 'woojuin-map-popup-meta';
@@ -25,8 +38,8 @@ const createPopupContent = (point: MapPoint) => {
   dot.className = 'woojuin-map-popup-dot';
   dot.style.backgroundColor = point.color;
 
-  const category = document.createElement('span');
-  category.textContent = `#${point.categoryLabel} · ${point.typeLabel}`;
+  const type = document.createElement('span');
+  type.textContent = `#${point.categoryLabel} · ${point.typeLabel}`;
 
   const title = document.createElement('strong');
   title.textContent = point.title;
@@ -35,14 +48,31 @@ const createPopupContent = (point: MapPoint) => {
   address.className = 'woojuin-map-popup-address';
   address.textContent = point.address;
 
-  meta.append(dot, category);
-  content.append(meta, title, address);
+  const openHint = document.createElement('span');
+  openHint.className = 'woojuin-map-popup-open-hint';
+  openHint.textContent = '클릭하여 열기';
+
+  meta.append(dot, type);
+  content.append(meta, title, address, openHint);
+  content.addEventListener('click', (event) => {
+    event.stopPropagation();
+    onOpen(point.id);
+  });
+  content.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    event.stopPropagation();
+    onOpen(point.id);
+  });
+
   return content;
 };
 
 export const createOpenFreeMapAdapter = ({
   container,
   onSelectPoint,
+  onOpenPoint,
+  onDeselectPoint,
 }: MapAdapterOptions): MapAdapter => {
   const map = new MapLibreMap({
     container,
@@ -51,6 +81,20 @@ export const createOpenFreeMapAdapter = ({
     zoom: 6.2,
     attributionControl: { compact: true },
   });
+
+  const collapseInitialAttribution = () => {
+    const attribution = container.querySelector<HTMLDetailsElement>(
+      '.maplibregl-ctrl-attrib.maplibregl-compact',
+    );
+    if (!attribution) return;
+
+    attribution.classList.remove('maplibregl-compact-show');
+    attribution.setAttribute('open', '');
+    map.off('styledata', collapseInitialAttribution);
+  };
+
+  map.on('styledata', collapseInitialAttribution);
+  collapseInitialAttribution();
 
   map.addControl(
     new NavigationControl({
@@ -61,42 +105,200 @@ export const createOpenFreeMapAdapter = ({
   );
 
   let points: MapPoint[] = [];
-  let markers = new Map<number, { marker: Marker; element: HTMLButtonElement }>();
-  let popup: Popup | null = null;
+  let markers: Marker[] = [];
+  let markerElements = new Map<number, HTMLButtonElement>();
+  let selectedPopup: Popup | null = null;
+  let hoverPopup: Popup | null = null;
+  let hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
   let selectedPointId: number | null = null;
 
-  const removePopup = () => {
-    popup?.remove();
-    popup = null;
+  const removeSelectedPopup = () => {
+    selectedPopup?.remove();
+    selectedPopup = null;
   };
 
-  const updateSelection = () => {
-    markers.forEach(({ element }, id) => {
-      const selected = id === selectedPointId;
-      element.classList.toggle('is-selected', selected);
-      element.setAttribute('aria-pressed', String(selected));
-    });
+  const removeHoverPopup = () => {
+    if (hoverCloseTimer) {
+      clearTimeout(hoverCloseTimer);
+      hoverCloseTimer = null;
+    }
+    hoverPopup?.remove();
+    hoverPopup = null;
+  };
 
-    removePopup();
-    if (selectedPointId === null) return;
+  const scheduleHoverPopupRemoval = () => {
+    if (hoverCloseTimer) clearTimeout(hoverCloseTimer);
+    hoverCloseTimer = setTimeout(removeHoverPopup, 120);
+  };
 
-    const point = points.find(({ id }) => id === selectedPointId);
-    if (!point) return;
+  const showHoverPopup = (point: MapPoint) => {
+    if (selectedPointId !== null) return;
 
-    popup = new Popup({
+    removeHoverPopup();
+    hoverPopup = new Popup({
       closeButton: false,
       closeOnClick: false,
       offset: 18,
       className: 'woojuin-map-popup',
     })
       .setLngLat([point.lng, point.lat])
-      .setDOMContent(createPopupContent(point))
+      .setDOMContent(createPopupContent(point, onOpenPoint))
       .addTo(map);
 
-    map.easeTo({
-      center: [point.lng, point.lat],
-      duration: 450,
+    const popupElement = hoverPopup.getElement();
+    popupElement.addEventListener('mouseenter', () => {
+      if (hoverCloseTimer) {
+        clearTimeout(hoverCloseTimer);
+        hoverCloseTimer = null;
+      }
     });
+    popupElement.addEventListener('mouseleave', scheduleHoverPopupRemoval);
+  };
+
+  const updateMarkerSelection = () => {
+    markerElements.forEach((element, id) => {
+      const selected = id === selectedPointId;
+      element.classList.toggle('is-selected', selected);
+      element.setAttribute('aria-pressed', String(selected));
+    });
+  };
+
+  const updateSelection = () => {
+    updateMarkerSelection();
+    removeHoverPopup();
+    removeSelectedPopup();
+    if (selectedPointId === null) return;
+
+    const point = points.find(({ id }) => id === selectedPointId);
+    if (!point) return;
+
+    selectedPopup = new Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: 18,
+      className: 'woojuin-map-popup',
+    })
+      .setLngLat([point.lng, point.lat])
+      .setDOMContent(createPopupContent(point, onOpenPoint))
+      .addTo(map);
+
+    const destination = new LngLat(point.lng, point.lat);
+    const isDistant = map.getCenter().distanceTo(destination) >= DISTANT_PLACE_THRESHOLD_METERS;
+
+    if (isDistant) {
+      map.flyTo({
+        center: destination,
+        zoom: SELECTED_PLACE_ZOOM,
+        curve: 1.6,
+        speed: 1.8,
+        minZoom: 7,
+      });
+    } else {
+      map.easeTo({
+        center: destination,
+        zoom: Math.max(map.getZoom(), SELECTED_PLACE_ZOOM),
+        duration: 450,
+      });
+    }
+  };
+
+  const removeMarkers = () => {
+    removeHoverPopup();
+    markers.forEach((marker) => marker.remove());
+    markers = [];
+    markerElements = new Map();
+  };
+
+  const handleMapClick = () => {
+    onDeselectPoint();
+  };
+
+  const createMarker = (clusterPoints: MapPoint[]) => {
+    const isCluster = clusterPoints.length > 1;
+    const lat = clusterPoints.reduce((sum, point) => sum + point.lat, 0) / clusterPoints.length;
+    const lng = clusterPoints.reduce((sum, point) => sum + point.lng, 0) / clusterPoints.length;
+    const markerAnchor = document.createElement('div');
+    markerAnchor.className = 'woojuin-map-marker-anchor';
+
+    const element = document.createElement('button');
+    element.type = 'button';
+    element.className = 'woojuin-map-marker';
+
+    if (isCluster) {
+      const clusterSize = Math.min(
+        MIN_CLUSTER_SIZE_PX + (clusterPoints.length - 2) * CLUSTER_SIZE_STEP_PX,
+        MAX_CLUSTER_SIZE_PX,
+      );
+      markerAnchor.classList.add('has-cluster');
+      markerAnchor.style.setProperty('--cluster-size', `${clusterSize}px`);
+      element.classList.add('is-cluster');
+      if (clusterPoints.length >= LARGE_CLUSTER_COUNT) {
+        element.classList.add('is-large');
+      }
+      element.textContent = String(clusterPoints.length);
+      element.setAttribute('aria-label', `가까운 장소 ${clusterPoints.length}곳 확대`);
+      element.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const anchor = map.project([clusterPoints[0].lng, clusterPoints[0].lat]);
+        const farthestDistance = clusterPoints.reduce((maximum, point) => {
+          const projected = map.project([point.lng, point.lat]);
+          return Math.max(maximum, Math.hypot(projected.x - anchor.x, projected.y - anchor.y));
+        }, 0);
+        const zoomDelta =
+          farthestDistance > 0
+            ? Math.max(Math.log2((CLUSTER_RADIUS_PX + 4) / farthestDistance), 0.5)
+            : CLUSTER_ZOOM_STEP;
+
+        map.easeTo({
+          center: [lng, lat],
+          zoom: Math.min(map.getZoom() + zoomDelta, MAX_CLUSTER_ZOOM),
+          duration: 450,
+        });
+      });
+    } else {
+      const [point] = clusterPoints;
+      element.style.setProperty('--marker-color', point.color);
+      element.setAttribute('aria-label', `${point.title} 지도 위치`);
+      element.addEventListener('click', (event) => {
+        event.stopPropagation();
+        onSelectPoint(point.id);
+      });
+      element.addEventListener('mouseenter', () => showHoverPopup(point));
+      element.addEventListener('mouseleave', scheduleHoverPopupRemoval);
+      element.addEventListener('focus', () => showHoverPopup(point));
+      element.addEventListener('blur', scheduleHoverPopupRemoval);
+      markerElements.set(point.id, element);
+    }
+
+    markerAnchor.append(element);
+    markers.push(
+      new Marker({ element: markerAnchor, anchor: 'center' }).setLngLat([lng, lat]).addTo(map),
+    );
+  };
+
+  const renderMarkers = () => {
+    removeMarkers();
+    const clusters: MapPoint[][] = [];
+
+    points.forEach((point) => {
+      const projectedPoint = map.project([point.lng, point.lat]);
+      const cluster = clusters.find(([anchor]) => {
+        const projectedAnchor = map.project([anchor.lng, anchor.lat]);
+        return (
+          Math.hypot(projectedPoint.x - projectedAnchor.x, projectedPoint.y - projectedAnchor.y) <=
+          CLUSTER_RADIUS_PX
+        );
+      });
+
+      if (cluster) {
+        cluster.push(point);
+      } else {
+        clusters.push([point]);
+      }
+    });
+
+    clusters.forEach(createMarker);
+    updateMarkerSelection();
   };
 
   const fitPoints = () => {
@@ -107,7 +309,7 @@ export const createOpenFreeMapAdapter = ({
     if (width < 2 || height < 2) return;
 
     if (points.length === 1) {
-      map.easeTo({ center: [points[0].lng, points[0].lat], zoom: 13, duration: 500 });
+      map.easeTo({ center: [points[0].lng, points[0].lat], zoom: 15, duration: 500 });
       return;
     }
 
@@ -135,31 +337,13 @@ export const createOpenFreeMapAdapter = ({
     });
   };
 
+  map.on('moveend', renderMarkers);
+  map.on('click', handleMapClick);
+
   return {
     setPoints(nextPoints) {
-      markers.forEach(({ marker }) => marker.remove());
-      markers = new Map();
       points = nextPoints;
-
-      points.forEach((point) => {
-        const markerAnchor = document.createElement('div');
-        markerAnchor.className = 'woojuin-map-marker-anchor';
-
-        const element = document.createElement('button');
-        element.type = 'button';
-        element.className = 'woojuin-map-marker';
-        element.style.setProperty('--marker-color', point.color);
-        element.setAttribute('aria-label', `${point.title} 지도 위치`);
-        element.addEventListener('click', () => onSelectPoint(point.id));
-        markerAnchor.append(element);
-
-        const marker = new Marker({ element: markerAnchor, anchor: 'center' })
-          .setLngLat([point.lng, point.lat])
-          .addTo(map);
-
-        markers.set(point.id, { marker, element });
-      });
-
+      renderMarkers();
       updateSelection();
       fitPoints();
     },
@@ -171,9 +355,11 @@ export const createOpenFreeMapAdapter = ({
       map.resize();
     },
     destroy() {
-      removePopup();
-      markers.forEach(({ marker }) => marker.remove());
-      markers.clear();
+      removeHoverPopup();
+      removeSelectedPopup();
+      map.off('moveend', renderMarkers);
+      map.off('click', handleMapClick);
+      removeMarkers();
       map.remove();
     },
   };

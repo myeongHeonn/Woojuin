@@ -46,6 +46,12 @@ dependencies {
     implementation 'com.sksamuel.scrimage:scrimage-core:4.3.0'
     implementation 'com.sksamuel.scrimage:scrimage-webp:4.3.0'
 
+    // 사진 EXIF의 GPS 좌표 읽기 (IMAGE 아이템 지도 매핑, FR-023).
+    // scrimage-core가 이미 같은 라이브러리를 같은 버전으로 끌어오지만 pom의 scope가 runtime이라
+    // runtimeClasspath에만 올라온다 — compileClasspath엔 없어서 명시 선언 없이는 com.drew.*
+    // import가 컴파일되지 않는다. scrimage가 쓰는 2.18.0에 맞춰 버전 스큐를 없앤다.
+    implementation 'com.drewnoakes:metadata-extractor:2.18.0'
+
     // Swagger UI (springdoc-openapi)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
 

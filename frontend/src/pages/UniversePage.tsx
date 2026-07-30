@@ -1,23 +1,88 @@
+import { useEffect, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import UniverseCanvas from '@/components/domain/universe/UniverseCanvas';
+import ConstellationSearch from '@/components/domain/search/ConstellationSearch';
+import ItemModal from '@/components/domain/library/detail/ItemModal';
+import Spinner from '@/components/ui/Spinner';
 import { useStageMeta } from '@/hooks/useStageMeta';
-import { MOCK_UNIVERSE } from '@/stores/mock/universe';
+import { processingPollInterval, useItems } from '@/hooks/useItems';
+import { useCategories } from '@/hooks/useCategories';
+import { universeKey, useUniverse } from '@/hooks/useUniverse';
 
 /**
  * 성좌 뷰.
  *
- * TODO: 별 데이터는 useUniverse(workspaceId) 로 교체한다.
- * 지금은 목업을 페이지에서 들고 있어야 헤더의 개수와 캔버스가 어긋나지 않는다.
+ * 헤더 요약과 3D 좌표를 모두 서버에서 받는다. 아이템 처리 중에는 목록 상태를 기준으로
+ * 우주 API도 폴링하고, 처리가 끝나는 순간 한 번 더 갱신해 새 좌표를 놓치지 않는다.
  */
 const UniversePage = () => {
-  const universe = MOCK_UNIVERSE;
+  const { workspaceId: workspaceIdParam } = useParams<{ workspaceId: string }>();
+  const workspaceId = Number(workspaceIdParam);
+  const queryClient = useQueryClient();
+  const [openItemId, setOpenItemId] = useState<number | null>(null);
 
-  const memories =
-    universe.constellations.reduce((sum, c) => sum + c.items.length, 0) +
-    universe.unclassified.length;
+  // 헤더 숫자와 PROCESSING 여부는 기존 목록 쿼리를 재사용한다(전용 통계 API 없음).
+  const { data: itemsData } = useItems({ workspaceId, size: 20 });
+  const { data: categories = [], isSuccess: categoriesLoaded } = useCategories(workspaceId);
+  const universePollInterval = processingPollInterval(itemsData?.pages);
+  const {
+    data: universe,
+    isLoading: isUniverseLoading,
+    isError: isUniverseError,
+    refetch: refetchUniverse,
+  } = useUniverse(workspaceId, universePollInterval);
 
-  useStageMeta(`${memories} memories · ${universe.constellations.length} constellations`);
+  const wasProcessingRef = useRef(false);
+  useEffect(() => {
+    const processing = universePollInterval !== false;
+    if (wasProcessingRef.current && !processing) {
+      queryClient.invalidateQueries({ queryKey: universeKey(workspaceId) });
+    }
+    wasProcessingRef.current = processing;
+  }, [queryClient, universePollInterval, workspaceId]);
 
-  return <UniverseCanvas data={universe} />;
+  // 둘 다 준비되기 전엔 요약을 비워 "0 memories · 0 constellations" 깜빡임을 막는다
+  const memories = itemsData?.pages[0]?.totalElements;
+  useStageMeta(
+    memories !== undefined && categoriesLoaded
+      ? `${memories} memories · ${categories.length} constellations`
+      : undefined,
+  );
+
+  return (
+    <div className="relative h-full w-full overflow-hidden bg-space">
+      {universe && <UniverseCanvas data={universe} onOpenItem={setOpenItemId} />}
+
+      {isUniverseLoading && (
+        <div className="absolute inset-0 grid place-items-center">
+          <Spinner className="h-7 w-7" />
+        </div>
+      )}
+
+      {isUniverseError && (
+        <div className="absolute inset-0 grid place-items-center px-6 text-center">
+          <div>
+            <p className="text-sm text-text-2">우주를 불러오지 못했어요.</p>
+            <button
+              type="button"
+              onClick={() => refetchUniverse()}
+              className="mt-3 rounded-lg border border-border px-3 py-2 text-xs text-text-1"
+            >
+              다시 시도
+            </button>
+          </div>
+        </div>
+      )}
+
+      <ConstellationSearch />
+      <ItemModal
+        workspaceId={workspaceId}
+        itemId={openItemId}
+        onClose={() => setOpenItemId(null)}
+      />
+    </div>
+  );
 };
 
 export default UniversePage;

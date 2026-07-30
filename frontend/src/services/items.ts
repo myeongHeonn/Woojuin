@@ -1,5 +1,49 @@
 import { api, type ApiResponse } from './client';
-import type { ItemCreateResponse, ItemDetail, ItemListResponse } from '@/types/item';
+import type {
+  ItemCreateResponse,
+  ItemDetail,
+  ItemListResponse,
+  ItemSearchResponse,
+  ItemAiSearchResponse,
+} from '@/types/item';
+import type { MapPlace } from '@/types/map';
+
+// ── 검색 ────────────────────────────────────────
+// 일반(키워드)과 AI(자연어)를 경로로 나눈다 — 응답 content 는 동일해 카드 재사용.
+export async function searchItems(workspaceId: number, q: string, page: number, size: number) {
+  const params = new URLSearchParams({ q, page: String(page), size: String(size) });
+  const res = await api.get<ApiResponse<ItemSearchResponse>>(
+    `/workspaces/${workspaceId}/search?${params}`,
+  );
+  return res.data.data;
+}
+
+export async function aiSearchItems(workspaceId: number, q: string, page: number, size: number) {
+  const params = new URLSearchParams({ q, page: String(page), size: String(size) });
+  const res = await api.get<ApiResponse<ItemAiSearchResponse>>(
+    `/workspaces/${workspaceId}/ai/search?${params}`,
+  );
+  return res.data.data;
+}
+
+// ── 휴지통 ───────────────────────────────────────
+// 목록은 일반 목록과 같은 content(카드 재사용). 복구/영구삭제는 아이템 단위.
+export async function fetchTrash(workspaceId: number, page: number, size: number) {
+  const res = await api.get<ApiResponse<ItemListResponse>>(
+    `/workspaces/${workspaceId}/trash?page=${page}&size=${size}`,
+  );
+  return res.data.data;
+}
+
+// 복구 — 원래 카테고리로 되돌아간다
+export async function restoreItem(itemId: number) {
+  await api.post<ApiResponse<ItemDetail>>(`/items/${itemId}/restore`);
+}
+
+// 영구 삭제 — 되돌릴 수 없다
+export async function deleteItemPermanently(itemId: number) {
+  await api.delete<ApiResponse<null>>(`/items/${itemId}/permanent`);
+}
 
 //워크스페이스 아이템 받아오기
 //필터는 전부 서버가 처리한다(즐겨찾기·카테고리·정렬) — queryKey 로 캐싱/재요청을 태운다.
@@ -44,6 +88,11 @@ export async function fetchItems({
 // GET /items/{itemId} → ItemDetailResponse (아이템 id 는 전역 유일이라 워크스페이스 스코프가 없다)
 export async function fetchItem(itemId: number) {
   const res = await api.get<ApiResponse<ItemDetail>>(`/items/${itemId}`);
+  return res.data.data;
+}
+
+export async function fetchMapPlaces(workspaceId: number) {
+  const res = await api.get<ApiResponse<MapPlace[]>>(`/workspaces/${workspaceId}/items/geo`);
   return res.data.data;
 }
 

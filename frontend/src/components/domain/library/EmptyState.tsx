@@ -1,4 +1,4 @@
-import { getSpacemanImage } from '@/utils/getSpacemanImage';
+import spacemanNoBg from '@/assets/spacemans/spaceman_no_bg.png';
 
 interface EmptyStateProps {
   /** 필터(즐겨찾기·카테고리)가 걸린 상태에서 결과가 없음 — 문구가 달라진다 */
@@ -18,13 +18,13 @@ const EmptyState = ({ filtered = false }: EmptyStateProps) => {
     : '링크·사진·메모를 저장하면 우주인이 알아서 분류해 드려요.';
 
   return (
-    <div className="flex flex-col items-center justify-center gap-5 py-24 text-center">
+    <div className="h-full flex flex-col items-center justify-center gap-5 py-24 text-center">
       <img
-        src={getSpacemanImage('white')}
+        src={spacemanNoBg}
         alt=""
         aria-hidden
         draggable={false}
-        className="h-28 w-28 select-none opacity-90 drop-shadow-[0_12px_30px_rgba(0,0,0,0.4)]"
+        className="h-28 w-28 select-none opacity-90"
       />
       <div className="space-y-1.5">
         <p className="text-base font-semibold text-text-1">{title}</p>

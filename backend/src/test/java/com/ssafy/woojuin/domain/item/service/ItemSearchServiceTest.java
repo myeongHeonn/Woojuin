@@ -49,12 +49,15 @@ class ItemSearchServiceTest {
     @Mock
     private S3Uploader s3Uploader;
 
+    @Mock
+    private ItemSemanticSearchService itemSemanticSearchService;
+
     private ItemSearchService itemSearchService;
 
     @BeforeEach
     void setUp() {
         itemSearchService = new ItemSearchService(itemSearchRepository, workspaceMemberRepository,
-                new ItemSummaryAssembler(itemCategoryQueryService, s3Uploader));
+                new ItemSummaryAssembler(itemCategoryQueryService, s3Uploader), itemSemanticSearchService);
 
         lenient().when(workspaceMemberRepository.findByWorkspaceIdAndUserId(any(), any()))
                 .thenReturn(Optional.of(mock(WorkspaceMember.class)));
@@ -160,6 +163,52 @@ class ItemSearchServiceTest {
 
         assertThat(response.totalElements()).isZero();
         assertThat(response.partialMatch()).isFalse();
+    }
+
+    /** 키워드가 하나라도 잡히면 의미 검색은 돌지 않는다 — 임베딩 HTTP 호출은 진짜 0건일 때만. */
+    @Test
+    void 키워드_결과가_있으면_의미_검색을_타지_않는다() {
+        when(itemSearchRepository.search(eq(1L), anyList(), eq(MatchMode.ALL), any(Pageable.class)))
+                .thenReturn(pageOf(7L));
+
+        itemSearchService.search(1L, 1L, "파스타", 0, 20);
+
+        verifyNoInteractions(itemSemanticSearchService);
+    }
+
+    @Test
+    void 키워드가_전부_0건이면_의미_검색으로_폴백하고_semanticMatch를_표시한다() {
+        when(itemSearchRepository.search(any(), anyList(), any(), any(Pageable.class))).thenReturn(emptyPage());
+        when(itemSemanticSearchService.search(eq(1L), eq("일식 코스"), any(Pageable.class)))
+                .thenReturn(new com.ssafy.woojuin.domain.item.dto.ItemListResponse(
+                        List.of(mock(com.ssafy.woojuin.domain.item.dto.ItemSummaryResponse.class)), 0, 20, 1));
+
+        ItemSearchResponse response = itemSearchService.search(1L, 1L, " 일식 코스 ", 0, 20);
+
+        assertThat(response.semanticMatch()).isTrue();
+        assertThat(response.partialMatch()).isFalse();
+        assertThat(response.totalElements()).isEqualTo(1);
+    }
+
+    /** 의미 검색이 불가능(aimix 꺼짐/실패)하거나 임계값 안에 없으면 null — 그냥 0건 응답이다. */
+    @Test
+    void 의미_검색이_null이면_0건_그대로_응답한다() {
+        when(itemSearchRepository.search(any(), anyList(), any(), any(Pageable.class))).thenReturn(emptyPage());
+        when(itemSemanticSearchService.search(any(), any(), any())).thenReturn(null);
+
+        ItemSearchResponse response = itemSearchService.search(1L, 1L, "일식 코스", 0, 20);
+
+        assertThat(response.totalElements()).isZero();
+        assertThat(response.semanticMatch()).isFalse();
+        assertThat(response.partialMatch()).isFalse();
+    }
+
+    /** 빈 검색어는 임베딩할 의미가 없다 — 키워드처럼 의미 검색도 건너뛴다. */
+    @Test
+    void 검색어가_비면_의미_검색도_타지_않는다() {
+        itemSearchService.search(1L, 1L, "   ", 0, 20);
+
+        verifyNoInteractions(itemSemanticSearchService);
     }
 
     /** %를 그대로 넘기면 와일드카드가 되어 워크스페이스 전체가 매칭된다. */

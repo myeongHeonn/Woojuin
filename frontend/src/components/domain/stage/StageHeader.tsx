@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { classNames } from '@/utils/classNames';
 import { STAGE_PX } from '@/constants/stage';
 import ViewBar from './ViewBar';
+import WorkspaceSwitcher from '@/components/domain/nav/WorkspaceSwitcher';
 
 interface StageHeaderProps {
   /** 워크스페이스 이름 */
@@ -30,7 +31,11 @@ const StageHeader = ({ title, meta, actions }: StageHeaderProps) => (
     )}
   >
     <div className="min-w-0">
-      <h1 className="truncate text-2xl font-extrabold tracking-[-0.01em] text-text-1 desktop:text-[30px]">
+      {/* 모바일: 이름 탭 → 워크스페이스 전환(사이드바 없음) / 데스크톱: 그냥 제목 */}
+      <div className="pointer-events-auto min-w-0 desktop:hidden">
+        <WorkspaceSwitcher />
+      </div>
+      <h1 className="hidden truncate text-2xl font-extrabold tracking-[-0.01em] text-text-1 desktop:block desktop:text-[30px]">
         {title}
       </h1>
       {meta && <p className="mt-[3px] truncate text-xs text-text-2 desktop:text-sm">{meta}</p>}

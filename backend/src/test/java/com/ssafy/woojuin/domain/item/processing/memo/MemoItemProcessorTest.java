@@ -58,7 +58,7 @@ class MemoItemProcessorTest {
     void AI가_요약과_카테고리를_주면_저장하고_DONE() {
         processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService, eventPublisher);
         Item item = memoItem();
-        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis("요약문", List.of("생활·할 일")));
+        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis(null, "요약문", List.of("생활·할 일")));
 
         processor.process(message());
 
