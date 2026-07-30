@@ -134,6 +134,7 @@ const MapPage = () => {
       <MapPlacePanel
         categories={sortedFilterCategories}
         places={visiblePlaces}
+        isEmpty={places.length === 0}
         activeCategories={activeCategories}
         favoriteActive={favoriteOnly}
         collapsed={isMapPanelCollapsed}
