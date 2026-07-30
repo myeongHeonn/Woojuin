@@ -45,16 +45,16 @@ FROM test AS build
 #    vite.config.ts 의 `envDir: '..'`(레포 루트) 때문에 파일로 넘기려면 루트에 .env 를
 #    만들어야 하는데, 환경변수로 주면 그 함정을 피할 수 있다.
 ARG VITE_API_BASE_URL
-# Firebase 웹 앱 설정 — 클라이언트 번들에 그대로 노출되는 공개값이라 기본값을 하드코딩해도
-# 안전하다(민감정보 아님). dev/prod가 같은 Firebase 프로젝트를 쓰므로 Jenkinsfile에서
-# 환경별로 다시 넘길 필요가 없다.
-ARG VITE_FCM_API_KEY=AIzaSyDm3h_RP9ClzChLHYFJLDKvn85gtg1AEno
-ARG VITE_FCM_AUTH_DOMAIN=woojuin-503006.firebaseapp.com
-ARG VITE_FCM_PROJECT_ID=woojuin-503006
-ARG VITE_FCM_STORAGE_BUCKET=woojuin-503006.firebasestorage.app
-ARG VITE_FCM_MESSAGING_SENDER_ID=138341207339
-ARG VITE_FCM_APP_ID=1:138341207339:web:35f790c9ec6bdd07f3896e
-ARG VITE_FCM_VAPID_KEY=BDZPcTlZsyHOvY1HSAVwHvXlcvi6d9Y0Dgkw9fEdYJusr4dxuLQNivp_4hKD4IJDdfJkY5UHpUVE4iwfxvmDzJk
+# Firebase 웹 앱 설정. dev/prod가 같은 Firebase 프로젝트를 쓰지만 값은 여기 하드코딩하지
+# 않는다 — Jenkinsfile의 environment 블록 한 곳에서만 관리하고 --build-arg로 넘겨받는다
+# (VITE_API_BASE_URL과 같은 패턴).
+ARG VITE_FCM_API_KEY
+ARG VITE_FCM_AUTH_DOMAIN
+ARG VITE_FCM_PROJECT_ID
+ARG VITE_FCM_STORAGE_BUCKET
+ARG VITE_FCM_MESSAGING_SENDER_ID
+ARG VITE_FCM_APP_ID
+ARG VITE_FCM_VAPID_KEY
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ENV VITE_FCM_API_KEY=$VITE_FCM_API_KEY
 ENV VITE_FCM_AUTH_DOMAIN=$VITE_FCM_AUTH_DOMAIN

@@ -67,6 +67,18 @@ pipeline {
         // 의도치 않은 동작을 피하려고 다른 이름을 쓴다.
         DEPLOY_FILE       = 'docker-compose.deploy.yml'
 
+        // Firebase 웹 앱 설정. dev/prod가 같은 Firebase 프로젝트를 쓰므로 TARGET_ENV와
+        // 무관하게 고정값이다 — 클라이언트 번들에 그대로 노출되는 공개값이라 여기 값을
+        // 직접 둬도 안전하다(비밀값은 FCM_SERVICE_ACCOUNT_KEY_BASE64 하나뿐이고 그건
+        // 백엔드 전용 Jenkins Secret file(env-dev/env-prod)에 있다).
+        VITE_FCM_API_KEY             = 'AIzaSyDm3h_RP9ClzChLHYFJLDKvn85gtg1AEno'
+        VITE_FCM_AUTH_DOMAIN         = 'woojuin-503006.firebaseapp.com'
+        VITE_FCM_PROJECT_ID          = 'woojuin-503006'
+        VITE_FCM_STORAGE_BUCKET      = 'woojuin-503006.firebasestorage.app'
+        VITE_FCM_MESSAGING_SENDER_ID = '138341207339'
+        VITE_FCM_APP_ID              = '1:138341207339:web:35f790c9ec6bdd07f3896e'
+        VITE_FCM_VAPID_KEY           = 'BDZPcTlZsyHOvY1HSAVwHvXlcvi6d9Y0Dgkw9fEdYJusr4dxuLQNivp_4hKD4IJDdfJkY5UHpUVE4iwfxvmDzJk'
+
         // 환경별 값(STACK, FE_API_BASE_URL, 웹루트, credential, lock ...)은 여기 있지 않다 —
         // 브랜치/MR 타겟에 따라 달라지므로 Checkout 스테이지에서 계산한다(TARGET_ENV).
     }
@@ -329,6 +341,13 @@ pipeline {
                 sh """
                     docker build \
                         --build-arg VITE_API_BASE_URL=${FE_API_BASE_URL} \
+                        --build-arg VITE_FCM_API_KEY=${VITE_FCM_API_KEY} \
+                        --build-arg VITE_FCM_AUTH_DOMAIN=${VITE_FCM_AUTH_DOMAIN} \
+                        --build-arg VITE_FCM_PROJECT_ID=${VITE_FCM_PROJECT_ID} \
+                        --build-arg VITE_FCM_STORAGE_BUCKET=${VITE_FCM_STORAGE_BUCKET} \
+                        --build-arg VITE_FCM_MESSAGING_SENDER_ID=${VITE_FCM_MESSAGING_SENDER_ID} \
+                        --build-arg VITE_FCM_APP_ID=${VITE_FCM_APP_ID} \
+                        --build-arg VITE_FCM_VAPID_KEY=${VITE_FCM_VAPID_KEY} \
                         -t woojuin-frontend:${env.SHORT_SHA}-${env.TARGET_ENV} \
                         -f frontend/Dockerfile frontend
                 """
