@@ -32,6 +32,15 @@ interface InteractiveLogoProps {
  *
  * prefers-reduced-motion 이면 인트로·공전 없이 완성된 모양으로 고정된다.
  */
+/**
+ * 궤도 지오메트리 캐시 — 경로(d)가 상수라 결과도 상수다.
+ * getPointAtLength 가 호출당 ~67µs 로 비싸서(실측), 순진한 1200 샘플 × 2회는 마운트를
+ * 162ms 블로킹했다. coarse-to-fine 탐색(아래)으로 호출을 8배 줄이고, 결과를 여기 캐시해
+ * 재마운트(StrictMode 이중 마운트 포함)는 0원이 되게 한다.
+ */
+let orbitGeometryCache: { pathLength: number; homeDistance: number; introDistance: number } | null =
+  null;
+
 const InteractiveLogo = ({ size = 28, hovered = false, className }: InteractiveLogoProps) => {
   // 궤도선이 렌더 크기와 무관하게 화면에서 ~1.2px 로 보이게 viewBox 유닛을 역산한다.
   // (viewBox 61 → 유닛 1개 = size/61 px. 28px 렌더면 유닛 2.6 개가 1.2px 이 된다.
@@ -96,23 +105,31 @@ const InteractiveLogo = ({ size = 28, hovered = false, className }: InteractiveL
       return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
     };
 
-    /** 궤도 위에서 target 과 가장 가까운 지점까지의 거리(경로 시작 기준) */
+    /**
+     * 궤도 위에서 target 과 가장 가까운 지점까지의 거리(경로 시작 기준).
+     * coarse(120 샘플)로 후보를 찾고 그 주변 한 구간만 fine(24 샘플)으로 정밀화한다 —
+     * 균등 1200 샘플과 호출 수는 1/8 인데 정밀도는 더 높다(구간 폭/24 ≈ 0.03 유닛).
+     */
     const nearestDistance = (target: { x: number; y: number }) => {
-      let bestDistance = 0;
-      let bestSquared = Infinity;
-      const samples = 1200;
-      for (let i = 0; i <= samples; i += 1) {
-        const distance = (pathLength * i) / samples;
-        const point = orbitPath.getPointAtLength(distance);
-        const dx = point.x - target.x;
-        const dy = point.y - target.y;
-        const squared = dx * dx + dy * dy;
-        if (squared < bestSquared) {
-          bestSquared = squared;
-          bestDistance = distance;
+      const scan = (from: number, to: number, samples: number) => {
+        let bestDistance = from;
+        let bestSquared = Infinity;
+        for (let i = 0; i <= samples; i += 1) {
+          const distance = from + ((to - from) * i) / samples;
+          const point = orbitPath.getPointAtLength(mod(distance, pathLength));
+          const dx = point.x - target.x;
+          const dy = point.y - target.y;
+          const squared = dx * dx + dy * dy;
+          if (squared < bestSquared) {
+            bestSquared = squared;
+            bestDistance = distance;
+          }
         }
-      }
-      return bestDistance;
+        return bestDistance;
+      };
+      const coarseStep = pathLength / 120;
+      const coarse = scan(0, pathLength, 120);
+      return mod(scan(coarse - coarseStep, coarse + coarseStep, 24), pathLength);
     };
 
     const setRing = (fillRadius: number, strokeRadius: number) => {
@@ -266,7 +283,12 @@ const InteractiveLogo = ({ size = 28, hovered = false, className }: InteractiveL
       }
     };
 
-    homeDistance = nearestDistance(HOME_POINT);
+    orbitGeometryCache ??= {
+      pathLength,
+      homeDistance: nearestDistance(HOME_POINT),
+      introDistance: nearestDistance(INTRO_POINT),
+    };
+    homeDistance = orbitGeometryCache.homeDistance;
 
     if (reduceMotion) {
       setRing(NORMAL_FILL_R, NORMAL_STROKE_R);
@@ -274,7 +296,7 @@ const InteractiveLogo = ({ size = 28, hovered = false, className }: InteractiveL
       arrivalGlow.setAttribute('opacity', '1');
       introFinished = true;
     } else {
-      const introDistance = nearestDistance(INTRO_POINT);
+      const introDistance = orbitGeometryCache.introDistance;
       setRing(8, 4.5);
       placeSparkle(introDistance);
       arrivalGlow.setAttribute('opacity', '0');
