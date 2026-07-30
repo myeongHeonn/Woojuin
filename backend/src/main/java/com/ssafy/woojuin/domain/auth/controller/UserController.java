@@ -2,6 +2,7 @@ package com.ssafy.woojuin.domain.auth.controller;
 
 import com.ssafy.woojuin.domain.auth.dto.UpdateProfileRequest;
 import com.ssafy.woojuin.domain.auth.dto.UserProfileResponse;
+import com.ssafy.woojuin.domain.auth.entity.TutorialType;
 import com.ssafy.woojuin.domain.auth.service.UserProfileService;
 import com.ssafy.woojuin.global.common.ApiResponse;
 import com.ssafy.woojuin.global.security.aop.AuthenticatedUser;
@@ -9,6 +10,7 @@ import com.ssafy.woojuin.global.security.aop.CurrentUserResolver;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,5 +39,12 @@ public class UserController {
     public ApiResponse<UserProfileResponse> updateMyProfile(@Valid @RequestBody UpdateProfileRequest request) {
         Long userId = currentUserResolver.resolveUserId();
         return ApiResponse.success(userProfileService.updateProfile(userId, request));
+    }
+
+    @AuthenticatedUser
+    @PatchMapping("/me/tutorials/{tutorialType}/complete")
+    public ApiResponse<UserProfileResponse> completeTutorial(@PathVariable TutorialType tutorialType) {
+        Long userId = currentUserResolver.resolveUserId();
+        return ApiResponse.success(userProfileService.completeTutorial(userId, tutorialType));
     }
 }

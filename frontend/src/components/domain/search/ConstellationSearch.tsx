@@ -82,6 +82,7 @@ const ConstellationSearch = () => {
         )}
 
         <form
+          data-tutorial="search"
           onSubmit={submit}
           className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface/90 px-4 py-3 shadow-float backdrop-blur-xl"
         >

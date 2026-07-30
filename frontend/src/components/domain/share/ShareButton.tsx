@@ -8,9 +8,11 @@ import ShareModal from './ShareModal';
  * 여닫기·바깥클릭·ESC 는 HeaderPopover, 내용은 ShareModal 이 맡는다.
  */
 const ShareButton = ({ workspaceId }: { workspaceId: number }) => (
-  <HeaderPopover trigger={<GlassButton icon={<UserPlusIcon />} aria-label="공유하기" />}>
-    {(close) => <ShareModal workspaceId={workspaceId} onClose={close} />}
-  </HeaderPopover>
+  <div data-tutorial="workspace-share">
+    <HeaderPopover trigger={<GlassButton icon={<UserPlusIcon />} aria-label="공유하기" />}>
+      {(close) => <ShareModal workspaceId={workspaceId} onClose={close} />}
+    </HeaderPopover>
+  </div>
 );
 
 export default ShareButton;

@@ -64,6 +64,7 @@ const TabBar = ({ className }: { className?: string }) => {
           return (
             <Link
               key={label}
+              data-tutorial-view={segment}
               to={to}
               title={label}
               aria-label={label}

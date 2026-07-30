@@ -3,6 +3,7 @@ package com.ssafy.woojuin.domain.auth.service;
 import com.ssafy.woojuin.domain.auth.dto.UpdateProfileRequest;
 import com.ssafy.woojuin.domain.auth.dto.UserProfileResponse;
 import com.ssafy.woojuin.domain.auth.entity.User;
+import com.ssafy.woojuin.domain.auth.entity.TutorialType;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,13 @@ public class UserProfileService {
     public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request) {
         User user = findUser(userId);
         user.updateProfile(request.nickname(), request.profileImageUrl(), request.avatarColor());
+        return UserProfileResponse.from(user);
+    }
+
+    @Transactional
+    public UserProfileResponse completeTutorial(Long userId, TutorialType tutorialType) {
+        User user = findUser(userId);
+        user.completeTutorial(tutorialType);
         return UserProfileResponse.from(user);
     }
 

@@ -32,7 +32,10 @@ const StageHeader = ({ title, meta, actions }: StageHeaderProps) => (
   >
     <div className="min-w-0">
       {/* 모바일: 이름 탭 → 워크스페이스 전환(사이드바 없음) / 데스크톱: 그냥 제목 */}
-      <div className="pointer-events-auto min-w-0 desktop:hidden">
+      <div
+        className="pointer-events-auto min-w-0 desktop:hidden"
+        data-tutorial="workspace-title"
+      >
         <WorkspaceSwitcher />
       </div>
       <h1 className="hidden truncate text-2xl font-extrabold tracking-[-0.01em] text-text-1 desktop:block desktop:text-[30px]">
