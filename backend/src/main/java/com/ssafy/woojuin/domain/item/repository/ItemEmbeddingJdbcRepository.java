@@ -7,8 +7,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * item_embeddings 접근. JPA를 안 쓰는 이유는 {@code ItemEmbeddingSchemaInitializer} javadoc 참고
- * — vector 타입을 ddl-auto 밖에 두려는 결정이고, 접근 패턴도 전부 벌크/upsert라 JPA 이점이 없다.
+ * item_embeddings 접근. 이 테이블을 JPA 엔티티로 만들지 않은 이유는
+ * {@code db/migration/V1__init.sql} 의 해당 절 주석 참고 — vector 타입을 ddl-auto(validate)
+ * 밖에 두려는 결정이고, 접근 패턴도 전부 벌크/upsert라 JPA 이점이 없다.
  *
  * <p>vector 값은 pgvector의 문자열 리터럴({@code '[0.1,0.2,...]'})로 주고받는다 — JDBC
  * 드라이버에 별도 타입 등록 없이 {@code ?::vector} 캐스팅으로 충분하다.
