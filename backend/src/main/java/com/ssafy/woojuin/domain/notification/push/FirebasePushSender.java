@@ -23,7 +23,8 @@ public class FirebasePushSender implements PushSender {
                 .setNotification(Notification.builder().setTitle(title).setBody(body).build())
                 .build();
         try {
-            firebaseMessaging.send(message);
+            String messageId = firebaseMessaging.send(message);
+            log.info("FCM 발송 성공: token={}, messageId={}", token, messageId);
         } catch (FirebaseMessagingException e) {
             log.warn("FCM 발송 실패(무시): token={}, cause={}", token, e.getMessage());
         }

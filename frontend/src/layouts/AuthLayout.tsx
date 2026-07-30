@@ -1,5 +1,5 @@
 import { Outlet, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { accessTokenAtom } from '@/stores/authAtoms';
 import { fcmTokenAtom } from '@/stores/pushAtoms';
@@ -10,6 +10,9 @@ const AuthLayout = () => {
   const accessToken = useAtomValue(accessTokenAtom);
   const setFcmToken = useSetAtom(fcmTokenAtom);
   const navigate = useNavigate();
+  // StrictMode(dev)가 effect를 두 번 실행하면 getToken()이 거의 동시에 두 번 불려
+  // 서로 다른 FCM 토큰이 발급되고, 그중 하나는 곧바로 무효화(NotRegistered)된다.
+  const pushTokenRequested = useRef(false);
 
   useEffect(() => {
     if (!accessToken) {
@@ -18,7 +21,8 @@ const AuthLayout = () => {
   }, [accessToken, navigate]);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!accessToken || pushTokenRequested.current) return;
+    pushTokenRequested.current = true;
 
     requestPushToken().then((token) => {
       if (!token) return;

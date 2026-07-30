@@ -91,6 +91,30 @@ class NotificationServiceTest {
         verify(pushSender, never()).send(any(), any(), any());
     }
 
+    @Test
+    @DisplayName("수동 테스트 발송: 알림함에는 남기지 않고 등록된 모든 토큰에 푸시만 보낸다")
+    void sendTest_pushesToAllTokensWithoutSavingNotification() {
+        NotificationToken tokenA = NotificationToken.builder().userId(1L).token("token-a").build();
+        NotificationToken tokenB = NotificationToken.builder().userId(1L).token("token-b").build();
+        when(notificationTokenRepository.findByUserId(1L)).thenReturn(List.of(tokenA, tokenB));
+
+        notificationService.sendTest(1L);
+
+        verify(pushSender).send(eq("token-a"), any(), any());
+        verify(pushSender).send(eq("token-b"), any(), any());
+        verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("수동 테스트 발송: 등록된 토큰이 없으면 아무것도 보내지 않는다")
+    void sendTest_noTokens_doesNothing() {
+        when(notificationTokenRepository.findByUserId(1L)).thenReturn(List.of());
+
+        notificationService.sendTest(1L);
+
+        verify(pushSender, never()).send(any(), any(), any());
+    }
+
     private Item itemOf(Long id, Long createdBy, String title) {
         Item item = Item.builder()
                 .workspaceId(100L).createdBy(createdBy).type(ItemType.MEMO).title(title).build();

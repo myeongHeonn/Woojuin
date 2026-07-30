@@ -62,4 +62,12 @@ public class NotificationService {
             pushSender.send(token.getToken(), "저장 완료", message);
         }
     }
+
+    /** FCM 연동 수동 확인용 — 알림함에는 남기지 않고 등록된 토큰에 바로 발송한다. */
+    public void sendTest(Long userId) {
+        List<NotificationToken> tokens = notificationTokenRepository.findByUserId(userId);
+        for (NotificationToken token : tokens) {
+            pushSender.send(token.getToken(), "테스트 알림", "FCM 연동이 정상적으로 동작하고 있어요.");
+        }
+    }
 }

@@ -19,14 +19,23 @@ self.addEventListener('message', (event) => {
 // { notification: { title, body }, data: {...} } 형태로 온다 (data-only 메시지가
 // 아니라서 최상위 payload.title 은 없음 — firebase-admin의 Message.setNotification 참고).
 self.addEventListener('push', (event) => {
-  const payload = event.data?.json() ?? {};
-  const title = payload.notification?.title ?? payload.title ?? '우주인';
-  const body = payload.notification?.body ?? payload.body ?? 'AI 정리가 완료됐어요.';
+  console.log('[sw] push event received', event.data ? 'has data' : 'no data');
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      data: payload.data,
-    }),
+    (async () => {
+      try {
+        const payload = event.data?.json() ?? {};
+        console.log('[sw] push payload', JSON.stringify(payload));
+        const title = payload.notification?.title ?? payload.title ?? '우주인';
+        const body = payload.notification?.body ?? payload.body ?? 'AI 정리가 완료됐어요.';
+        await self.registration.showNotification(title, {
+          body,
+          data: payload.data,
+        });
+        console.log('[sw] showNotification 호출 완료');
+      } catch (err) {
+        console.error('[sw] push 처리 중 에러', err);
+      }
+    })(),
   );
 });
 
