@@ -5,6 +5,7 @@ import { INFO_CARD_CLASS } from '@/components/ui/infoCardStyles';
 
 const EDGE_GAP = 12;
 const STAR_GAP = 14;
+const CATEGORY_PREVIEW_LIMIT = 2;
 
 interface TooltipBounds {
   containerWidth: number;
@@ -27,7 +28,14 @@ interface StarTooltipProps {
 const StarTooltip = ({ node, position, onClick, onPointerOverChange }: StarTooltipProps) => {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [bounds, setBounds] = useState<TooltipBounds | null>(null);
-  const { isHub, hub, star, categoryName, cssColor } = node;
+  const { isHub, hub, star, categoryNames, cssColor } = node;
+  const visibleCategoryNames = categoryNames.slice(0, CATEGORY_PREVIEW_LIMIT);
+  const categoryLabel =
+    visibleCategoryNames.length > 0
+      ? `${visibleCategoryNames.map((name) => `#${name}`).join(' · ')}${
+          categoryNames.length > CATEGORY_PREVIEW_LIMIT ? ' · ...' : ''
+        }`
+      : '#미분류';
 
   useLayoutEffect(() => {
     const tooltip = tooltipRef.current;
@@ -106,9 +114,7 @@ const StarTooltip = ({ node, position, onClick, onPointerOverChange }: StarToolt
           aria-hidden="true"
         />
         <span>
-          {isHub
-            ? '카테고리'
-            : `#${categoryName ?? '미분류'}${star ? ` · ${TYPE_LABEL[star.type]}` : ''}`}
+          {isHub ? '카테고리' : `${categoryLabel}${star ? ` · ${TYPE_LABEL[star.type]}` : ''}`}
         </span>
       </div>
 

@@ -12,7 +12,7 @@ const node: StarNode = {
     type: 'MEMO',
   },
   isHub: false,
-  categoryName: '여행',
+  categoryNames: ['여행'],
   cssColor: '#8fb4ff',
 };
 
@@ -64,5 +64,38 @@ describe('StarTooltip 위치 보정', () => {
     expect(
       Number.parseFloat(rightTooltip.style.left) + rightTooltip.offsetWidth,
     ).toBeLessThanOrEqual(rightHost.clientWidth - 12);
+  });
+});
+
+describe('StarTooltip 카테고리 표시', () => {
+  it('카테고리를 최대 2개까지 표시한다', async () => {
+    const { container } = await render(
+      <div className="relative h-[300px] w-[400px]">
+        <StarTooltip
+          node={{ ...node, categoryNames: ['여행', '맛집'] }}
+          position={{ x: 200, y: 150, visible: true }}
+          onClick={vi.fn()}
+          onPointerOverChange={vi.fn()}
+        />
+      </div>,
+    );
+
+    expect(container.textContent).toContain('#여행 · #맛집 · 메모');
+  });
+
+  it('카테고리가 3개 이상이면 나머지를 말줄임표로 표시한다', async () => {
+    const { container } = await render(
+      <div className="relative h-[300px] w-[400px]">
+        <StarTooltip
+          node={{ ...node, categoryNames: ['여행', '맛집', '일상'] }}
+          position={{ x: 200, y: 150, visible: true }}
+          onClick={vi.fn()}
+          onPointerOverChange={vi.fn()}
+        />
+      </div>,
+    );
+
+    expect(container.textContent).toContain('#여행 · #맛집 · ... · 메모');
+    expect(container.textContent).not.toContain('#일상');
   });
 });

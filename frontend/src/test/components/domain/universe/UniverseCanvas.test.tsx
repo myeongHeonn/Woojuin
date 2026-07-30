@@ -30,7 +30,7 @@ const star: Star = {
 const starNode: StarNode = {
   star,
   isHub: false,
-  categoryName: '여행',
+  categoryNames: ['여행'],
   cssColor: '#8fb4ff',
 };
 
