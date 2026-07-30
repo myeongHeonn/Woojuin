@@ -37,9 +37,7 @@ const StarTooltip = ({ node, position, onClick, onPointerOverChange }: StarToolt
       </span>
 
       {isHub && hub ? (
-        <div className="mt-1 text-[11px] text-text-3">
-          {hub.itemCount} memories · 클릭하면 대시보드
-        </div>
+        <div className="mt-1 text-[11px] text-text-3">{hub.itemCount} memories</div>
       ) : (
         star && (
           <>
