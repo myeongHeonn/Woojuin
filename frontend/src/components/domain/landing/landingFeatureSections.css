@@ -1,0 +1,492 @@
+.landing-visual {
+  border: 1px solid var(--color-border-soft);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 42%),
+    color-mix(in srgb, var(--color-surface) 58%, transparent);
+}
+
+.landing-countdown {
+  position: relative;
+  display: inline-block;
+  width: 0.64em;
+  height: 0.92em;
+  vertical-align: -0.04em;
+}
+
+.landing-countdown > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  line-height: 0.92;
+  opacity: 0;
+  transform-origin: center;
+  animation-duration: 1.05s;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards;
+}
+
+.landing-countdown-five { animation-name: landing-count-five; }
+.landing-countdown-four { animation-name: landing-count-four; }
+.landing-countdown-three { animation-name: landing-count-three; }
+.landing-countdown-two { animation-name: landing-count-two; }
+.landing-countdown-one { animation-name: landing-count-one; }
+
+.landing-ticker-stack {
+  position: absolute;
+  inset: 0;
+}
+
+.landing-ticker-row {
+  position: absolute;
+  top: 48px;
+  left: 0;
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+}
+
+.landing-ticker-row-reverse {
+  top: auto;
+  bottom: 42px;
+}
+
+.landing-ticker-track {
+  display: flex;
+  width: max-content;
+  gap: 12px;
+  padding-inline: 8px;
+  animation: landing-ticker-right 6.4s linear infinite;
+}
+
+.landing-ticker-row-reverse .landing-ticker-track {
+  animation-name: landing-ticker-left;
+}
+
+.landing-ticker-chip {
+  display: flex;
+  min-width: 102px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 17px;
+  background: var(--color-surface-2);
+  padding: 11px 14px;
+  color: var(--color-text-1);
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.18);
+}
+
+.landing-save-core {
+  position: absolute;
+  top: 108px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text-1);
+  font-size: 13px;
+  font-weight: 800;
+  animation: landing-astronaut-float 3.2s ease-in-out infinite;
+}
+
+.landing-spaceman-glow {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-accent) 22%, transparent), transparent 68%);
+  filter: blur(10px);
+  animation: landing-core-breathe 3.2s ease-in-out infinite;
+}
+
+.landing-title-word {
+  position: relative;
+  display: inline-block;
+  color: var(--color-text-1);
+  animation: landing-word-highlight 2.7s ease-in-out infinite;
+}
+
+.landing-title-word-two { animation-delay: 0.9s; }
+
+.landing-title-word-three { animation-delay: 1.8s; }
+
+.landing-save-title {
+  position: relative;
+  display: inline-block;
+  color: var(--color-accent);
+}
+
+.landing-check-mark {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  color: var(--color-text-1);
+  font-size: 17px;
+  transform: translateX(-50%);
+  animation: landing-check 2.8s ease-in-out infinite;
+}
+
+.landing-method-card {
+  min-height: 230px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  padding: 22px;
+  opacity: 0;
+  transform: translateX(-30px);
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.landing-method-grid.is-visible .landing-method-card {
+  animation: landing-method-slide 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.landing-method-card:hover {
+  transform: translateY(-5px);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+.landing-universe-halo {
+  position: absolute;
+  inset: 12% 17%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent 67%);
+  filter: blur(10px);
+}
+
+.landing-constellation-lines {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent) 42%, transparent));
+}
+
+.landing-constellation-lines path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: landing-constellation-draw 3.2s ease-in-out infinite;
+}
+
+.landing-constellation-lines path:nth-child(2) { animation-delay: 0.35s; }
+.landing-constellation-lines path:nth-child(3) { animation-delay: 0.55s; }
+.landing-constellation-lines path:nth-child(4) { animation-delay: 0.75s; }
+.landing-constellation-lines path:nth-child(5) { animation-delay: 0.95s; }
+
+.landing-universe-title {
+  position: relative;
+  display: inline-block;
+  color: var(--color-accent);
+  animation: landing-universe-title 3.2s ease-in-out infinite;
+}
+
+.landing-universe-title::after {
+  position: absolute;
+  top: -21px;
+  right: -13px;
+  color: white;
+  content: '✦';
+  font-size: 18px;
+  text-shadow: 0 0 12px white, 0 0 22px var(--color-accent);
+  animation: landing-universe-spark 3.2s ease-in-out infinite;
+}
+
+.landing-map-title {
+  position: relative;
+  display: inline-block;
+  color: var(--color-accent);
+}
+
+.landing-title-pin {
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  color: var(--color-accent);
+  transform: translateX(-50%);
+  animation: landing-title-pin 3.2s ease-in-out infinite;
+}
+
+.landing-personal-title,
+.landing-together-title {
+  display: inline-block;
+  animation: landing-space-title 3.2s ease-in-out infinite;
+}
+
+.landing-together-title {
+  animation-delay: 1.6s;
+}
+
+.landing-star {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: landing-twinkle 3.2s ease-in-out infinite;
+}
+
+.landing-star-connected {
+  animation-name: landing-connected-star;
+  animation-duration: 3.2s;
+}
+
+.landing-constellation-label {
+  position: absolute;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-space) 72%, transparent);
+  padding: 5px 10px;
+  color: var(--color-text-2);
+  font-size: 10px;
+  font-weight: 700;
+  backdrop-filter: blur(8px);
+}
+
+.landing-map {
+  background-color: #151c24;
+  background-image:
+    linear-gradient(32deg, transparent 47%, rgb(69 82 94 / 0.25) 48%, transparent 49%),
+    linear-gradient(112deg, transparent 46%, rgb(69 82 94 / 0.2) 47%, transparent 48%);
+  background-size: 150px 110px, 190px 135px;
+}
+
+.landing-map-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  animation: landing-pin-drop 3.2s ease-in-out infinite;
+}
+
+.landing-map-pulse {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  border-radius: 999px;
+  animation: landing-map-pulse 2s ease-out infinite;
+}
+
+.landing-pin-marker {
+  display: block;
+  width: 20px;
+  height: 20px;
+  color: var(--color-accent);
+  filter: drop-shadow(0 5px 8px color-mix(in srgb, var(--color-accent) 55%, transparent));
+}
+
+.landing-pin-label {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-space) 80%, transparent);
+  padding: 4px 8px;
+  color: var(--color-text-2);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.landing-space-card {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  width: min(290px, 72%);
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface-2);
+  padding: 18px;
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.18);
+}
+
+.landing-space-personal {
+  top: 58px;
+  left: 28px;
+  animation: landing-space-personal 3.2s ease-in-out infinite;
+}
+
+.landing-space-workspace {
+  right: 28px;
+  bottom: 58px;
+  animation: landing-space-workspace 3.2s ease-in-out infinite;
+}
+
+.landing-space-connection {
+  position: absolute;
+  width: 180px;
+  height: 1px;
+  rotate: 31deg;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-accent) 70%, transparent), transparent);
+  animation: landing-connection 3.2s ease-in-out infinite;
+}
+
+@keyframes landing-count-five {
+  0% { opacity: 0.35; transform: translateY(-0.55em) scale(0.92); }
+  4% { opacity: 0.5; transform: translateY(0) scale(0.86); }
+  8%, 100% { opacity: 0; transform: translateY(0.4em) scale(0.68); }
+}
+
+@keyframes landing-count-four {
+  0%, 6% { opacity: 0; transform: translateY(-0.5em) scale(0.92); }
+  9% { opacity: 0.42; transform: translateY(0) scale(0.84); }
+  13%, 100% { opacity: 0; transform: translateY(0.4em) scale(0.68); }
+}
+
+@keyframes landing-count-three {
+  0%, 11% { opacity: 0; transform: translateY(-0.5em) scale(0.92); }
+  14% { opacity: 0.42; transform: translateY(0) scale(0.84); }
+  18%, 100% { opacity: 0; transform: translateY(0.4em) scale(0.68); }
+}
+
+@keyframes landing-count-two {
+  0%, 16% { opacity: 0; transform: translateY(-0.5em) scale(0.92); }
+  19% { opacity: 0.45; transform: translateY(0) scale(0.84); }
+  23%, 100% { opacity: 0; transform: translateY(0.4em) scale(0.68); }
+}
+
+@keyframes landing-count-one {
+  0%, 21% { opacity: 0; transform: translateY(-0.42em) scale(0.96); }
+  26% { opacity: 1; transform: translateY(0) scale(0.98); }
+  31%, 100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes landing-ticker-right {
+  from { transform: translateX(-33.333%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes landing-ticker-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-33.333%); }
+}
+
+@keyframes landing-method-slide {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes landing-core-breathe {
+  0%, 100% { opacity: 0.45; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes landing-astronaut-float {
+  0%, 100% { transform: translateY(4px) rotate(-1deg); }
+  50% { transform: translateY(-7px) rotate(1.5deg); }
+}
+
+@keyframes landing-word-highlight {
+  0%, 30%, 100% { color: var(--color-text-1); transform: translateY(0); }
+  10%, 21% { color: color-mix(in srgb, var(--color-accent) 72%, white); transform: translateY(-3px); }
+}
+
+@keyframes landing-check {
+  0%, 20%, 100% { opacity: 0; transform: translate(-50%, 8px) scale(0.65); }
+  35%, 68% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes landing-constellation-draw {
+  0%, 8% { opacity: 0.15; stroke-dashoffset: 1; }
+  45%, 86% { opacity: 0.85; stroke-dashoffset: 0; }
+  100% { opacity: 0.35; stroke-dashoffset: 0; }
+}
+
+@keyframes landing-universe-title {
+  0%, 100% { text-shadow: 0 0 0 transparent; transform: translateY(0); }
+  50% { text-shadow: 0 0 18px color-mix(in srgb, var(--color-accent) 65%, transparent); transform: translateY(-2px); }
+}
+
+@keyframes landing-universe-spark {
+  0%, 32%, 100% { opacity: 0; transform: scale(0.25) rotate(0deg); }
+  44% { opacity: 1; transform: scale(1.2) rotate(25deg); }
+  58% { opacity: 0; transform: scale(0.6) rotate(55deg); }
+}
+
+@keyframes landing-title-pin {
+  0%, 58%, 100% { opacity: 0; transform: translate(-50%, -8px) scale(0.72); }
+  64%, 78% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  84% { opacity: 0; transform: translate(-50%, 0) scale(0.82); }
+}
+
+@keyframes landing-space-title {
+  0%, 34%, 100% { color: var(--color-text-1); transform: translateY(0); }
+  12%, 24% { color: var(--color-accent); transform: translateY(-2px); }
+}
+
+@keyframes landing-twinkle {
+  0%, 100% { opacity: 0.55; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.18); }
+}
+
+@keyframes landing-connected-star {
+  0%, 52%, 100% { opacity: 0.55; transform: scale(0.9); }
+  66%, 80% {
+    opacity: 1;
+    transform: scale(1.3);
+    filter: drop-shadow(0 0 8px white) drop-shadow(0 0 14px var(--color-accent));
+  }
+}
+
+@keyframes landing-pin-drop {
+  0%, 8% { opacity: 0; transform: translate(-50%, calc(-50% - 14px)); }
+  20%, 96% { opacity: 1; transform: translate(-50%, -50%); }
+  100% { opacity: 0; transform: translate(-50%, -50%); }
+}
+
+@keyframes landing-map-pulse {
+  0% { opacity: 0.8; transform: scale(0.35); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+@keyframes landing-connection {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+@keyframes landing-space-personal {
+  0%, 36% { transform: translate(62px, 62px) scale(0.92); }
+  50%, 86% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(62px, 62px) scale(0.92); }
+}
+
+@keyframes landing-space-workspace {
+  0%, 36% { transform: translate(-62px, -62px) scale(0.92); }
+  50%, 86% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-62px, -62px) scale(0.92); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-countdown > span,
+  .landing-ticker-track,
+  .landing-method-card,
+  .landing-constellation-lines,
+  .landing-star,
+  .landing-map-pin,
+  .landing-map-pulse,
+  .landing-space-connection {
+    animation: none;
+    opacity: 1;
+  }
+
+  .landing-countdown-three,
+  .landing-countdown-two,
+  .landing-countdown-four,
+  .landing-countdown-five { display: none; }
+  .landing-countdown-one { position: static; }
+  .landing-method-card { transform: none; }
+  .landing-space-personal { transform: none; }
+  .landing-space-workspace { transform: none; }
+}
+
+@media (max-width: 520px) {
+  .landing-space-card {
+    width: 82%;
+  }
+
+  .landing-space-personal { top: 38px; left: 20px; }
+  .landing-space-workspace { right: 20px; bottom: 38px; }
+}
