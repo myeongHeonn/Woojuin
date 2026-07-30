@@ -3,6 +3,8 @@ package com.ssafy.woojuin.domain.item.processing.image;
 import com.ssafy.woojuin.domain.ai.AiAnalysis;
 import com.ssafy.woojuin.domain.ai.AiAnalysisRequest;
 import com.ssafy.woojuin.domain.ai.AiAnalyzer;
+import com.ssafy.woojuin.domain.ai.AiSourceType;
+import com.ssafy.woojuin.domain.ai.CategoryCandidate;
 import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
@@ -10,6 +12,8 @@ import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.service.S3Uploader;
+import com.ssafy.woojuin.domain.location.LocationResolver;
+import com.ssafy.woojuin.domain.location.ResolvedLocation;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -37,16 +41,21 @@ public class ImageItemProcessor implements ItemProcessor {
     private final ImageThumbnailGenerator thumbnailGenerator;
     private final AiAnalyzer aiAnalyzer;
     private final CategoryAssignmentService categoryAssignmentService;
+    private final ExifGpsReader exifGpsReader;
+    private final LocationResolver locationResolver;
 
     public ImageItemProcessor(ItemRepository itemRepository, S3Uploader s3Uploader,
             ImageTextExtractor imageTextExtractor, ImageThumbnailGenerator thumbnailGenerator,
-            AiAnalyzer aiAnalyzer, CategoryAssignmentService categoryAssignmentService) {
+            AiAnalyzer aiAnalyzer, CategoryAssignmentService categoryAssignmentService,
+            ExifGpsReader exifGpsReader, LocationResolver locationResolver) {
         this.itemRepository = itemRepository;
         this.s3Uploader = s3Uploader;
         this.imageTextExtractor = imageTextExtractor;
         this.thumbnailGenerator = thumbnailGenerator;
         this.aiAnalyzer = aiAnalyzer;
         this.categoryAssignmentService = categoryAssignmentService;
+        this.exifGpsReader = exifGpsReader;
+        this.locationResolver = locationResolver;
     }
 
     @Override
@@ -78,8 +87,33 @@ public class ImageItemProcessor implements ItemProcessor {
         }
 
         tryGenerateThumbnail(item, bytes);
+        // 위치 확보(FR-023). 이미 내려받은 bytes를 재사용하므로 추가 다운로드가 없다.
+        tryApplyExifLocation(item, bytes);
         enrichWithAi(item, text);
         finalizeStatus(item, textAcquired);
+    }
+
+    /**
+     * 사진 EXIF의 GPS 좌표를 읽어 반영하고, 역지오코딩으로 주소를 채운다 (FR-023).
+     *
+     * <p>썸네일 뒤에 두는 건 느린 역지오코딩이 목록 카드에 필요한 썸네일 생성을 지연시키지
+     * 않게 하려는 것이다. 위치는 썸네일과 같은 등급의 부가 정보라 상태에는 영향이 없다.
+     *
+     * <p>역지오코딩이 실패해도 좌표는 저장된다 — 핀이 목적이고 주소는 장식이다.
+     *
+     * <p>모든 실패를 흡수한다. {@code process}가 {@code @Transactional}이라 예외가 새어나가면
+     * 트랜잭션이 rollback-only로 찍혀 <b>이미 확보한 OCR 텍스트·썸네일이 버려지고</b>
+     * 디스패처가 RETRYABLE로 판단해 파이프라인 전체가 재실행된다.
+     */
+    private void tryApplyExifLocation(Item item, byte[] bytes) {
+        try {
+            exifGpsReader.read(bytes).ifPresent(point -> {
+                ResolvedLocation location = locationResolver.resolveForCoordinates(point);
+                item.applyLocation(location.lat(), location.lng(), location.address());
+            });
+        } catch (Exception e) {
+            log.warn("EXIF 위치 확보 실패(무시): itemId={}, cause={}", item.getId(), e.toString());
+        }
     }
 
     /** S3 원본 바이트를 읽는다. 실패해도 이미지 자체는 S3에 있으므로 null만 반환하고 넘어간다. */
@@ -131,9 +165,11 @@ public class ImageItemProcessor implements ItemProcessor {
      */
     private void enrichWithAi(Item item, String text) {
         try {
-            List<String> candidates = categoryAssignmentService.candidateNames(item.getWorkspaceId());
+            List<CategoryCandidate> candidates = categoryAssignmentService.candidates(item.getWorkspaceId());
             AiAnalysis analysis = aiAnalyzer.analyze(
-                    new AiAnalysisRequest(item.getTitle(), text, candidates));
+                    new AiAnalysisRequest(AiSourceType.IMAGE, item.getTitle(), text, candidates));
+            // 이미지 제목은 대부분 파일명이라 AI 제목의 효과가 가장 크다(null이면 기존 유지).
+            item.update(analysis.title(), null);
             item.applySummary(analysis.summary());
             categoryAssignmentService.assign(item.getId(), item.getWorkspaceId(), analysis.categories());
         } catch (Exception e) {

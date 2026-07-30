@@ -33,7 +33,8 @@ docs/        # 컨벤션 문서
 | DB | PostgreSQL | 검색은 FTS(tsvector), Elasticsearch 금지(스트레치) |
 | 큐 | Redis Streams | 스트림 키: `woojuin:item-processing` |
 | AI | OpenAI API (gpt-4o-mini) | |
-| 지도 | **미정** | 특정 지도 SDK를 임의로 도입하지 말 것. 지도 로직은 어댑터/인터페이스로 추상화. 좌표는 lat/lng 원시값으로 다룸 |
+| 지도 | **OpenFreeMap + MapLibre GL** | 카카오맵/구글맵 SDK 아님. 타일 호스팅 무료·API 키 없음. 지도 로직은 어댑터(`frontend/src/components/domain/map/mapAdapter.ts`)로 추상화, 좌표는 lat/lng 원시값으로 다룸 |
+| 지오코딩 | **카카오 로컬 REST API** | 주소↔좌표 변환 전용(서버측 REST, 지도 SDK 아님). `Geocoder` 인터페이스 뒤에 두고 `KAKAO_REST_API_KEY` 없으면 NoOp으로 폴백 — 키 없이도 앱이 뜨고 지도 링크·EXIF 좌표는 저장된다 |
 | 인증 | JWT + OAuth(카카오/구글) + 이메일/비밀번호 | 일반 가입은 6자리 이메일 인증코드 필수 |
 | CI/CD | **GitLab CI** (.gitlab-ci.yml) | GitHub Actions 아님 |
 
@@ -76,10 +77,12 @@ cd backend && ./gradlew bootRun   # 로컬 실행 (:8080)
 - 상세 기획서·요구사항 명세서(FR/NFR)·API 명세서·ERD는 팀 노션에 있음
 - 노션과 코드가 충돌하면 **코드에 반영된 최신 결정이 우선**, 단 그 사실을 사용자에게 알릴 것
 - 알려진 문서 불일치: FR-026(유튜브 자막 API)은 폐기 방향 — 실제 구현은 oEmbed 통합 방식
+- 알려진 문서 불일치: ERD 설계 노트의 `ai_results` 테이블은 **만들어진 적이 없다**. AI 산출물(`summary`)과 지도 좌표(`lat`/`lng`/`address`)는 모두 `items`에 있고, `search_vector`(GENERATED + GIN)도 없다 — 통합 검색은 `items`의 텍스트 컬럼을 ILIKE로 훑는다. 노션 테이블 명세에 정정 표기를 남겨 뒀다
 
 ## 하지 말 것
 
-- Next.js, Elasticsearch, 특정 지도 SDK 등 이미 배제/보류된 기술 도입
+- Next.js, Elasticsearch, 카카오맵/구글맵 지도 SDK 등 이미 배제된 기술 도입 (지도는 OpenFreeMap + MapLibre 확정. 카카오는 **로컬 REST API(주소↔좌표)만** 쓰고 지도 SDK는 쓰지 않는다)
+- `items`에 GENERATED 컬럼 추가 — `ddl-auto=update`가 매 기동마다 text 컬럼 타입 변경을 재시도하는데 PostgreSQL이 생성 컬럼 참조 컬럼의 타입 변경을 거부해 **두 번째 기동부터 앱이 뜨지 않는다**. 필요하면 표현식 인덱스로 (`ItemIndexInitializer` javadoc 참고)
 - `main`/`develop`에 직접 푸시하는 워크플로우 가정 (MR 기반)
 - 저장 API에 동기 AI 호출 추가
 - 프론트에서 localStorage/sessionStorage 직접 사용 (Jotai/TanStack Query로 대체)

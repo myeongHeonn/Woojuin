@@ -25,6 +25,12 @@ export interface UserProfile {
   personalSpaceId: number;
 }
 
+export interface UpdateProfilePayload {
+  nickname: string;
+  profileImageUrl: string | null;
+  avatarColor: string;
+}
+
 export interface SignupPayload {
   email: string;
   password: string;
@@ -59,5 +65,10 @@ export async function logout() {
 
 export async function fetchMyProfile() {
   const res = await api.get<ApiResponse<UserProfile>>('/users/me');
+  return res.data.data;
+}
+
+export async function updateMyProfile(payload: UpdateProfilePayload) {
+  const res = await api.patch<ApiResponse<UserProfile>>('/users/me', payload);
   return res.data.data;
 }

@@ -75,6 +75,46 @@ export function TrashIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** 되돌리기(반시계 화살표) — 휴지통 복구 */
+export function RestoreIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 5v5h5" />
+      <path d="M4.5 10a8 8 0 1 1-1.3 5" />
+    </svg>
+  );
+}
+
+/** 돋보기 — 검색 */
+export function SearchIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.35-4.35" />
+    </svg>
+  );
+}
+
+/** 반짝(스파크) — AI 모드 */
+export function SparkIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+    </svg>
+  );
+}
+
+/** 사람 + 플러스 — 공유(멤버 초대) */
+export function UserPlusIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19c0-3 2.5-5.2 5.5-5.2s5.5 2.2 5.5 5.2" />
+      <path d="M18.5 8.5v5M16 11h5" />
+    </svg>
+  );
+}
+
 /** 가로 점 3개 — 더보기 메뉴 */
 export function DotsHorizontalIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -121,6 +161,25 @@ export function PlusIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+/** 연필 — 이름 수정 */
+export function PencilIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 20h4L18.5 9.5a2 2 0 0 0-2.8-2.8L5 17.2V20z" />
+      <path d="m13.5 6.5 4 4" />
+    </svg>
+  );
+}
+
+/** 체크 — 확정·저장 */
+export function CheckIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m5 12 5 5L20 7" />
     </svg>
   );
 }

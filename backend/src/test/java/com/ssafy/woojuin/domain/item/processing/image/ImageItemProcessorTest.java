@@ -3,6 +3,7 @@ package com.ssafy.woojuin.domain.item.processing.image;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -15,6 +16,10 @@ import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.service.S3Uploader;
+import com.ssafy.woojuin.domain.location.GeoPoint;
+import com.ssafy.woojuin.domain.location.Geocoder;
+import com.ssafy.woojuin.domain.location.LocationResolver;
+import com.ssafy.woojuin.domain.location.MapLinkCoordinateParser;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +37,8 @@ class ImageItemProcessorTest {
     @Mock ImageThumbnailGenerator thumbnailGenerator;
     @Mock AiAnalyzer aiAnalyzer;
     @Mock CategoryAssignmentService categoryAssignmentService;
+    @Mock ExifGpsReader exifGpsReader;
+    @Mock Geocoder geocoder;
 
     ImageItemProcessor processor;
 
@@ -47,8 +54,12 @@ class ImageItemProcessorTest {
     }
 
     private void newProcessor() {
+        // 파서는 순수 함수라 실제 구현을 쓰고, 외부 호출이 필요한 지오코더만 목으로 둔다.
+        LocationResolver locationResolver = new LocationResolver(
+                new MapLinkCoordinateParser(), geocoder);
         processor = new ImageItemProcessor(itemRepository, s3Uploader, imageTextExtractor,
-                thumbnailGenerator, aiAnalyzer, categoryAssignmentService);
+                thumbnailGenerator, aiAnalyzer, categoryAssignmentService,
+                exifGpsReader, locationResolver);
     }
 
     @Test
@@ -125,7 +136,7 @@ class ImageItemProcessorTest {
         Item item = imageItem();
         when(s3Uploader.download(any())).thenReturn(new byte[]{1});
         when(imageTextExtractor.extract(any())).thenReturn("텍스트");
-        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis("요약문", List.of("문화·콘텐츠")));
+        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis(null, "요약문", List.of("문화·콘텐츠")));
 
         processor.process(message());
 
@@ -175,5 +186,91 @@ class ImageItemProcessorTest {
         assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
         assertThat(item.getContent()).isEqualTo("텍스트");
         assertThat(item.getThumbnailS3Key()).isNull();
+    }
+
+    // ---------- EXIF 위치 확보 (FR-023) ----------
+
+    @Test
+    void EXIF_좌표가_있으면_역지오코딩해_저장한다() {
+        newProcessor();
+        Item item = imageItem();
+        when(s3Uploader.download(any())).thenReturn(new byte[]{1});
+        when(imageTextExtractor.extract(any())).thenReturn("텍스트");
+        when(aiAnalyzer.analyze(any())).thenReturn(AiAnalysis.empty());
+        when(exifGpsReader.read(any())).thenReturn(Optional.of(new GeoPoint(37.5445, 127.0561)));
+        when(geocoder.reverse(any())).thenReturn(Optional.of("서울 성동구 아차산로17길 49"));
+
+        processor.process(message());
+
+        assertThat(item.getLat()).isEqualTo(37.5445);
+        assertThat(item.getLng()).isEqualTo(127.0561);
+        assertThat(item.getAddress()).isEqualTo("서울 성동구 아차산로17길 49");
+    }
+
+    @Test
+    void 역지오코딩이_실패해도_좌표는_저장한다() {
+        // 핀이 목적이고 주소는 장식이다.
+        newProcessor();
+        Item item = imageItem();
+        when(s3Uploader.download(any())).thenReturn(new byte[]{1});
+        when(imageTextExtractor.extract(any())).thenReturn("텍스트");
+        when(aiAnalyzer.analyze(any())).thenReturn(AiAnalysis.empty());
+        when(exifGpsReader.read(any())).thenReturn(Optional.of(new GeoPoint(37.5445, 127.0561)));
+        when(geocoder.reverse(any())).thenReturn(Optional.empty());
+
+        processor.process(message());
+
+        assertThat(item.hasCoordinates()).isTrue();
+        assertThat(item.getAddress()).isNull();
+    }
+
+    @Test
+    void EXIF_좌표가_없으면_지오코더를_부르지_않는다() {
+        newProcessor();
+        Item item = imageItem();
+        when(s3Uploader.download(any())).thenReturn(new byte[]{1});
+        when(imageTextExtractor.extract(any())).thenReturn("텍스트");
+        when(aiAnalyzer.analyze(any())).thenReturn(AiAnalysis.empty());
+        when(exifGpsReader.read(any())).thenReturn(Optional.empty());
+
+        processor.process(message());
+
+        assertThat(item.hasCoordinates()).isFalse();
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);   // 위치 없음은 정상이다
+        verifyNoInteractions(geocoder);
+    }
+
+    @Test
+    void 역지오코딩이_예외를_던져도_상태와_본문이_유지된다() {
+        // @Transactional 안에서 예외가 새면 rollback-only로 찍혀 이미 확보한 OCR 텍스트·
+        // 썸네일이 버려지고 파이프라인 전체가 재실행된다.
+        newProcessor();
+        Item item = imageItem();
+        when(s3Uploader.download(any())).thenReturn(new byte[]{1});
+        when(imageTextExtractor.extract(any())).thenReturn("확보한 텍스트");
+        when(aiAnalyzer.analyze(any())).thenReturn(AiAnalysis.empty());
+        when(exifGpsReader.read(any())).thenReturn(Optional.of(new GeoPoint(37.5445, 127.0561)));
+        when(geocoder.reverse(any())).thenThrow(new RuntimeException("역지오코딩 폭발"));
+
+        processor.process(message());   // 예외가 밖으로 나오지 않아야 한다
+
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
+        assertThat(item.getContent()).isEqualTo("확보한 텍스트");
+        assertThat(item.hasCoordinates()).isFalse();
+    }
+
+    @Test
+    void 원본_바이트는_한_번만_내려받아_OCR_썸네일_EXIF가_공유한다() {
+        newProcessor();
+        imageItem();
+        when(s3Uploader.download(any())).thenReturn(new byte[]{1});
+        when(imageTextExtractor.extract(any())).thenReturn("텍스트");
+        when(aiAnalyzer.analyze(any())).thenReturn(AiAnalysis.empty());
+        when(exifGpsReader.read(any())).thenReturn(Optional.empty());
+
+        processor.process(message());
+
+        verify(s3Uploader, times(1)).download(any());
+        verify(exifGpsReader).read(any());
     }
 }

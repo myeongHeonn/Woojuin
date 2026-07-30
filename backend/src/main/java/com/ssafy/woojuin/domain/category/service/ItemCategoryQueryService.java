@@ -55,6 +55,33 @@ public class ItemCategoryQueryService {
         return byItem;
     }
 
+    /**
+     * 지도 응답용 경량 변형 (FR-032) — categoryId만 필요할 때 쓴다.
+     *
+     * <p>{@link #categoriesByItemIds}는 이름·색을 채우려고 categories를 한 번 더 읽지만,
+     * 여기는 연결 테이블만 한 번 읽는다(쿼리 2회 → 1회, Category 엔티티 로딩 0). 지도는
+     * 핀 색·이름을 카테고리 목록 API에서 이미 받아둔 것으로 칠하므로 id만 있으면 된다.
+     *
+     * <p>대신 삭제된 카테고리를 가리키는 잔여 연결을 걸러내지 못한다. 카테고리 삭제 시
+     * CategoryService.delete가 deleteByCategoryId로 연결을 함께 지우므로 실제로는 그런 행이
+     * 남지 않는다 — 이 전제가 깨지면 여기도 categories와 join하는 방식으로 바꿔야 한다.
+     *
+     * <p>id를 정렬해서 반환한다. findByItemIdIn이 순서를 보장하지 않아, 정렬하지 않으면
+     * 같은 요청에 응답 배열 순서가 달라질 수 있다.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<Long>> categoryIdsByItemIds(Collection<Long> itemIds) {
+        if (itemIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, List<Long>> byItem = new HashMap<>();
+        for (ItemCategory link : itemCategoryRepository.findByItemIdIn(itemIds)) {
+            byItem.computeIfAbsent(link.getItemId(), k -> new ArrayList<>()).add(link.getCategoryId());
+        }
+        byItem.values().forEach(ids -> ids.sort(null));
+        return byItem;
+    }
+
     @Transactional(readOnly = true)
     public List<CategoryResponse> categoriesOf(Long itemId) {
         return categoriesByItemIds(List.of(itemId)).getOrDefault(itemId, List.of());

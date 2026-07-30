@@ -2,6 +2,7 @@ package com.ssafy.woojuin.domain.item.processing;
 
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
+import com.ssafy.woojuin.domain.item.service.ItemEmbeddingService;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -30,10 +31,13 @@ public class ItemProcessingDispatcher {
 
     private final List<ItemProcessor> processors;
     private final ItemRepository itemRepository;
+    private final ItemEmbeddingService itemEmbeddingService;
 
-    public ItemProcessingDispatcher(List<ItemProcessor> processors, ItemRepository itemRepository) {
+    public ItemProcessingDispatcher(List<ItemProcessor> processors, ItemRepository itemRepository,
+            ItemEmbeddingService itemEmbeddingService) {
         this.processors = processors;
         this.itemRepository = itemRepository;
+        this.itemEmbeddingService = itemEmbeddingService;
     }
 
     public Outcome handle(Map<String, String> fields) {
@@ -54,6 +58,9 @@ public class ItemProcessingDispatcher {
 
         try {
             processor.process(message);
+            // 가공 트랜잭션 커밋 후에 임베딩·좌표를 갱신한다 — 느린 HTTP 호출이라 아이템
+            // 트랜잭션 밖이어야 하고, 실패는 저쪽에서 전부 흡수하므로 ACK에 영향이 없다.
+            itemEmbeddingService.onItemProcessed(message.itemId());
             return Outcome.PROCESSED;
         } catch (Exception e) {
             log.error("아이템 처리 실패, 재시도 예정: itemId={}, type={}",

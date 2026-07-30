@@ -13,6 +13,8 @@ import java.util.List;
  *                         폴백하면 false — 이때는 오타 교정·관련어 확장이 적용되지 않았다는 뜻이다.
  * @param partialMatch     모든 키워드를 포함한 결과가 없어 일부만 포함한 결과로 폴백했음
  *                         (키워드 검색과 동일한 의미).
+ * @param semanticMatch    문자 일치가 아예 없어 의미(임베딩) 기반으로 폴백했음
+ *                         (키워드 검색과 동일한 의미 — {@link ItemSearchResponse} 참고).
  */
 public record ItemAiSearchResponse(
         List<ItemSummaryResponse> content,
@@ -21,17 +23,19 @@ public record ItemAiSearchResponse(
         long totalElements,
         String interpretedQuery,
         boolean aiPlanned,
-        boolean partialMatch) {
+        boolean partialMatch,
+        boolean semanticMatch) {
 
     public static ItemAiSearchResponse from(ItemSearchResponse search, String interpretedQuery,
             boolean aiPlanned) {
         return new ItemAiSearchResponse(
                 search.content(), search.page(), search.size(), search.totalElements(),
-                interpretedQuery, aiPlanned, search.partialMatch());
+                interpretedQuery, aiPlanned, search.partialMatch(), search.semanticMatch());
     }
 
     public static ItemAiSearchResponse empty(int page, int size, String interpretedQuery,
             boolean aiPlanned) {
-        return new ItemAiSearchResponse(List.of(), page, size, 0, interpretedQuery, aiPlanned, false);
+        return new ItemAiSearchResponse(List.of(), page, size, 0, interpretedQuery, aiPlanned,
+                false, false);
     }
 }

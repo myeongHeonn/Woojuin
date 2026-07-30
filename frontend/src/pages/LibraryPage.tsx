@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
 import { STAGE_PX } from '@/constants/stage';
 import CategoryChipBar from '@/components/domain/library/CategoryChipBar';
+import CategoryManage from '@/components/domain/library/CategoryManage';
 import Items from '@/components/domain/library/Items';
+import LibrarySearch from '@/components/domain/library/LibrarySearch';
+import SearchItems from '@/components/domain/library/SearchItems';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import { useCategories } from '@/hooks/useCategories';
+import { toggleCategorySelection } from '@/utils/categorySelection';
 
 /**
  * 대시보드(보관함) — 상단 필터 바 + 아이템 리스트.
@@ -25,6 +29,11 @@ const LibraryPage = () => {
   // 상세 모달 — 열린 아이템 id(null 이면 닫힘)
   const [openItemId, setOpenItemId] = useState<number | null>(null);
 
+  // 검색 상태는 URL 에 — 검색어가 있으면 목록 대신 검색 결과를 보인다(카테고리 필터는 검색 시 무시)
+  const [params] = useSearchParams();
+  const q = params.get('q') ?? '';
+  const aiMode = params.get('ai') === '1';
+
   return (
     // 좌우 여백(STAGE_PX)은 헤더 제목과 같은 값을 공유해 칩 바·리스트가 한 선에 맞는다.
     // StageHeader 가 absolute 로 떠 있어(모바일 58·데스크톱 66px) 콘텐츠를 그 아래에서 시작.
@@ -40,19 +49,24 @@ const LibraryPage = () => {
       <CategoryChipBar
         chips={chips}
         selected={selected}
-        onSelectAll={() => setSelected([])}
-        onToggle={(id) =>
-          setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
-        }
+        onSelectAll={() => setSelected(toggleCategorySelection(selected, 'all'))}
+        onToggle={(id) => setSelected((current) => toggleCategorySelection(current, id))}
         favoriteActive={favoriteActive}
         onToggleFavorite={() => setFavoriteActive((v) => !v)}
-        onManage={() => {}}
+        manage={<CategoryManage workspaceId={Number(workspaceId)} />}
       />
+
+      {/* 카테고리 바 아래 작은 검색창 (검색 중이면 ‹검색어 헤더로 전환) */}
+      <LibrarySearch />
 
       {/* 칩 바 아래만 스크롤 — flex-1 로 남은 높이를 채우고 min-h-0 이라야 넘칠 때 줄어든다 */}
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none">
-        {/* 필터는 전부 서버 처리 — Items → useItems queryKey 로 내려간다 */}
-        <Items favorite={favoriteActive} categoryIds={selected} onOpenItem={setOpenItemId} />
+        {q ? (
+          <SearchItems q={q} aiMode={aiMode} onOpenItem={setOpenItemId} />
+        ) : (
+          // 필터는 전부 서버 처리 — Items → useItems queryKey 로 내려간다
+          <Items favorite={favoriteActive} categoryIds={selected} onOpenItem={setOpenItemId} />
+        )}
       </div>
 
       {/* 상세 모달 — 타입(사진·링크·메모)에 맞는 바디를 셸이 골라 띄운다 */}

@@ -54,4 +54,10 @@ describe('CategoryEditor', () => {
     await userEvent.click(menuItems[0] as HTMLElement);
     expect(updateMutate).toHaveBeenCalledWith({ categoryIds: [1, 2, 3] });
   });
+
+  it('카테고리가 1개뿐이면 ✕ 를 숨긴다(서버가 빈 집합을 막으므로)', async () => {
+    const single = { ...item, categories: [ALL[0]] } as ItemDetail;
+    const { container } = await render(<CategoryEditor item={single} workspaceId={3} />);
+    expect(container.querySelector('button[aria-label="여행 제거"]')).toBeNull();
+  });
 });

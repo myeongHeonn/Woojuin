@@ -15,6 +15,7 @@ import CanvasPage from '@/pages/CanvasPage';
 import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
 import OAuthCallbackPage from '@/pages/OAuthCallbackPage';
+import InvitePage from '@/pages/InvitePage';
 
 export const router = createBrowserRouter([
   {
@@ -23,6 +24,8 @@ export const router = createBrowserRouter([
   },
   { path: '/login', element: <LoginPage /> },
   { path: '/signup', element: <SignupPage /> },
+  // 공유 링크 진입점 — 로그인 전에도 미리보기, 참여는 로그인 후(사이드바 없는 단독 화면)
+  { path: '/invite/:code', element: <InvitePage /> },
   // 구글 OAuth 콜백 (백엔드 woojuin.oauth.redirect-base-url과 경로 일치 필요)
   { path: '/oauth/callback', element: <OAuthCallbackPage /> },
   // 로그인해야 들어갈 수 있는 앱 화면들 (사이드바 포함)
@@ -36,12 +39,13 @@ export const router = createBrowserRouter([
           { path: '/home', element: <PersonalSpacePage /> },
           // 워크스페이스에 속하지 않는 화면들 (모바일 탭바에서 진입)
           { path: '/my', element: <MyPage /> },
-          { path: '/trash', element: <TrashPage /> },
           {
             path: '/workspace/:workspaceId',
             children: [
               // 뷰 없이 들어오면 성좌가 기본
               { index: true, element: <Navigate to="universe" replace /> },
+              // 휴지통은 워크스페이스별 — 스테이지 헤더의 휴지통 아이콘으로 진입
+              { path: 'trash', element: <TrashPage /> },
               // 같은 워크스페이스를 다르게 보는 네 화면 — 상단 헤더(제목·뷰바)를 공유한다
               {
                 element: <StageLayout />,
