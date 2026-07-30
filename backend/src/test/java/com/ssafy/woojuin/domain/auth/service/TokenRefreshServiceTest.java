@@ -2,6 +2,7 @@ package com.ssafy.woojuin.domain.auth.service;
 
 import com.ssafy.woojuin.domain.auth.dto.TokenResponse;
 import com.ssafy.woojuin.domain.auth.jwt.JwtTokenProvider;
+import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +25,9 @@ class TokenRefreshServiceTest {
     @Mock
     private RefreshTokenStore refreshTokenStore;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private TokenRefreshService tokenRefreshService;
 
@@ -33,6 +37,7 @@ class TokenRefreshServiceTest {
         when(jwtTokenProvider.validateToken("refresh-token-value")).thenReturn(true);
         when(jwtTokenProvider.getUserId("refresh-token-value")).thenReturn(1L);
         when(refreshTokenStore.findByUserId(1L)).thenReturn(Optional.of("refresh-token-value"));
+        when(userRepository.existsByIdAndDeletedAtIsNull(1L)).thenReturn(true);
         when(jwtTokenProvider.createAccessToken(1L)).thenReturn("new-access-token");
 
         TokenResponse response = tokenRefreshService.refresh("refresh-token-value");
@@ -47,6 +52,18 @@ class TokenRefreshServiceTest {
         when(jwtTokenProvider.validateToken("bad-token")).thenReturn(false);
 
         assertThatThrownBy(() -> tokenRefreshService.refresh("bad-token"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("탈퇴 사용자의 refresh token으로 access token을 발급하지 않는다")
+    void refresh_withdrawnUser_throwsException() {
+        when(jwtTokenProvider.validateToken("refresh-token-value")).thenReturn(true);
+        when(jwtTokenProvider.getUserId("refresh-token-value")).thenReturn(1L);
+        when(refreshTokenStore.findByUserId(1L)).thenReturn(Optional.of("refresh-token-value"));
+        when(userRepository.existsByIdAndDeletedAtIsNull(1L)).thenReturn(false);
+
+        assertThatThrownBy(() -> tokenRefreshService.refresh("refresh-token-value"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

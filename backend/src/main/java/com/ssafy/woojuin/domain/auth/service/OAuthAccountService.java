@@ -5,6 +5,8 @@ import com.ssafy.woojuin.domain.auth.entity.User;
 import com.ssafy.woojuin.domain.auth.event.UserSignedUpEvent;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -27,7 +29,12 @@ public class OAuthAccountService {
     public User findOrCreateUser(AuthProvider provider, String providerId, String email, String nickname) {
         Optional<User> existing = userRepository.findByProviderAndProviderId(provider, providerId);
         if (existing.isPresent()) {
-            return existing.get();
+            User user = existing.get();
+            if (user.isWithdrawn()) {
+                throw new OAuth2AuthenticationException(
+                        new OAuth2Error("withdrawn_user"), "탈퇴한 계정입니다.");
+            }
+            return user;
         }
 
         User saved = userRepository.save(User.builder()

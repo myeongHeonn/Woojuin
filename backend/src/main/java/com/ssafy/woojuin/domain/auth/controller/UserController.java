@@ -3,10 +3,12 @@ package com.ssafy.woojuin.domain.auth.controller;
 import com.ssafy.woojuin.domain.auth.dto.UpdateProfileRequest;
 import com.ssafy.woojuin.domain.auth.dto.UserProfileResponse;
 import com.ssafy.woojuin.domain.auth.service.UserProfileService;
+import com.ssafy.woojuin.domain.auth.service.UserWithdrawalService;
 import com.ssafy.woojuin.global.common.ApiResponse;
 import com.ssafy.woojuin.global.security.aop.AuthenticatedUser;
 import com.ssafy.woojuin.global.security.aop.CurrentUserResolver;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,10 +20,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserProfileService userProfileService;
+    private final UserWithdrawalService userWithdrawalService;
     private final CurrentUserResolver currentUserResolver;
 
-    public UserController(UserProfileService userProfileService, CurrentUserResolver currentUserResolver) {
+    public UserController(UserProfileService userProfileService, UserWithdrawalService userWithdrawalService,
+                          CurrentUserResolver currentUserResolver) {
         this.userProfileService = userProfileService;
+        this.userWithdrawalService = userWithdrawalService;
         this.currentUserResolver = currentUserResolver;
     }
 
@@ -37,5 +42,13 @@ public class UserController {
     public ApiResponse<UserProfileResponse> updateMyProfile(@Valid @RequestBody UpdateProfileRequest request) {
         Long userId = currentUserResolver.resolveUserId();
         return ApiResponse.success(userProfileService.updateProfile(userId, request));
+    }
+
+    @AuthenticatedUser
+    @DeleteMapping("/me")
+    public ApiResponse<Void> withdraw() {
+        Long userId = currentUserResolver.resolveUserId();
+        userWithdrawalService.withdraw(userId);
+        return ApiResponse.success(null);
     }
 }
