@@ -1,7 +1,8 @@
 import type { ComponentType, SVGProps } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
-import { ConstellationIcon, DashboardIcon, MapIcon, OverviewIcon } from '@/assets/icons';
+import { ConstellationIcon, DashboardIcon, MapIcon } from '@/assets/icons';
+//OverviewIcon -> canvas 뷰 추가시 추가
 
 interface View {
   label: string;
@@ -15,7 +16,7 @@ const VIEWS: View[] = [
   { label: '성좌', Icon: ConstellationIcon, segment: 'universe' },
   { label: '대시보드', Icon: DashboardIcon, segment: 'library' },
   { label: '지도', Icon: MapIcon, segment: 'map' },
-  { label: '한눈에 보기', Icon: OverviewIcon, segment: 'canvas' },
+  //{ label: '한눈에 보기', Icon: OverviewIcon, segment: 'canvas' },
 ];
 
 /**
