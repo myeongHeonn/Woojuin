@@ -5,7 +5,7 @@
 | 구분 | 값 |
 | --- | --- |
 | 개발 웹사이트 | `https://dev.woojuin.store` |
-| 개발 백엔드 API | `https://dev.api.woojuin.store/api` |
+| 개발 백엔드 API | `https://api.dev.woojuin.store/api` |
 | 웹사이트 | `https://woojuin.store` |
 | 백엔드 API | `https://api.woojuin.store/api` |
 | Chrome 웹스토어 익스텐션 ID | `aifkmpjpjedlamliamnloliencimdfco` |
@@ -14,7 +14,7 @@
 익스텐션은 빌드 모드에 따라 API 주소가 달라집니다.
 
 - 로컬 빌드: `http://localhost:8080/api`
-- 개발 서버 시연 빌드: `https://dev.api.woojuin.store/api`
+- 개발 서버 시연 빌드: `https://api.dev.woojuin.store/api`
 - 운영 빌드: `https://api.woojuin.store/api`
 
 ## 백엔드 변경사항
@@ -104,7 +104,7 @@ $headers = @{
   'Access-Control-Request-Headers' = 'content-type'
 }
 Invoke-WebRequest `
-  -Uri 'https://dev.api.woojuin.store/api/auth/login' `
+  -Uri 'https://api.dev.woojuin.store/api/auth/login' `
   -Method Options `
   -Headers $headers
 ```

@@ -2,7 +2,7 @@ import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/stor
 
 const DEFAULT_API_BASE_URLS: Record<string, string> = {
   development: 'http://localhost:8080/api',
-  demo: 'https://dev.api.woojuin.store/api',
+  demo: 'https://api.dev.woojuin.store/api',
   production: 'https://api.woojuin.store/api',
 };
 
