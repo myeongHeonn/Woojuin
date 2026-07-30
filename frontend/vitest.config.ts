@@ -40,6 +40,11 @@ export default defineConfig({
       'react-hook-form',
       'zod',
       '@hookform/resolvers/zod',
+      // FCM 도입(2026-07-30)으로 추가. 빠져 있는 동안 CI 로그에 실제로
+      // "dependencies optimized: firebase/app, firebase/messaging → reloading" 이 찍혔다 —
+      // 위 팀 규칙이 지켜지지 않은 첫 사례. 운 좋게 통과했지만 언제든 타임아웃으로 갈 수 있었다.
+      'firebase/app',
+      'firebase/messaging',
     ],
   },
   test: {
