@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getSidebarCompactQuery } from '@/constants/breakpoints';
 import { classNames } from '@/utils/classNames';
 import { SideBarProvider } from '@/stores/context/SideBarContext';
@@ -9,21 +9,41 @@ import StorageBar from './StorageBar';
 import SideBarUser from './SideBarUser';
 
 const SideBar = () => {
-  const [sideBarClosed, setSideBarClosed] = useState(() =>
-    typeof window === 'undefined' ? false : window.matchMedia(getSidebarCompactQuery()).matches,
-  );
+  const compactAtMount =
+    typeof window === 'undefined' ? false : window.matchMedia(getSidebarCompactQuery()).matches;
+  const compactScreenRef = useRef(compactAtMount);
+  const preferredClosedRef = useRef(false);
+  const [sideBarClosed, setSideBarClosed] = useState(compactAtMount);
 
   useEffect(() => {
     const compactScreen = window.matchMedia(getSidebarCompactQuery());
-    const syncWithScreen = (event: MediaQueryListEvent) => setSideBarClosed(event.matches);
+    const syncWithScreen = (compact: boolean) => {
+      if (compactScreenRef.current === compact) return;
 
-    compactScreen.addEventListener('change', syncWithScreen);
-    setSideBarClosed(compactScreen.matches);
+      if (compact) {
+        setSideBarClosed((closed) => {
+          preferredClosedRef.current = closed;
+          return true;
+        });
+      } else {
+        setSideBarClosed(preferredClosedRef.current);
+      }
+      compactScreenRef.current = compact;
+    };
+    const handleChange = (event: MediaQueryListEvent) => syncWithScreen(event.matches);
 
-    return () => compactScreen.removeEventListener('change', syncWithScreen);
+    compactScreen.addEventListener('change', handleChange);
+    syncWithScreen(compactScreen.matches);
+
+    return () => compactScreen.removeEventListener('change', handleChange);
   }, []);
 
-  const toggleSideBar = () => setSideBarClosed((closed) => !closed);
+  const toggleSideBar = () =>
+    setSideBarClosed((closed) => {
+      const nextClosed = !closed;
+      preferredClosedRef.current = nextClosed;
+      return nextClosed;
+    });
 
   return (
     <SideBarProvider value={{ sideBarClosed, toggleSideBar }}>

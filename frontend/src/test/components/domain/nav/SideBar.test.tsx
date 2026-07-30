@@ -119,6 +119,23 @@ describe('SideBar (통합)', () => {
 
       await page.viewport(1280, 800);
     });
+
+    it('사용자가 접은 상태는 화면 크기가 바뀌어도 유지한다', async () => {
+      await page.viewport(getSidebarExpandedSize(), 800);
+      const { container } = await renderSideBar();
+      const width = () => aside(container).getBoundingClientRect().width;
+
+      await userEvent.click(toggleBtn(container));
+      await expect.poll(width).toBeCloseTo(72, 0);
+
+      await page.viewport(getSidebarExpandedSize() - 1, 800);
+      await expect.poll(width).toBeCloseTo(72, 0);
+
+      await page.viewport(getSidebarExpandedSize(), 800);
+      await expect.poll(width).toBeCloseTo(72, 0);
+
+      await page.viewport(1280, 800);
+    });
   });
 
   describe('사용자 프로필 이동', () => {
