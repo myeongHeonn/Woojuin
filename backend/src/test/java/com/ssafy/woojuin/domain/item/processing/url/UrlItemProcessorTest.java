@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * 오케스트레이션 + 상태 전이 검증. 각 조각은 mock으로 대체하고, 어떤 조합에서 DONE/
@@ -44,6 +45,7 @@ class UrlItemProcessorTest {
     @Mock ContentExtractor contentExtractor;
     @Mock AiAnalyzer aiAnalyzer;
     @Mock CategoryAssignmentService categoryAssignmentService;
+    @Mock ApplicationEventPublisher eventPublisher;
     @Mock Geocoder geocoder;
 
     UrlItemProcessor processor;
@@ -63,8 +65,8 @@ class UrlItemProcessorTest {
         LocationResolver locationResolver = new LocationResolver(
                 new MapLinkCoordinateParser(), geocoder);
         processor = new UrlItemProcessor(itemRepository, normalizer, oEmbedClient,
-                htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer,
-                categoryAssignmentService, locationResolver);
+                htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer, categoryAssignmentService,
+                eventPublisher, locationResolver);
     }
 
     private Item urlItem() {
@@ -286,7 +288,7 @@ class UrlItemProcessorTest {
         // 이 테스트는 실제 정규화 규칙을 써야 의미가 있으므로 setUp의 통과 스텁을 대체한다.
         processor = new UrlItemProcessor(itemRepository, new UrlNormalizer(), oEmbedClient,
                 htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer,
-                categoryAssignmentService,
+                categoryAssignmentService, eventPublisher,
                 new LocationResolver(new MapLinkCoordinateParser(), geocoder));
 
         Document shell = Jsoup.parse("<html><head><title>네이버 지도</title></head></html>",
@@ -322,7 +324,7 @@ class UrlItemProcessorTest {
         aiReturnsEmpty();
         processor = new UrlItemProcessor(itemRepository, new UrlNormalizer(), oEmbedClient,
                 htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer,
-                categoryAssignmentService,
+                categoryAssignmentService, eventPublisher,
                 new LocationResolver(new MapLinkCoordinateParser(), geocoder));
 
         Document shell = Jsoup.parse("<html></html>",

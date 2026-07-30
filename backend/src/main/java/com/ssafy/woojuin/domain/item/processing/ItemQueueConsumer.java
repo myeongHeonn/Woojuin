@@ -98,9 +98,17 @@ public class ItemQueueConsumer
         // 이름이 다른 컨슈머 N개를 등록하면 각각 폴링 스레드를 갖고, Redis가 새 메시지를
         // 그중 노는 컨슈머에게 분배해 병렬 처리가 된다.
         for (int i = 1; i <= consumerCount; i++) {
-            container.receive(
-                    Consumer.from(consumerGroup, consumerNamePrefix + "-" + i),
-                    StreamOffset.create(streamKey, ReadOffset.lastConsumed()),
+            // receive() 축약 API를 쓰지 않는 이유: 그쪽은 cancelOnError가 "모든 에러에서
+            // 구독 취소"로 고정돼 있어, Redis가 잠깐만 흔들려도(재배포·재시작·타임아웃)
+            // 구독이 영구히 죽는다. 앱 헬스체크는 UP인 채 새 아이템만 전부 PROCESSING에
+            // 머무는 조용한 장애가 되므로, 에러는 로그만 남기고 폴링을 계속한다.
+            container.register(
+                    StreamMessageListenerContainer.StreamReadRequest
+                            .builder(StreamOffset.create(streamKey, ReadOffset.lastConsumed()))
+                            .consumer(Consumer.from(consumerGroup, consumerNamePrefix + "-" + i))
+                            .autoAcknowledge(false)
+                            .cancelOnError(t -> false)
+                            .build(),
                     this);
         }
         container.start();
@@ -133,7 +141,13 @@ public class ItemQueueConsumer
         // PendingMessageReclaimer가 이어받게 한다.
         if (outcome == ItemProcessingDispatcher.Outcome.PROCESSED
                 || outcome == ItemProcessingDispatcher.Outcome.POISON) {
-            redisTemplate.opsForStream().acknowledge(consumerGroup, record);
+            try {
+                redisTemplate.opsForStream().acknowledge(consumerGroup, record);
+            } catch (RuntimeException e) {
+                // ACK 실패면 pending에 남았다가 회수기가 재배달하고, 프로세서의 status 가드가
+                // 이중 가공을 막는다. 예외를 위로 던져 봐야 리스너 에러로 취급될 뿐 이득이 없다.
+                log.warn("ACK 실패(회수기가 처리 예정): recordId={}, cause={}", record.getId(), e.toString());
+            }
         }
     }
 
