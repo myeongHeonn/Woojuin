@@ -15,15 +15,27 @@ self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
-// TODO(FR-050): Firebase Admin에서 발송한 푸시 수신
-// importScripts 대신 firebase/messaging/sw 모듈 방식 사용 예정
+// FCM Admin SDK가 Notification 메시지로 보내므로, 실제 웹푸시 배달 payload는
+// { notification: { title, body }, data: {...} } 형태로 온다 (data-only 메시지가
+// 아니라서 최상위 payload.title 은 없음 — firebase-admin의 Message.setNotification 참고).
 self.addEventListener('push', (event) => {
-  const payload = event.data?.json() ?? {};
+  console.log('[sw] push event received', event.data ? 'has data' : 'no data');
   event.waitUntil(
-    self.registration.showNotification(payload.title ?? '우주인', {
-      body: payload.body ?? 'AI 정리가 완료됐어요.',
-      data: payload.data,
-    }),
+    (async () => {
+      try {
+        const payload = event.data?.json() ?? {};
+        console.log('[sw] push payload', JSON.stringify(payload));
+        const title = payload.notification?.title ?? payload.title ?? '우주인';
+        const body = payload.notification?.body ?? payload.body ?? 'AI 정리가 완료됐어요.';
+        await self.registration.showNotification(title, {
+          body,
+          data: payload.data,
+        });
+        console.log('[sw] showNotification 호출 완료');
+      } catch (err) {
+        console.error('[sw] push 처리 중 에러', err);
+      }
+    })(),
   );
 });
 
