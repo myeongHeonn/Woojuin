@@ -5,13 +5,13 @@ import type { Category } from '@/types/category';
 
 const categories: Category[] = [{ categoryId: 1, name: '여행', color: '#8fb4ff' }];
 
-const renderPanel = (isEmpty: boolean) =>
+const renderPanel = (isEmpty: boolean, selectedCategories = new Set<number>()) =>
   render(
     <MapPlacePanel
       categories={categories}
       places={[]}
       isEmpty={isEmpty}
-      activeCategories={new Set([1])}
+      selectedCategories={selectedCategories}
       favoriteActive={false}
       collapsed={false}
       selectedPlaceId={null}
@@ -23,7 +23,10 @@ const renderPanel = (isEmpty: boolean) =>
     />,
   );
 
-describe('MapPlacePanel 빈 상태', () => {
+const getFilterButtons = (container: HTMLElement) =>
+  container.querySelectorAll<HTMLButtonElement>('button[aria-pressed]');
+
+describe('MapPlacePanel', () => {
   it('지도 데이터가 없으면 캐릭터와 안내 문구만 표시한다', async () => {
     const { container } = await renderPanel(true);
     const text = container.textContent ?? '';
@@ -49,5 +52,21 @@ describe('MapPlacePanel 빈 상태', () => {
     expect(text).toContain('여행');
     expect(text).toContain('표시할 카테고리를 선택해 주세요.');
     expect(text).not.toContain('아직 지도에 표시할 장소가 없어요');
+  });
+
+  it('전체 상태에서는 전체 칩만 선택 상태로 표시한다', async () => {
+    const { container } = await renderPanel(false);
+    const buttons = getFilterButtons(container);
+
+    expect(buttons[1]?.getAttribute('aria-pressed')).toBe('true');
+    expect(buttons[2]?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('카테고리를 선택하면 전체는 해제되고 해당 카테고리만 선택 상태로 표시한다', async () => {
+    const { container } = await renderPanel(false, new Set([1]));
+    const buttons = getFilterButtons(container);
+
+    expect(buttons[1]?.getAttribute('aria-pressed')).toBe('false');
+    expect(buttons[2]?.getAttribute('aria-pressed')).toBe('true');
   });
 });
