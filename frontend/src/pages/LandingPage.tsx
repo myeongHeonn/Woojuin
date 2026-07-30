@@ -34,6 +34,8 @@ const LandingPage = () => {
         <h1 className="text-hero font-extrabold tracking-[-0.02em]">
           저장은{' '}
           <span key={countdownRun} className="landing-countdown" aria-label="1">
+            <span className="landing-countdown-seven">7</span>
+            <span className="landing-countdown-six">6</span>
             <span className="landing-countdown-five">5</span>
             <span className="landing-countdown-four">4</span>
             <span className="landing-countdown-three">3</span>
@@ -51,7 +53,7 @@ const LandingPage = () => {
       <LandingFeatureSections />
 
       <Link
-        to="/signup"
+        to="/login"
         className="fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 whitespace-nowrap rounded-full border border-white/10 bg-accent px-6 py-3.5 text-sm font-extrabold tracking-[0.08em] text-white shadow-modal transition hover:-translate-y-1 hover:bg-accent-hover desktop:bottom-7 desktop:px-8"
       >
         WOULD YOU IN?

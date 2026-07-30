@@ -250,7 +250,7 @@ const sections = [
       <>
         <span className="landing-title-word">링크</span>도,{' '}
         <span className="landing-title-word landing-title-word-two">사진</span>도,{' '}
-        <span className="landing-title-word landing-title-word-three">메모</span>도, 한 번에
+        <span className="landing-title-word landing-title-word-three">메모</span>도 한 번에
       </>
     ),
     description: '형식 구분 없이 필요한 정보를 한곳에 저장할 수 있어요.',
@@ -260,7 +260,7 @@ const sections = [
     eyebrow: 'SAVE ANYWHERE',
     title: (
       <>
-        어디에서든, 바로{' '}
+        어디에서든 바로{' '}
         <span className="landing-save-title">
           <span className="landing-check-mark">✓</span>
           저장
@@ -274,7 +274,7 @@ const sections = [
     eyebrow: 'UNIVERSE',
     title: (
       <>
-        정보가 모이면, 나만의 <span className="landing-universe-title">우주</span> 완성
+        정보가 모이면 나만의 <span className="landing-universe-title">우주</span> 완성
       </>
     ),
     description: '관련된 정보는 별로 연결되어 한눈에 볼 수 있어요.',
