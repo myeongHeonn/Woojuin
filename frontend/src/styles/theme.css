@@ -32,6 +32,8 @@
    * 그것들까지 끌려가지 않도록 전용 이름을 둔다.
    */
   --breakpoint-desktop: 640px;
+  /* 데스크톱 셸을 유지하면서 사이드바만 먼저 접는 경계 */
+  --breakpoint-sidebar-expanded: 1024px;
 
   --radius-sm: 8px;
   --radius-md: 12px;

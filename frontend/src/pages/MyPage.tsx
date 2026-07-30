@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useNavigate } from 'react-router-dom';
 import ProfileCard from '@/components/domain/mypage/ProfileCard';
 import SettingsCard from '@/components/domain/mypage/SettingsCard';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import Toast, { type ToastMessage } from '@/components/ui/Toast';
 import { logout, updateMyProfile, type UpdateProfilePayload } from '@/services/auth';
+import { deleteNotificationToken } from '@/services/notifications';
 import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
+import { fcmTokenAtom } from '@/stores/pushAtoms';
 import { useUser } from '@/hooks/useUser';
 
 type ConfirmKind = 'logout' | 'withdraw' | null;
@@ -18,6 +20,8 @@ const MyPage = () => {
   const queryClient = useQueryClient();
   const setAccessToken = useSetAtom(accessTokenAtom);
   const setRefreshToken = useSetAtom(refreshTokenAtom);
+  const fcmToken = useAtomValue(fcmTokenAtom);
+  const setFcmToken = useSetAtom(fcmTokenAtom);
   const [notificationEnabled, setNotificationEnabled] = useState(true);
   const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -44,11 +48,13 @@ const MyPage = () => {
   const handleLogout = async () => {
     try {
       await logout();
+      if (fcmToken) await deleteNotificationToken(fcmToken);
     } catch {
       // 서버 로그아웃이 실패해도 현재 기기의 인증 정보는 제거한다.
     }
     setAccessToken(null);
     setRefreshToken(null);
+    setFcmToken(null);
     queryClient.clear();
     navigate('/');
   };

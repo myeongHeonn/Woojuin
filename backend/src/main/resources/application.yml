@@ -125,6 +125,12 @@ woojuin:
     reclaim-idle-ms: 180000
     reclaim-interval-ms: 30000 # 회수 스케줄러 실행 주기
     reclaim-batch-size: 32     # 한 주기에 살펴볼 pending 최대 건수
+    # 재발행 안전망(StuckItemRepublisher) — 큐에 메시지가 아예 없어 회수기도 못 구하는
+    # 영구 PROCESSING 아이템(발행 실패·컨슈머 정지 중 유실)을 다시 발행한다.
+    # after가 회수기 재시도 수명(≈10분)보다 길어야 하는 이유는 그쪽 javadoc 참고.
+    republish-after-ms: 900000
+    republish-interval-ms: 300000
+    republish-batch-size: 50
   fetch:
     timeout-ms: 5000
     max-body-bytes: 3145728   # 3MB. 미리보기/본문 추출에 이보다 큰 HTML은 불필요

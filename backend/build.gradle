@@ -62,6 +62,9 @@ dependencies {
     implementation 'org.flywaydb:flyway-core'
     runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 
+    // 웹 푸시 발송 (FCM). 서비스 계정 키가 없으면 NoOpPushSender로 폴백한다(PushSenderConfig).
+    implementation 'com.google.firebase:firebase-admin:9.4.3'
+
     runtimeOnly 'org.postgresql:postgresql'
 
     compileOnly 'org.projectlombok:lombok'

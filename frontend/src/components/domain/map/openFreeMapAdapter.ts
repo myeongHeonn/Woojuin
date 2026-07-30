@@ -9,6 +9,7 @@ import {
 } from 'maplibre-gl';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { MapAdapter, MapAdapterOptions, MapPoint } from '@/components/domain/map/mapAdapter';
+import { INFO_CARD_CLASS } from '@/components/ui/infoCardStyles';
 
 const OPEN_FREE_MAP_STYLE = 'https://tiles.openfreemap.org/styles/fiord';
 const DEFAULT_CENTER: [number, number] = [127.7669, 35.9078];
@@ -26,30 +27,31 @@ setWorkerUrl(maplibreWorkerUrl);
 
 const createPopupContent = (point: MapPoint, onOpen: (pointId: number) => void) => {
   const content = document.createElement('article');
-  content.className = 'woojuin-map-popup-content';
+  content.className = INFO_CARD_CLASS.root;
   content.tabIndex = 0;
   content.setAttribute('role', 'button');
   content.setAttribute('aria-label', `${point.title} 상세 열기`);
 
   const meta = document.createElement('div');
-  meta.className = 'woojuin-map-popup-meta';
+  meta.className = INFO_CARD_CLASS.meta;
 
   const dot = document.createElement('span');
-  dot.className = 'woojuin-map-popup-dot';
+  dot.className = INFO_CARD_CLASS.dot;
   dot.style.backgroundColor = point.color;
 
   const type = document.createElement('span');
   type.textContent = `#${point.categoryLabel} · ${point.typeLabel}`;
 
   const title = document.createElement('strong');
+  title.className = INFO_CARD_CLASS.title;
   title.textContent = point.title;
 
   const address = document.createElement('span');
-  address.className = 'woojuin-map-popup-address';
+  address.className = INFO_CARD_CLASS.detail;
   address.textContent = point.address;
 
   const openHint = document.createElement('span');
-  openHint.className = 'woojuin-map-popup-open-hint';
+  openHint.className = INFO_CARD_CLASS.action;
   openHint.textContent = '클릭하여 열기';
 
   meta.append(dot, type);

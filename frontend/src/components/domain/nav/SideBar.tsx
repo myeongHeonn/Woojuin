@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { getSidebarCompactQuery } from '@/constants/breakpoints';
 import { classNames } from '@/utils/classNames';
 import { SideBarProvider } from '@/stores/context/SideBarContext';
 import SideBarBrand from './SideBarBrand';
@@ -8,9 +9,41 @@ import StorageBar from './StorageBar';
 import SideBarUser from './SideBarUser';
 
 const SideBar = () => {
-  const [sideBarClosed, setSideBarClosed] = useState(false);
+  const compactAtMount =
+    typeof window === 'undefined' ? false : window.matchMedia(getSidebarCompactQuery()).matches;
+  const compactScreenRef = useRef(compactAtMount);
+  const preferredClosedRef = useRef(false);
+  const [sideBarClosed, setSideBarClosed] = useState(compactAtMount);
 
-  const toggleSideBar = () => setSideBarClosed((closed) => !closed);
+  useEffect(() => {
+    const compactScreen = window.matchMedia(getSidebarCompactQuery());
+    const syncWithScreen = (compact: boolean) => {
+      if (compactScreenRef.current === compact) return;
+
+      if (compact) {
+        setSideBarClosed((closed) => {
+          preferredClosedRef.current = closed;
+          return true;
+        });
+      } else {
+        setSideBarClosed(preferredClosedRef.current);
+      }
+      compactScreenRef.current = compact;
+    };
+    const handleChange = (event: MediaQueryListEvent) => syncWithScreen(event.matches);
+
+    compactScreen.addEventListener('change', handleChange);
+    syncWithScreen(compactScreen.matches);
+
+    return () => compactScreen.removeEventListener('change', handleChange);
+  }, []);
+
+  const toggleSideBar = () =>
+    setSideBarClosed((closed) => {
+      const nextClosed = !closed;
+      preferredClosedRef.current = nextClosed;
+      return nextClosed;
+    });
 
   return (
     <SideBarProvider value={{ sideBarClosed, toggleSideBar }}>

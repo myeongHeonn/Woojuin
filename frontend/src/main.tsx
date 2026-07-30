@@ -7,6 +7,23 @@ import { router } from './routes/router';
 import { jotaiStore } from './stores/jotaiStore';
 import './styles/index.css';
 
+// 배포가 새 빌드를 올리면, 열려 있던 탭은 자기(옛) index.html 이 가리키는 옛 해시 청크를
+// 계속 요청한다. 파이프라인이 옛 청크를 7일간 남겨 두므로 대부분은 그대로 동작하지만,
+// 그보다 오래된 탭이 lazy 페이지로 처음 이동하면 dynamic import 가 실패한다
+// ("Failed to fetch dynamically imported module ..." — dev 에서 실측, 2026-07-31).
+// Vite 는 이때 vite:preloadError 를 쏘므로 새로고침 한 번으로 새 빌드를 받게 한다.
+//
+// 시간 가드는 무한 리로드 방지다 — 새로고침해도 같은 청크가 또 없으면(예: 서비스워커가
+// 옛 index.html 을 캐시에서 서빙) 리로드를 반복하는 대신 에러를 그대로 드러낸다.
+window.addEventListener('vite:preloadError', (event) => {
+  const KEY = 'chunk-reload-at';
+  const lastReload = Number(sessionStorage.getItem(KEY) ?? 0);
+  if (Date.now() - lastReload < 10_000) return;
+  sessionStorage.setItem(KEY, String(Date.now()));
+  event.preventDefault();
+  window.location.reload();
+});
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
