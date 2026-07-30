@@ -55,6 +55,18 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // 무거운 라이브러리를 별도 청크로 분리한다.
+        // (1) 성좌·지도에 들어가야만 받아지고 (2) 잘 안 바뀌어 브라우저 캐시가 오래 유지된다.
+        manualChunks: {
+          three: ['three'],
+          maplibre: ['maplibre-gl'],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': 'http://localhost:8080',
