@@ -27,10 +27,13 @@ function hubRadius(itemCount: number): number {
   return MIN_RADIUS + (MAX_RADIUS - MIN_RADIUS) * t;
 }
 
-/** 아이템이 하나도 없는 별자리는 위치를 정할 수 없으므로 건너뛴다 */
+/**
+ * 아이템이 0개면 위치를 정할 수 없고, 1개면 허브가 아이템과 같은 좌표에 겹친다.
+ * 따라서 카테고리 허브는 아이템이 2개 이상일 때만 만든다.
+ */
 export function deriveHubs(constellations: Constellation[]): Hub[] {
   return constellations
-    .filter((c) => c.items.length > 0)
+    .filter((c) => c.items.length > 1)
     .map((c) => {
       const sum = c.items.reduce<Vec3>(
         (acc, item) => [
