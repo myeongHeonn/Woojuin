@@ -65,6 +65,7 @@ class OpenRouterClient:
                 "model": self.settings.chat_model,
                 "messages": messages,
                 "temperature": 0,
+                "reasoning": {"effort": "none"},
                 "response_format": {
                     "type": "json_schema",
                     "json_schema": {
@@ -119,6 +120,7 @@ class OpenRouterClient:
             "model": self.settings.chat_model,
             "messages": [*messages[:-1], {"role": last["role"], "content": last["content"] + instruction}],
             "temperature": 0,
+            "reasoning": {"effort": "none"},
         }
 
     def create_embeddings(self, texts: list[str]) -> tuple[str, list[list[float]]]:
