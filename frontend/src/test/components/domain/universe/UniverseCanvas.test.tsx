@@ -56,7 +56,7 @@ describe('UniverseCanvas 아이템 선택', () => {
       sceneCallbacks?.onSelect(starNode, { x: 120, y: 80, visible: true });
     });
 
-    const tooltip = container.querySelector('[role="tooltip"]') as HTMLElement;
+    const tooltip = container.querySelector('[data-testid="star-info-card"]') as HTMLElement;
     expect(tooltip).not.toBeNull();
     expect(tooltip.textContent).toContain('서울 여행');
     expect(tooltip.textContent).toContain('클릭하여 상세 보기');
