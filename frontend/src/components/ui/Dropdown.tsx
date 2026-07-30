@@ -10,6 +10,8 @@ interface DropdownProps {
   align?: 'left' | 'right';
   /** 패널이 트리거 위로/아래로 뜨는 방향 (기본 아래) — 아래 공간이 부족할 때 위로 */
   direction?: 'up' | 'down';
+  /** 래퍼(트리거 감싸는 상자) 추가 클래스 — 폭 제한(w-full min-w-0) 등에 쓴다 */
+  className?: string;
 }
 
 /**
@@ -22,6 +24,7 @@ const Dropdown = ({
   children,
   align = 'right',
   direction = 'down',
+  className,
 }: DropdownProps) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -44,7 +47,7 @@ const Dropdown = ({
   }, [open]);
 
   return (
-    <div ref={wrapRef} className="relative inline-flex">
+    <div ref={wrapRef} className={classNames('relative inline-flex', className)}>
       {renderTrigger(() => setOpen((v) => !v), open)}
 
       {open && (
