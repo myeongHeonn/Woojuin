@@ -1,11 +1,10 @@
 import * as THREE from 'three';
 import {
-  MOCK_UNIVERSE,
   STAR_RADIUS,
   UNCLASSIFIED_COLOR,
   type Star,
   type UniverseResponse,
-} from '@/stores/mock/universe';
+} from '@/types/universe';
 import { buildHubLinks, deriveHubs, type Hub } from './deriveHubs';
 
 /**
@@ -86,7 +85,7 @@ interface StarObject extends StarNode {
 export function createUniverseScene(
   canvas: HTMLCanvasElement,
   callbacks: SceneCallbacks,
-  data: UniverseResponse = MOCK_UNIVERSE,
+  data: UniverseResponse,
 ): UniverseScene {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setClearColor(0x000000, 0);

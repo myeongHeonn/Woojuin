@@ -1,4 +1,4 @@
-import { TYPE_LABEL } from '@/stores/mock/universe';
+import { TYPE_LABEL } from '@/types/item';
 import type { ScreenPosition, StarNode } from '@/utils/scene';
 
 interface StarTooltipProps {
@@ -45,7 +45,7 @@ const StarTooltip = ({ node, position, onClick, onPointerOverChange }: StarToolt
           <>
             <div className="mt-2 text-[13.5px] font-bold text-text-1">{star.title}</div>
             <div className="mt-2 text-[11px] text-text-3">
-              {star.type === 'URL' ? '클릭하면 링크로 이동' : '클릭하여 열기'}
+              {star.url ? '클릭하면 링크로 이동' : '클릭하여 열기'}
             </div>
           </>
         )

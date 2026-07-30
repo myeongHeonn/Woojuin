@@ -4,8 +4,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 export function useCategoryMutations(workspaceId: number) {
   const queryClient = useQueryClient();
 
-  //성공 후 공유하고 있는 서버 상태를 바꿔줘야한다.
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['categories', workspaceId] });
+  // 카테고리 이름·소속이 달라지면 목록뿐 아니라 우주 라벨과 별자리 묶음도 갱신한다.
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['categories', workspaceId] });
+    queryClient.invalidateQueries({ queryKey: ['universe', workspaceId] });
+  };
 
   const create = useMutation({
     mutationFn: (name: string) => createCategory(workspaceId, name),

@@ -1,7 +1,7 @@
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 import { useItems } from '@/hooks/useItems';
 import { useParams } from 'react-router-dom';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import ItemCard from './ItemCard';
 import EmptyState from './EmptyState';
 import Spinner from '@/components/ui/Spinner';
@@ -13,9 +13,15 @@ interface ItemsProps {
   categoryIds?: number[];
   /** 카드 클릭 → 상세 모달을 여는 건 부모(LibraryPage)가 정한다 */
   onOpenItem?: (itemId: number) => void;
+  /**
+   * 현재 쿼리의 전체 개수(totalElements)를 부모에 올린다.
+   * 부모가 "보관함이 비었나"를 판단할 때, 폴링 쿼리를 따로 두지 않고 이 값을 재사용한다.
+   * 필터가 걸리면 필터된 개수이므로, "빈 워크스페이스" 판정은 부모가 필터 유무로 가른다.
+   */
+  onCount?: (total: number) => void;
 }
 
-const Items = ({ favorite, categoryIds, onOpenItem }: ItemsProps) => {
+const Items = ({ favorite, categoryIds, onOpenItem, onCount }: ItemsProps) => {
   const { workspaceId } = useParams<{ workspaceId: string }>();
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useItems({
@@ -27,6 +33,12 @@ const Items = ({ favorite, categoryIds, onOpenItem }: ItemsProps) => {
 
   //응답들의 배열 → 아이템만 평평하게
   const items = data?.pages.flatMap((p) => p.content) ?? [];
+
+  // 전체 개수를 부모로 — 데이터가 오면(로딩 후) 총개수를 알린다
+  const total = data?.pages[0]?.totalElements;
+  useEffect(() => {
+    if (total !== undefined) onCount?.(total);
+  }, [total, onCount]);
 
   // "0개"의 원인 구분용 — 필터가 걸려 있으면 "결과 없음", 아니면 "첫 저장"
   const filtered = Boolean(favorite) || (categoryIds?.length ?? 0) > 0;

@@ -21,13 +21,20 @@ import org.springframework.data.redis.stream.StreamMessageListenerContainer.Stre
 import org.springframework.stereotype.Component;
 
 /**
- * Redis Streams(woojuin:item-processing) consumer group의 유일한 소비자.
+ * Redis Streams(woojuin:item-processing) consumer group의 소비자들.
  * 새 메시지를 받아 {@link ItemProcessingDispatcher}에 넘기고, 결과에 따라 ACK를 정한다.
  *
- * <p><b>왜 컨슈머가 하나인가</b> — {@link ItemProcessor} javadoc 참조. 타입별로 컨슈머를
- * 나누면 consumer group의 임의 분배 때문에 URL 메시지가 이미지 워커에게 갈 수 있다.
+ * <p><b>동일한 컨슈머 N개</b>(consumer-count, 기본 3)를 같은 그룹에 등록해 병렬로 소비한다.
+ * 아이템 하나가 크롤링·LLM 호출로 수십 초를 먹는 순차 처리로는 동시 사용자 몇 명만으로도
+ * 대기열이 분 단위로 밀리기 때문이다. <b>타입별로 컨슈머를 나누지 않는 이유</b>는
+ * {@link ItemProcessor} javadoc 참조 — consumer group의 임의 분배 때문에 URL 메시지가
+ * 이미지 전용 워커에게 갈 수 있어, 모든 컨슈머가 동일하게 디스패처로 분기한다.
  *
- * <p>이 컨슈머는 <b>새 메시지(never-delivered)만</b> 처리한다. 처리에 실패해 pending에
+ * <p>개수를 늘릴 땐 <b>DB 커넥션 풀부터 볼 것</b> — 프로세서가 @Transactional이라 컨슈머
+ * 하나가 크롤·LLM 호출 내내 커넥션 하나를 점유한다. 풀 기본값 10에서 컨슈머 3 + 회수기 1이면
+ * 장기 점유가 최대 4, 나머지가 웹 요청 몫이다.
+ *
+ * <p>이 컨슈머들은 <b>새 메시지(never-delivered)만</b> 처리한다. 처리에 실패해 pending에
  * 남은 메시지의 재시도·최종 포기는 {@link PendingMessageReclaimer}가 맡는다.
  */
 @Slf4j
@@ -41,7 +48,8 @@ public class ItemQueueConsumer
     private final ItemProcessingDispatcher dispatcher;
     private final String streamKey;
     private final String consumerGroup;
-    private final String consumerName;
+    private final String consumerNamePrefix;
+    private final int consumerCount;
 
     private StreamMessageListenerContainer<String, MapRecord<String, String, String>> container;
 
@@ -51,14 +59,16 @@ public class ItemQueueConsumer
             ItemProcessingDispatcher dispatcher,
             List<ItemProcessor> processors,
             @Value("${woojuin.queue.stream-key}") String streamKey,
-            @Value("${woojuin.queue.consumer-group}") String consumerGroup) {
+            @Value("${woojuin.queue.consumer-group}") String consumerGroup,
+            @Value("${woojuin.queue.consumer-count:3}") int consumerCount) {
         this.connectionFactory = connectionFactory;
         this.redisTemplate = redisTemplate;
         this.dispatcher = dispatcher;
         this.streamKey = streamKey;
         this.consumerGroup = consumerGroup;
         // 인스턴스마다 고유해야 pending 추적이 섞이지 않는다. 다중 인스턴스 배포 대비.
-        this.consumerName = "consumer-" + UUID.randomUUID().toString().substring(0, 8);
+        this.consumerNamePrefix = "consumer-" + UUID.randomUUID().toString().substring(0, 8);
+        this.consumerCount = consumerCount;
         verifyNoDuplicateProcessors(processors);
     }
 
@@ -85,13 +95,17 @@ public class ItemQueueConsumer
         this.container = StreamMessageListenerContainer.create(connectionFactory, options);
         // ReadOffset.lastConsumed() = 이 그룹이 아직 배달받지 않은 새 메시지(">")부터.
         // 기존 pending은 컨테이너가 자동으로 다시 배달하지 않으므로 PendingMessageReclaimer가 회수한다.
-        container.receive(
-                Consumer.from(consumerGroup, consumerName),
-                StreamOffset.create(streamKey, ReadOffset.lastConsumed()),
-                this);
+        // 이름이 다른 컨슈머 N개를 등록하면 각각 폴링 스레드를 갖고, Redis가 새 메시지를
+        // 그중 노는 컨슈머에게 분배해 병렬 처리가 된다.
+        for (int i = 1; i <= consumerCount; i++) {
+            container.receive(
+                    Consumer.from(consumerGroup, consumerNamePrefix + "-" + i),
+                    StreamOffset.create(streamKey, ReadOffset.lastConsumed()),
+                    this);
+        }
         container.start();
-        log.info("아이템 큐 컨슈머 시작: stream={}, group={}, consumer={}",
-                streamKey, consumerGroup, consumerName);
+        log.info("아이템 큐 컨슈머 시작: stream={}, group={}, consumerPrefix={}, count={}",
+                streamKey, consumerGroup, consumerNamePrefix, consumerCount);
     }
 
     /**
@@ -127,7 +141,7 @@ public class ItemQueueConsumer
     public void destroy() {
         if (container != null) {
             container.stop();
-            log.info("아이템 큐 컨슈머 종료: consumer={}", consumerName);
+            log.info("아이템 큐 컨슈머 종료: consumerPrefix={}", consumerNamePrefix);
         }
     }
 }

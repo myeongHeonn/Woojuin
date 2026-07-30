@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import MapCanvas from '@/components/domain/map/MapCanvas';
 import MapPlacePanel from '@/components/domain/map/MapPlacePanel';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import { useCategories } from '@/hooks/useCategories';
+import { useItems, processingPollInterval } from '@/hooks/useItems';
 import { useMapPlaces } from '@/hooks/useMapPlaces';
 import { useStageMeta } from '@/hooks/useStageMeta';
 import type { MapCategoryId } from '@/types/map';
@@ -25,7 +27,26 @@ const MapPage = () => {
   const { workspaceId: workspaceIdParam } = useParams<{ workspaceId: string }>();
   const workspaceId = Number(workspaceIdParam);
   const { data: categories = [], isSuccess: categoriesLoaded } = useCategories(workspaceId);
-  const { data: places = [] } = useMapPlaces(workspaceId);
+
+  // 지도를 열어둔 채 새 장소를 저장하면 핀이 자동으로 떠야 한다.
+  // 새 핀 = 처리 중인 아이템의 위치 추출이 끝나는 것 — 그 신호(status)는 지도 응답엔 없고
+  // items 에만 있으므로, items 를 여기서 구독해 "처리 중" 동안 지도를 폴링한다.
+  // (useItems 자신도 처리 중일 때만 폴링하므로 신호가 계속 신선하다)
+  const queryClient = useQueryClient();
+  const { data: itemsData } = useItems({ workspaceId, size: 20 });
+  const mapPollInterval = processingPollInterval(itemsData?.pages);
+  const { data: places = [] } = useMapPlaces(workspaceId, mapPollInterval);
+
+  // 처리 완료 직후 위치가 폴링 간격보다 늦게 반영될 수 있어, 처리가 끝나는 순간 한 번 더 새로고침한다.
+  const wasProcessingRef = useRef(false);
+  useEffect(() => {
+    const processing = mapPollInterval !== false;
+    if (wasProcessingRef.current && !processing) {
+      queryClient.invalidateQueries({ queryKey: ['map-places', workspaceId] });
+    }
+    wasProcessingRef.current = processing;
+  }, [mapPollInterval, queryClient, workspaceId]);
+
   const initializedWorkspaceRef = useRef<number | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<MapCategoryId[]>([]);
   const [favoriteOnly, setFavoriteOnly] = useState(false);
