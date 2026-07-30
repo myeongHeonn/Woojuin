@@ -13,8 +13,18 @@ spring:
     password: ${DB_PASSWORD:woojuin-local}
   jpa:
     hibernate:
-      ddl-auto: update   # 개발용. 운영 전환 시 validate + 마이그레이션 도구 검토
+      # 스키마는 Flyway(db/migration/*.sql)가 만든다. Hibernate 는 만들지 않고
+      # **엔티티와 실제 스키마가 맞는지 검사만** 한다 — 어긋나면 기동이 실패한다.
+      # (이전 값 `update` 는 조용히 스키마를 바꾸고 실패해도 WARN 만 남겨서,
+      #  2026-07-27 avatar_color DDL 실패가 아무도 모르게 지나간 적이 있다.)
+      ddl-auto: validate
     open-in-view: false
+  flyway:
+    # 이미 테이블이 있는 DB(dev/prod/팀원 로컬)는 "V1 이 적용된 상태"로 간주하고
+    # V2 부터 실행한다. 도입 시점에 데이터를 버리지 않기 위한 표준 설정.
+    # 빈 DB 에서는 baseline 이 작동하지 않고 V1 부터 정상 실행된다.
+    baseline-on-migrate: true
+    baseline-version: 1
   data:
     redis:
       host: ${REDIS_HOST:localhost}
