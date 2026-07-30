@@ -42,9 +42,7 @@ const StarTooltip = ({ node, position, onClick, onPointerOverChange }: StarToolt
         star && (
           <>
             <div className="mt-2 text-[13.5px] font-bold text-text-1">{star.title}</div>
-            <div className="mt-2 text-[11px] text-text-3">
-              {star.url ? '클릭하면 링크로 이동' : '클릭하여 열기'}
-            </div>
+            <div className="mt-2 text-[11px] text-text-3">클릭하여 상세 보기</div>
           </>
         )
       )}

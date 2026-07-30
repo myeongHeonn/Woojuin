@@ -47,7 +47,8 @@ export interface LabelPosition extends ScreenPosition {
 export interface SceneCallbacks {
   onLabels: (labels: LabelPosition[]) => void;
   onHover: (node: StarNode | null, pos: ScreenPosition | null) => void;
-  onSelect: (node: StarNode) => void;
+  onSelect: (node: StarNode, pos: ScreenPosition) => void;
+  onDeselect: () => void;
 }
 
 export interface UniverseScene {
@@ -314,6 +315,7 @@ export function createUniverseScene(
     if (e.pointerType === 'touch' && activeTouches >= 2) return;
     dragging = true;
     focused = null;
+    callbacks.onDeselect();
     moved = false;
     last = { x: e.clientX, y: e.clientY };
     canvas.style.cursor = 'grabbing';
@@ -364,7 +366,10 @@ export function createUniverseScene(
   const onClick = (e: MouseEvent) => {
     if (moved) return;
     const node = hovered ?? pickAt(e.clientX, e.clientY);
-    if (node) callbacks.onSelect(node);
+    if (node) {
+      focused = node;
+      callbacks.onSelect(node, project(node.position));
+    }
   };
 
   const onWheel = (e: WheelEvent) => {
