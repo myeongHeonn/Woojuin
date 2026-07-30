@@ -1,5 +1,7 @@
 package com.ssafy.woojuin.global.error;
 
+import com.ssafy.woojuin.domain.ai.usage.AiUsageLimitExceededException;
+import com.ssafy.woojuin.domain.ai.usage.AiUsageUnavailableException;
 import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
 import com.ssafy.woojuin.domain.auth.exception.UserNotFoundException;
 import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
@@ -40,6 +42,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleBadRequest(IllegalArgumentException e) {
         return ApiResponse.of(400, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(AiUsageLimitExceededException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public ApiResponse<Void> handleAiUsageLimitExceeded(AiUsageLimitExceededException e) {
+        return ApiResponse.of(429, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(AiUsageUnavailableException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiResponse<Void> handleAiUsageUnavailable(AiUsageUnavailableException e) {
+        return ApiResponse.of(503, e.getMessage(), null);
     }
 
     @ExceptionHandler(UserNotFoundException.class)

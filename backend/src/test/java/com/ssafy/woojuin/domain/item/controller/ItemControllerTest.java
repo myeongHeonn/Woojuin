@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ssafy.woojuin.domain.ai.usage.AiUsageLimitExceededException;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemFavoriteResponse;
@@ -224,5 +225,20 @@ class ItemControllerTest {
 
         mockMvc.perform(delete("/api/items/1/permanent")).andExpect(status().isOk());
         verify(itemService).deletePermanently(1L, 1L);
+    }
+
+    @Test
+    void monthlyLimitExceeded_returns429WithoutCreatingItem() throws Exception {
+        authenticateAs(1L);
+        when(itemService.createFromRequest(eq(1L), eq(1L), any(ItemCreateRequest.class)))
+                .thenThrow(new AiUsageLimitExceededException(50));
+
+        mockMvc.perform(post("/api/workspaces/1/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"URL\",\"url\":\"https://example.com\"}"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.status").value(429))
+                .andExpect(jsonPath("$.message").value(
+                        "AI_USAGE_LIMIT_EXCEEDED: 이번 달 아이템 생성 한도(50개)를 모두 사용했습니다"));
     }
 }

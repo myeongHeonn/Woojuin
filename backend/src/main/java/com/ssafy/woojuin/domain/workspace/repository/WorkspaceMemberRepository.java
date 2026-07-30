@@ -17,6 +17,9 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
 
     Optional<WorkspaceMember> findByWorkspaceIdAndUserId(Long workspaceId, Long userId);
 
+    Optional<WorkspaceMember> findFirstByWorkspaceIdAndRoleAndUserDeletedAtIsNullOrderByJoinedAtAscIdAsc(
+            Long workspaceId, WorkspaceRole role);
+
     long countByWorkspaceIdAndRole(Long workspaceId, WorkspaceRole role);
 
     @Query("""

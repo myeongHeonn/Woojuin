@@ -1,5 +1,7 @@
 package com.ssafy.woojuin.domain.auth.controller;
 
+import com.ssafy.woojuin.domain.ai.usage.AiUsageResponse;
+import com.ssafy.woojuin.domain.ai.usage.AiUsageService;
 import com.ssafy.woojuin.domain.auth.dto.UpdateProfileRequest;
 import com.ssafy.woojuin.domain.auth.dto.UserProfileResponse;
 import com.ssafy.woojuin.domain.auth.service.UserProfileService;
@@ -21,12 +23,14 @@ public class UserController {
 
     private final UserProfileService userProfileService;
     private final UserWithdrawalService userWithdrawalService;
+    private final AiUsageService aiUsageService;
     private final CurrentUserResolver currentUserResolver;
 
     public UserController(UserProfileService userProfileService, UserWithdrawalService userWithdrawalService,
-                          CurrentUserResolver currentUserResolver) {
+                          AiUsageService aiUsageService, CurrentUserResolver currentUserResolver) {
         this.userProfileService = userProfileService;
         this.userWithdrawalService = userWithdrawalService;
+        this.aiUsageService = aiUsageService;
         this.currentUserResolver = currentUserResolver;
     }
 
@@ -35,6 +39,13 @@ public class UserController {
     public ApiResponse<UserProfileResponse> getMyProfile() {
         Long userId = currentUserResolver.resolveUserId();
         return ApiResponse.success(userProfileService.getProfile(userId));
+    }
+
+    @AuthenticatedUser
+    @GetMapping("/me/ai-usage")
+    public ApiResponse<AiUsageResponse> getMyAiUsage() {
+        Long userId = currentUserResolver.resolveUserId();
+        return ApiResponse.success(aiUsageService.getUsage(userId));
     }
 
     @AuthenticatedUser

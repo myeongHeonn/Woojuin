@@ -2,14 +2,19 @@ package com.ssafy.woojuin.domain.auth.controller;
 
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ssafy.woojuin.domain.ai.usage.AiUsageResponse;
+import com.ssafy.woojuin.domain.ai.usage.AiUsageService;
 import com.ssafy.woojuin.domain.auth.service.UserProfileService;
 import com.ssafy.woojuin.domain.auth.service.UserWithdrawalService;
 import com.ssafy.woojuin.global.security.aop.AuthenticationAspect;
 import com.ssafy.woojuin.global.security.aop.CurrentUserResolver;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +44,9 @@ class UserControllerTest {
     @MockBean
     private UserWithdrawalService userWithdrawalService;
 
+    @MockBean
+    private AiUsageService aiUsageService;
+
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
@@ -53,6 +61,23 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.status").value(200));
 
         verify(userWithdrawalService).withdraw(1L);
+    }
+
+    @Test
+    void getMyAiUsage_returnsMonthlyOwnerUsage() throws Exception {
+        authenticateAs(1L);
+        when(aiUsageService.getUsage(1L)).thenReturn(new AiUsageResponse(
+                "2026-07", 12, 50, 38L, false, true,
+                OffsetDateTime.parse("2026-08-01T00:00:00+09:00")));
+
+        mockMvc.perform(get("/api/users/me/ai-usage"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.used").value(12))
+                .andExpect(jsonPath("$.data.limit").value(50))
+                .andExpect(jsonPath("$.data.remaining").value(38))
+                .andExpect(jsonPath("$.data.unlimited").value(false));
+
+        verify(aiUsageService).getUsage(1L);
     }
 
     @Test
