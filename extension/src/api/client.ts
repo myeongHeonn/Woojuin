@@ -1,9 +1,14 @@
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/storage/authStorage';
 
+const DEFAULT_API_BASE_URLS: Record<string, string> = {
+  development: 'http://localhost:8080/api',
+  demo: 'https://dev.api.woojuin.store/api',
+  production: 'https://api.woojuin.store/api',
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
-  ?? (import.meta.env.MODE === 'development'
-    ? 'http://localhost:8080/api'
-    : 'https://api.woojuin.store/api');
+  ?? DEFAULT_API_BASE_URLS[import.meta.env.MODE]
+  ?? DEFAULT_API_BASE_URLS.production;
 
 interface ApiResponse<T> { status: number; message: string; data: T }
 interface TokenData { accessToken: string; refreshToken: string }

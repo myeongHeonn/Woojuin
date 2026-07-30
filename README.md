@@ -79,6 +79,7 @@ npm run build:local
 ```
 
 - `chrome://extensions` → 개발자 모드 → "압축해제된 확장 프로그램 로드" → `extension/dist` 선택
+- 개발 서버 시연 빌드는 `npm run build:demo`를 사용하며 `https://dev.api.woojuin.store/api`에 연결됩니다.
 - 운영 빌드는 `npm run build`를 사용하며 `https://api.woojuin.store/api`에 연결됩니다.
 - 자세한 로컬·운영 설정과 웹스토어 전달 방법은 [Chrome 익스텐션 연동 및 운영 안내](docs/CHROME_EXTENSION.md)를 참고합니다.
 

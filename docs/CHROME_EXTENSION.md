@@ -4,6 +4,8 @@
 
 | 구분 | 값 |
 | --- | --- |
+| 개발 웹사이트 | `https://dev.woojuin.store` |
+| 개발 백엔드 API | `https://dev.api.woojuin.store/api` |
 | 웹사이트 | `https://woojuin.store` |
 | 백엔드 API | `https://api.woojuin.store/api` |
 | Chrome 웹스토어 익스텐션 ID | `aifkmpjpjedlamliamnloliencimdfco` |
@@ -12,6 +14,7 @@
 익스텐션은 빌드 모드에 따라 API 주소가 달라집니다.
 
 - 로컬 빌드: `http://localhost:8080/api`
+- 개발 서버 시연 빌드: `https://dev.api.woojuin.store/api`
 - 운영 빌드: `https://api.woojuin.store/api`
 
 ## 백엔드 변경사항
@@ -65,6 +68,48 @@ Invoke-WebRequest `
 ```
 
 응답 상태가 `200`이고 `Access-Control-Allow-Origin`이 운영 익스텐션 출처와 같아야 합니다.
+
+## 개발 서버 시연
+
+시연하는 컴퓨터에서 프론트엔드와 백엔드를 직접 실행할 필요가 없습니다. 익스텐션만 개발 서버용으로 빌드하면 팀 개발 서버에 로그인하고 저장할 수 있습니다.
+
+개발 백엔드에는 시연에 사용할 익스텐션 출처를 허용해야 합니다. Chrome 웹스토어 설치본으로 시연하면 운영 익스텐션 ID를, `압축해제된 확장 프로그램`으로 시연하면 해당 컴퓨터의 로컬 익스텐션 ID를 사용합니다. 둘 다 사용할 예정이면 두 출처를 모두 등록합니다.
+
+```dotenv
+CORS_ALLOWED_ORIGINS=https://dev.woojuin.store,chrome-extension://aifkmpjpjedlamliamnloliencimdfco,chrome-extension://YOUR_LOCAL_EXTENSION_ID
+```
+
+현재 개발 컴퓨터의 로컬 익스텐션 ID가 `jlhbnpkcmoadekhnbmdihflbepmhjjhc`라면 다음과 같이 설정합니다.
+
+```dotenv
+CORS_ALLOWED_ORIGINS=https://dev.woojuin.store,chrome-extension://aifkmpjpjedlamliamnloliencimdfco,chrome-extension://jlhbnpkcmoadekhnbmdihflbepmhjjhc
+```
+
+시연용 빌드:
+
+```powershell
+cd C:\S15P11C105-extension\extension
+npm.cmd install
+npm.cmd run build:demo
+```
+
+Chrome에서 `chrome://extensions`를 열고 기존 압축해제 설치본을 새로고침합니다. 새로 설치한다면 `C:\S15P11C105-extension\extension\dist`를 선택합니다.
+
+개발 서버 CORS 확인:
+
+```powershell
+$headers = @{
+  Origin = 'chrome-extension://jlhbnpkcmoadekhnbmdihflbepmhjjhc'
+  'Access-Control-Request-Method' = 'POST'
+  'Access-Control-Request-Headers' = 'content-type'
+}
+Invoke-WebRequest `
+  -Uri 'https://dev.api.woojuin.store/api/auth/login' `
+  -Method Options `
+  -Headers $headers
+```
+
+응답 상태가 `200`이고 `Access-Control-Allow-Origin`이 시연에 사용하는 익스텐션 출처와 같아야 합니다.
 
 ## 로컬 실행
 
