@@ -14,6 +14,8 @@ import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
 import com.ssafy.woojuin.domain.location.LocationResolver;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceEventType;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
@@ -305,6 +307,7 @@ public class UrlItemProcessor implements ItemProcessor {
         } else {
             item.markFailed();   // 도메인 폴백조차 비었을 때 — 사실상 URL 파싱 불가
         }
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(item.getWorkspaceId(), WorkspaceEventType.ITEM));
         log.info("URL 가공 완료: itemId={}, status={}", item.getId(), item.getStatus());
     }
 

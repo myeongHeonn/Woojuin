@@ -16,6 +16,8 @@ import com.ssafy.woojuin.domain.item.service.S3Uploader;
 import com.ssafy.woojuin.domain.location.LocationResolver;
 import com.ssafy.woojuin.domain.location.ResolvedLocation;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceEventType;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -189,6 +191,7 @@ public class ImageItemProcessor implements ItemProcessor {
         } else {
             item.markPartial();
         }
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(item.getWorkspaceId(), WorkspaceEventType.ITEM));
         log.info("이미지 가공 완료: itemId={}, status={}", item.getId(), item.getStatus());
     }
 }

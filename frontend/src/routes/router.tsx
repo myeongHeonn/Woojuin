@@ -5,6 +5,7 @@ import Spinner from '@/components/ui/Spinner';
 import AuthLayout from '@/layouts/AuthLayout';
 import Layout from '@/layouts/Layout';
 import StageLayout from '@/layouts/StageLayout';
+import WorkspaceLayout from '@/layouts/WorkspaceLayout';
 import DesktopOnly from '@/layouts/DesktopOnly';
 
 // 페이지는 lazy 로 분할한다 — 특히 성좌(three)·지도(maplibre)가 무거워서,
@@ -63,6 +64,8 @@ export const router = createBrowserRouter([
           { path: '/my', element: page(<MyPage />) },
           {
             path: '/workspace/:workspaceId',
+            // 화면은 안 그리고 변경 신호(SSE) 구독만 한다 — 휴지통까지 한 연결로 덮는다
+            element: <WorkspaceLayout />,
             children: [
               // 뷰 없이 들어오면 성좌가 기본
               { index: true, element: <Navigate to="universe" replace /> },
