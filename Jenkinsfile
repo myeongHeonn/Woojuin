@@ -208,6 +208,7 @@ pipeline {
                             // 그래서 둘을 하나의 플래그로 묶는다. 캐시가 있으면 재빌드는 몇 초다.
                             env.CHANGED_BE = lines.any {
                                 it.startsWith('backend/') || it.startsWith('ai/ai-mix/')
+                                    || it.startsWith('crawler/')
                             } ? 'true' : 'false'
                             env.CHANGED_FE = lines.any { it.startsWith('frontend/') } ? 'true' : 'false'
 
@@ -296,6 +297,28 @@ pipeline {
             }
         }
 
+        stage('Crawler Build Image') {
+            // crawler = Scrapling(브라우저 렌더) 기반 본문 추출 폴백 사이드카.
+            // Jsoup 으로 본문이 안 나오는 SPA·봇차단 페이지에서만 호출된다.
+            //
+            // ⚠️ **이미지가 2.29GB** 다(로컬 실측). camoufox 브라우저 바이너리 + GTK 계열
+            //    시스템 라이브러리가 들어가서 ai-mix(922MB)의 2.5배다. 서버 디스크는 264G
+            //    여유가 있어 문제없지만, SHA 태그가 쌓이는 건 레이어 공유라 커밋당 증가는 작다.
+            //    첫 빌드는 apt + pip + `scrapling install`(브라우저 다운로드)로 수 분 걸린다.
+            //
+            // 📌 캐시된 재빌드가 느리면(2.29GB 재export) 태그 전략을 `:${TARGET_ENV}` 로 바꿔
+            //    crawler/ 가 바뀔 때만 빌드하는 쪽을 검토할 것. 지금은 backend/aimix 와
+            //    **같은 규칙(SHA 고정)** 을 유지해 "지금 뜬 게 어느 커밋인가"를 잃지 않는다.
+            when { expression { env.CHANGED_BE == 'true' } }
+            steps {
+                sh """
+                    docker build \
+                        -t woojuin-crawler:${env.SHORT_SHA} \
+                        -f crawler/Dockerfile crawler
+                """
+            }
+        }
+
         stage('Frontend Test') {
             // 🔴 브라우저 테스트가 **끝났는데도 종료되지 않는** 사례를 겪었다(13분+ 매달림).
             //    전체 timeout(30분)에 맡기면 그만큼 잡이 점유된다. 여기서 빨리 실패하게 못 박는다.
@@ -380,20 +403,34 @@ pipeline {
                     // 변수를 개별 Credential 로 10여 개 등록하는 대신 **파일 통째로 Secret file** 로 올린다.
                     // withCredentials 가 임시 파일에 풀어 주고, 빌드가 끝나면 삭제된다(로그에도 안 찍힘).
                     withCredentials([file(credentialsId: "${env.ENV_CREDENTIAL}", variable: 'ENV_FILE')]) {
-                        // BACKEND_IMAGE 를 쉘 환경변수로 준다. compose 치환에서 쉘 환경변수가
-                        // --env-file 보다 우선하므로 .env.dev 의 값을 이번 커밋 SHA 로 덮어쓴다.
-                        // --profile aimix: compose 에서 ai-mix 는 profile 뒤에 있어 기본 up 으로는
-                        //   뜨지 않는다(크롤러와 같은 방식). 여기서 명시해야 스택에 포함된다.
-                        //   ⚠️ 배포마다 항상 붙인다 — 빠뜨리면 다음 배포에서 desired state 에
-                        //      ai-mix 가 없어져 AI 기능이 조용히 사라진다.
-                        //   crawler 는 여전히 profile 밖이다(이미지 빌드·자원 판단이 별건 — 문서 참고).
+                        // 이미지 태그를 쉘 환경변수로 준다. compose 치환에서 쉘 환경변수가
+                        // --env-file 보다 우선하므로 .env 의 값을 이번 커밋 SHA 로 덮어쓴다.
+                        //
+                        // ── 어떤 사이드카를 띄우는가는 **.env 가 정한다** ──────────────────
+                        // aimix·crawler 는 compose 에서 profile 뒤에 있어 기본 up 으로는 뜨지 않는다.
+                        // 예전에는 여기 `--profile aimix` 를 박아 뒀는데, 그러면 환경별로 다르게
+                        // 켤 수 없고 켜고 끄려면 파이프라인을 고쳐야 했다.
+                        // `COMPOSE_PROFILES` 는 compose 예약 변수라 **--env-file 로도 먹는다**(실측).
+                        //   .env.dev  : COMPOSE_PROFILES=aimix,crawler
+                        //   .env.prod : COMPOSE_PROFILES=aimix       ← 이렇게 환경별로 다르게 가능
+                        //
+                        // ⚠️ 그 줄이 없으면 사이드카가 **하나도** 안 뜬다(그리고 이미 떠 있던 것은
+                        //    desired state 에서 빠져 조용히 사라진다). 그래서 up 전에 실제 대상
+                        //    서비스 목록을 로그로 남긴다 — 빠졌을 때 로그만 보고 알 수 있게.
                         sh """
-                            BACKEND_IMAGE=woojuin-backend:${env.SHORT_SHA} \
-                            AIMIX_IMAGE=woojuin-aimix:${env.SHORT_SHA} \
+                            echo "이번 배포 대상 서비스:"
                             docker compose -p ${STACK} \
                                 --env-file "\$ENV_FILE" \
                                 -f ${DEPLOY_FILE} \
-                                --profile aimix \
+                                config --services | sort | sed 's/^/  /'
+                        """
+                        sh """
+                            BACKEND_IMAGE=woojuin-backend:${env.SHORT_SHA} \
+                            AIMIX_IMAGE=woojuin-aimix:${env.SHORT_SHA} \
+                            CRAWLER_IMAGE=woojuin-crawler:${env.SHORT_SHA} \
+                            docker compose -p ${STACK} \
+                                --env-file "\$ENV_FILE" \
+                                -f ${DEPLOY_FILE} \
                                 up -d
                         """
                     }
