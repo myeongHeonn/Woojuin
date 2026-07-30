@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-react';
+import { MemoryRouter } from 'react-router-dom';
 import SettingsCard from '@/components/domain/mypage/SettingsCard';
 import type { AiUsage } from '@/services/auth';
 
@@ -15,14 +16,15 @@ const limitedUsage: AiUsage = {
 
 const renderSettingsCard = (aiUsage: AiUsage) =>
   render(
-    <SettingsCard
-      notificationEnabled
-      onNotificationToggle={vi.fn()}
-      aiUsage={aiUsage}
-      aiUsageLoading={false}
-      aiUsageError={false}
-      onHelp={vi.fn()}
-    />,
+    <MemoryRouter>
+      <SettingsCard
+        notificationEnabled
+        onNotificationToggle={vi.fn()}
+        aiUsage={aiUsage}
+        aiUsageLoading={false}
+        aiUsageError={false}
+      />
+    </MemoryRouter>,
   );
 
 describe('마이페이지 설정 카드', () => {
@@ -49,5 +51,17 @@ describe('마이페이지 설정 카드', () => {
     expect(container.textContent).toContain('42회');
     expect(container.textContent).toContain('무제한');
     expect(container.querySelector('[role="progressbar"]')).toBeNull();
+  });
+
+  it('문의 이메일과 개인정보 처리방침 링크를 제공한다', async () => {
+    const { container } = await renderSettingsCard(limitedUsage);
+
+    const emailLink = container.querySelector(
+      'a[href="mailto:chlehdwns82@sunmoon.ac.kr"]',
+    ) as HTMLAnchorElement;
+    const privacyLink = container.querySelector('a[href="/privacy"]') as HTMLAnchorElement;
+
+    expect(emailLink.textContent).toContain('chlehdwns82@sunmoon.ac.kr');
+    expect(privacyLink.textContent).toContain('개인정보 처리방침');
   });
 });

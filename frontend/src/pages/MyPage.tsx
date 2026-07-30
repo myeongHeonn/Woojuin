@@ -126,7 +126,6 @@ const MyPage = () => {
           aiUsage={aiUsage}
           aiUsageLoading={isAiUsagePending}
           aiUsageError={isAiUsageError}
-          onHelp={() => setToast({ message: '고객센터는 준비 중입니다.', tone: 'info' })}
         />
 
         <div className="mt-[34px] text-center">

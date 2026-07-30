@@ -1,30 +1,16 @@
-import type { ReactNode } from 'react';
-import { BellIcon } from '@/assets/icons';
+import { Link } from 'react-router-dom';
 import type { AiUsage } from '@/services/auth';
 
 interface SettingsCardProps {
+  // TODO: 알림 설정 기능을 다시 노출할 때 아래 두 prop과 주석 처리된 UI를 사용한다.
   notificationEnabled: boolean;
   onNotificationToggle: () => void;
   aiUsage?: AiUsage;
   aiUsageLoading: boolean;
   aiUsageError: boolean;
-  onHelp: () => void;
 }
 
-const RowIcon = ({ children }: { children: ReactNode }) => (
-  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-surface-3 text-text-2 [&>svg]:h-4 [&>svg]:w-4">
-    {children}
-  </span>
-);
-
-const SettingsCard = ({
-  notificationEnabled,
-  onNotificationToggle,
-  aiUsage,
-  aiUsageLoading,
-  aiUsageError,
-  onHelp,
-}: SettingsCardProps) => {
+const SettingsCard = ({ aiUsage, aiUsageLoading, aiUsageError }: SettingsCardProps) => {
   const usagePercent =
     aiUsage && aiUsage.limitEnabled && !aiUsage.unlimited && aiUsage.limit > 0
       ? Math.min(100, (aiUsage.used / aiUsage.limit) * 100)
@@ -41,36 +27,38 @@ const SettingsCard = ({
 
   return (
     <>
-      <section className="mb-4 rounded-[20px] border border-border-soft bg-surface p-1.5">
-        <div className="flex items-center gap-3.5 rounded-md px-5 py-[13px] hover:bg-surface-2">
-          <RowIcon>
-            <BellIcon />
-          </RowIcon>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold text-text-1">알림</h2>
-            <p className="mt-0.5 text-xs text-text-3">AI 정리가 완료되면 알려드려요</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-label="완료 알림"
-            aria-checked={notificationEnabled}
-            onClick={onNotificationToggle}
-            className={[
-              'relative h-6 w-[42px] shrink-0 rounded-pill transition-colors',
-              notificationEnabled ? 'bg-accent' : 'bg-surface-3',
-            ].join(' ')}
-          >
-            <span
+      {/*
+        TODO: 알림 설정 기능을 다시 사용할 때 BellIcon, RowIcon과 함께 주석을 해제한다.
+        <section className="mb-4 rounded-[20px] border border-border-soft bg-surface p-1.5">
+          <div className="flex items-center gap-3.5 rounded-md px-5 py-[13px] hover:bg-surface-2">
+            <RowIcon>
+              <BellIcon />
+            </RowIcon>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-semibold text-text-1">알림</h2>
+              <p className="mt-0.5 text-xs text-text-3">AI 정리가 완료되면 알려드려요</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-label="완료 알림"
+              aria-checked={notificationEnabled}
+              onClick={onNotificationToggle}
               className={[
-                'absolute top-[3px] h-[18px] w-[18px] rounded-full transition-[left,background-color]',
-                notificationEnabled ? 'left-[21px] bg-white' : 'left-[3px] bg-text-2',
+                'relative h-6 w-[42px] shrink-0 rounded-pill transition-colors',
+                notificationEnabled ? 'bg-accent' : 'bg-surface-3',
               ].join(' ')}
-            />
-          </button>
-        </div>
-      </section>
-
+            >
+              <span
+                className={[
+                  'absolute top-[3px] h-[18px] w-[18px] rounded-full transition-[left,background-color]',
+                  notificationEnabled ? 'left-[21px] bg-white' : 'left-[3px] bg-text-2',
+                ].join(' ')}
+              />
+            </button>
+          </div>
+        </section>
+      */}
       <section
         aria-labelledby="monthly-ai-usage-title"
         className="mb-4 rounded-[20px] border border-border-soft bg-surface px-5 py-[18px]"
@@ -122,14 +110,30 @@ const SettingsCard = ({
         )}
       </section>
 
-      <section className="rounded-[20px] border border-border-soft bg-surface p-1.5">
-        <button
-          type="button"
-          onClick={onHelp}
-          className="flex w-full items-center gap-3.5 rounded-md px-5 py-[13px] text-left hover:bg-surface-2"
+      <section
+        aria-labelledby="help-center-title"
+        className="rounded-[20px] border border-border-soft bg-surface px-5 py-[18px]"
+      >
+        <h2 id="help-center-title" className="text-sm font-semibold text-text-1">
+          도움말 및 고객센터
+        </h2>
+        <p className="mt-2 text-xs leading-5 text-text-3">
+          서비스 이용 중 오류나 문의 사항은 아래 이메일로 보내주세요.
+        </p>
+        <a
+          href="mailto:chlehdwns82@sunmoon.ac.kr"
+          className="mt-2 inline-flex text-xs font-semibold text-accent hover:text-accent-hover hover:underline"
         >
-          <span className="flex-1 text-sm font-semibold text-text-1">도움말 및 고객센터</span>
-        </button>
+          chlehdwns82@sunmoon.ac.kr
+        </a>
+        <div className="mt-4 border-t border-border-soft pt-3">
+          <Link
+            to="/privacy"
+            className="text-xs font-medium text-text-2 hover:text-text-1 hover:underline"
+          >
+            개인정보 처리방침
+          </Link>
+        </div>
       </section>
     </>
   );
