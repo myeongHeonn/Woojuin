@@ -59,6 +59,15 @@ const LoginForm = () => {
 
       <GoogleAuthButton />
 
+      {/* 구글은 첫 로그인이 곧 가입이라(OAuthAccountService.findOrCreateUser) 여기에도 고지한다 */}
+      <p className="text-center text-xs text-text-3">
+        로그인하면{' '}
+        <Link to="/privacy" className="underline underline-offset-2 hover:text-text-2">
+          개인정보처리방침
+        </Link>
+        에 동의하는 것으로 봅니다.
+      </p>
+
       <p className="text-center text-sm text-text-3">
         계정이 없으신가요?{' '}
         <Link to="/signup" className="font-semibold text-accent hover:text-accent-hover">
