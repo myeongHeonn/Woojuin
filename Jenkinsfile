@@ -207,8 +207,8 @@ pipeline {
                             // 백엔드만 바뀐 경우에도 ai-mix 이미지를 그 SHA 로 만들어 둬야 한다.
                             // 그래서 둘을 하나의 플래그로 묶는다. 캐시가 있으면 재빌드는 몇 초다.
                             env.CHANGED_BE = lines.any {
-                                it.startsWith('backend/') || it.startsWith('ai/ai-mix/')
-                                    || it.startsWith('crawler/')
+                                it.startsWith('backend/') || it.startsWith('ai/ai-mix/') ||
+                                    it.startsWith('crawler/')
                             } ? 'true' : 'false'
                             env.CHANGED_FE = lines.any { it.startsWith('frontend/') } ? 'true' : 'false'
 
