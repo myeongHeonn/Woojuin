@@ -9,6 +9,7 @@ import LibrarySearch from '@/components/domain/library/LibrarySearch';
 import SearchItems from '@/components/domain/library/SearchItems';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import { useCategories } from '@/hooks/useCategories';
+import { useStageMeta } from '@/hooks/useStageMeta';
 import { toggleCategorySelection } from '@/utils/categorySelection';
 
 /**
@@ -20,7 +21,7 @@ const LibraryPage = () => {
 
   // 카테고리는 서버 상태 — useState 가 아니라 useQuery(useCategories)로 받는다.
   // 로딩 전이나 실패 시에도 화면이 비지 않게 빈 배열로 시작한다
-  const { data: chips = [] } = useCategories(Number(workspaceId));
+  const { data: chips = [], isSuccess: categoriesLoaded } = useCategories(Number(workspaceId));
 
   // 필터는 이 화면에서만 의미 있고 기억할 필요 없어 지역 상태로 둔다
   const [selected, setSelected] = useState<number[]>([]);
@@ -41,6 +42,14 @@ const LibraryPage = () => {
   const [itemCount, setItemCount] = useState<number>();
   const filtered = favoriteActive || selected.length > 0;
   const workspaceEmpty = !filtered && itemCount === 0;
+
+  // 헤더 요약 — 현재 보이는 아이템 수 · 전체 카테고리 수. 지도·성좌와 같은 방식.
+  // 둘 다 준비되기 전엔 비워 "0 items · 0 categories" 깜빡임을 막는다.
+  useStageMeta(
+    itemCount !== undefined && categoriesLoaded
+      ? `${itemCount} items · ${chips.length} categories`
+      : undefined,
+  );
 
   return (
     // 좌우 여백(STAGE_PX)은 헤더 제목과 같은 값을 공유해 칩 바·리스트가 한 선에 맞는다.
