@@ -2,6 +2,7 @@ package com.ssafy.woojuin.domain.auth.service;
 
 import com.ssafy.woojuin.domain.auth.dto.TokenResponse;
 import com.ssafy.woojuin.domain.auth.jwt.JwtTokenProvider;
+import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -9,10 +10,13 @@ public class TokenRefreshService {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenStore refreshTokenStore;
+    private final UserRepository userRepository;
 
-    public TokenRefreshService(JwtTokenProvider jwtTokenProvider, RefreshTokenStore refreshTokenStore) {
+    public TokenRefreshService(JwtTokenProvider jwtTokenProvider, RefreshTokenStore refreshTokenStore,
+                               UserRepository userRepository) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.refreshTokenStore = refreshTokenStore;
+        this.userRepository = userRepository;
     }
 
     public TokenResponse refresh(String refreshToken) {
@@ -25,6 +29,10 @@ public class TokenRefreshService {
                 .orElseThrow(() -> new IllegalArgumentException("저장된 refresh token이 없습니다"));
         if (!storedToken.equals(refreshToken)) {
             throw new IllegalArgumentException("refresh token이 일치하지 않습니다");
+        }
+
+        if (!userRepository.existsByIdAndDeletedAtIsNull(userId)) {
+            throw new IllegalArgumentException("탈퇴했거나 존재하지 않는 사용자입니다.");
         }
 
         String newAccessToken = jwtTokenProvider.createAccessToken(userId);
