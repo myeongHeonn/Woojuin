@@ -3,15 +3,19 @@ package com.ssafy.woojuin.domain.item.processing.memo;
 import com.ssafy.woojuin.domain.ai.AiAnalysis;
 import com.ssafy.woojuin.domain.ai.AiAnalysisRequest;
 import com.ssafy.woojuin.domain.ai.AiAnalyzer;
+import com.ssafy.woojuin.domain.ai.AiSourceType;
+import com.ssafy.woojuin.domain.ai.CategoryCandidate;
 import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
+import com.ssafy.woojuin.domain.item.event.ItemDoneEvent;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,12 +34,14 @@ public class MemoItemProcessor implements ItemProcessor {
     private final ItemRepository itemRepository;
     private final AiAnalyzer aiAnalyzer;
     private final CategoryAssignmentService categoryAssignmentService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public MemoItemProcessor(ItemRepository itemRepository, AiAnalyzer aiAnalyzer,
-            CategoryAssignmentService categoryAssignmentService) {
+            CategoryAssignmentService categoryAssignmentService, ApplicationEventPublisher eventPublisher) {
         this.itemRepository = itemRepository;
         this.aiAnalyzer = aiAnalyzer;
         this.categoryAssignmentService = categoryAssignmentService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -60,6 +66,7 @@ public class MemoItemProcessor implements ItemProcessor {
 
         enrichWithAi(item);
         item.markDone();
+        eventPublisher.publishEvent(new ItemDoneEvent(item.getId()));
         log.info("메모 가공 완료: itemId={}, status={}", item.getId(), item.getStatus());
     }
 
@@ -69,9 +76,10 @@ public class MemoItemProcessor implements ItemProcessor {
      */
     private void enrichWithAi(Item item) {
         try {
-            List<String> candidates = categoryAssignmentService.candidateNames(item.getWorkspaceId());
+            List<CategoryCandidate> candidates = categoryAssignmentService.candidates(item.getWorkspaceId());
             AiAnalysis analysis = aiAnalyzer.analyze(
-                    new AiAnalysisRequest(item.getTitle(), item.getContent(), candidates));
+                    new AiAnalysisRequest(AiSourceType.MEMO, item.getTitle(), item.getContent(), candidates));
+            item.update(analysis.title(), null);   // AI가 다듬은 제목(null이면 기존 유지)
             item.applySummary(analysis.summary());
             categoryAssignmentService.assign(item.getId(), item.getWorkspaceId(), analysis.categories());
         } catch (Exception e) {

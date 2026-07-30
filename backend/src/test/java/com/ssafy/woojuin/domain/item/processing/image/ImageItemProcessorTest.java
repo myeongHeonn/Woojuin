@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class ImageItemProcessorTest {
@@ -37,6 +38,7 @@ class ImageItemProcessorTest {
     @Mock ImageThumbnailGenerator thumbnailGenerator;
     @Mock AiAnalyzer aiAnalyzer;
     @Mock CategoryAssignmentService categoryAssignmentService;
+    @Mock ApplicationEventPublisher eventPublisher;
     @Mock ExifGpsReader exifGpsReader;
     @Mock Geocoder geocoder;
 
@@ -58,7 +60,7 @@ class ImageItemProcessorTest {
         LocationResolver locationResolver = new LocationResolver(
                 new MapLinkCoordinateParser(), geocoder);
         processor = new ImageItemProcessor(itemRepository, s3Uploader, imageTextExtractor,
-                thumbnailGenerator, aiAnalyzer, categoryAssignmentService,
+                thumbnailGenerator, aiAnalyzer, categoryAssignmentService, eventPublisher,
                 exifGpsReader, locationResolver);
     }
 
@@ -136,7 +138,7 @@ class ImageItemProcessorTest {
         Item item = imageItem();
         when(s3Uploader.download(any())).thenReturn(new byte[]{1});
         when(imageTextExtractor.extract(any())).thenReturn("텍스트");
-        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis("요약문", List.of("문화·콘텐츠")));
+        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis(null, "요약문", List.of("문화·콘텐츠")));
 
         processor.process(message());
 

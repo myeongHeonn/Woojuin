@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class MemoItemProcessorTest {
@@ -28,6 +29,7 @@ class MemoItemProcessorTest {
     @Mock ItemRepository itemRepository;
     @Mock AiAnalyzer aiAnalyzer;
     @Mock CategoryAssignmentService categoryAssignmentService;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     MemoItemProcessor processor;
 
@@ -44,7 +46,7 @@ class MemoItemProcessorTest {
 
     @Test
     void 아이템이_사라졌으면_조용히_반환한다() {
-        processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService);
+        processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService, eventPublisher);
         when(itemRepository.findById(any())).thenReturn(Optional.empty());
 
         processor.process(message());
@@ -54,9 +56,9 @@ class MemoItemProcessorTest {
 
     @Test
     void AI가_요약과_카테고리를_주면_저장하고_DONE() {
-        processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService);
+        processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService, eventPublisher);
         Item item = memoItem();
-        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis("요약문", List.of("생활·할 일")));
+        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis(null, "요약문", List.of("생활·할 일")));
 
         processor.process(message());
 
@@ -67,7 +69,7 @@ class MemoItemProcessorTest {
 
     @Test
     void AI가_예외를_던져도_DONE_유지하고_summary는_비워둔다() {
-        processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService);
+        processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService, eventPublisher);
         Item item = memoItem();
         when(aiAnalyzer.analyze(any())).thenThrow(new RuntimeException("AI 서버 장애"));
 
@@ -79,7 +81,7 @@ class MemoItemProcessorTest {
 
     @Test
     void AI가_empty를_반환해도_PARTIAL이_아니라_DONE이다() {
-        processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService);
+        processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService, eventPublisher);
         Item item = memoItem();
         when(aiAnalyzer.analyze(any())).thenReturn(AiAnalysis.empty());
 
@@ -90,7 +92,7 @@ class MemoItemProcessorTest {
 
     @Test
     void 이미_처리된_아이템은_재처리하지_않는다() {
-        processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService);
+        processor = new MemoItemProcessor(itemRepository, aiAnalyzer, categoryAssignmentService, eventPublisher);
         Item item = memoItem();
         item.markDone();   // at-least-once 큐 재배달 시나리오 시뮬레이션
 

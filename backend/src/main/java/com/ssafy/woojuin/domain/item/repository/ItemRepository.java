@@ -1,6 +1,8 @@
 package com.ssafy.woojuin.domain.item.repository;
 
 import com.ssafy.woojuin.domain.item.entity.Item;
+import com.ssafy.woojuin.global.common.ItemStatus;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,6 +11,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificationExecutor<Item> {
+
+    /**
+     * 오래 PROCESSING에 머문 아이템 조회 — 재발행 안전망({@code StuckItemRepublisher})용.
+     * 오래된 것부터 처리하도록 createdAt 오름차순. 휴지통 여부는 거르지 않는다 —
+     * 휴지통 아이템도 가공해 두면 복구했을 때 결과가 그대로 유효하다.
+     */
+    List<Item> findByStatusAndCreatedAtBeforeOrderByCreatedAtAsc(
+            ItemStatus status, OffsetDateTime cutoff, Limit limit);
 
     /**
      * 지도 뷰용 좌표 보유 아이템 조회 (FR-032).

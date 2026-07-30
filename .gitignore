@@ -35,6 +35,12 @@ backend/build/
 backend/out/
 !backend/gradle/wrapper/gradle-wrapper.jar
 
+# --- Python (crawler) ---
+__pycache__/
+*.pyc
+.pytest_cache/
+crawler/.venv/
+
 # --- Test / Coverage ---
 coverage/
 *.lcov

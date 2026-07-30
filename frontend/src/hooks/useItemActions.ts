@@ -8,12 +8,13 @@ import {
   type ItemPatch,
 } from '@/services/items';
 
-/** 성공 후 상세(item)·목록(items) 캐시를 무효화해 화면을 최신으로 맞춘다 */
+/** 성공 후 상세·목록·우주 캐시를 무효화해 화면을 최신으로 맞춘다 */
 function useInvalidateItems() {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: ['item'] });
     qc.invalidateQueries({ queryKey: ['items'] });
+    qc.invalidateQueries({ queryKey: ['universe'] });
   };
 }
 

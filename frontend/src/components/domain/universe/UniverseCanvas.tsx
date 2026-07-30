@@ -6,19 +6,16 @@ import {
   type StarNode,
   type UniverseScene,
 } from '@/utils/scene';
-import type { Star, UniverseResponse } from '@/stores/mock/universe';
+import type { UniverseResponse } from '@/types/universe';
 import ConstellationLabels from '@/components/domain/universe/ConstellationLabels';
 import StarTooltip from '@/components/ui/StarTooltip';
 
 interface UniverseCanvasProps {
-  /**
-   * 서버 응답. 생략하면 목업 데이터를 쓴다.
-   * TODO: useUniverse(workspaceId) 로 받아 넘긴다
-   */
-  data?: UniverseResponse;
-  /** 별자리 중심을 클릭 — 대시보드로 이동 */
+  /** GET /workspaces/{id}/universe 응답을 화면용으로 정규화한 데이터 */
+  data: UniverseResponse;
+  /** 카테고리 정보 카드를 눌렀을 때의 동작 */
   onSelectConstellation?: (categoryId: number) => void;
-  /** URL 이 아닌 저장물을 클릭 — 상세 조회 API 호출 */
+  /** 아이템 정보 카드를 누르면 상세 모달을 연다 */
   onOpenItem?: (itemId: number) => void;
 }
 
@@ -39,35 +36,24 @@ const UniverseCanvas = ({ data, onSelectConstellation, onOpenItem }: UniverseCan
 
   const [labels, setLabels] = useState<LabelPosition[]>([]);
   const [hover, setHover] = useState<HoverState | null>(null);
+  const [selected, setSelected] = useState<HoverState | null>(null);
 
   /** 콜백이 매 렌더 바뀌어도 씬을 다시 만들지 않도록 ref 로 최신값만 넘긴다 */
   const handlersRef = useRef({ onSelectConstellation, onOpenItem });
   handlersRef.current = { onSelectConstellation, onOpenItem };
 
-  /**
-   * 클릭 분기 — url 이 있으면 바로 이동, 없으면 상세 조회.
-   *
-   * type 이 아니라 url 유무로 판단한다. type 이 URL 인데 url 이 비어 오는 경우
-   * (크롤링 실패 등) 빈 탭이 열리는 대신 상세 화면으로 떨어진다.
-   */
-  const openStar = (star: Star) => {
-    if (star.url) {
-      window.open(star.url, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    handlersRef.current.onOpenItem?.(star.id);
-  };
-
-  const handleSelect = (node: StarNode) => {
+  /** 정보 카드를 누르면 카테고리 동작 또는 아이템 상세로 이어진다. */
+  const openTooltipTarget = (node: StarNode) => {
     if (node.isHub && node.hub) {
       handlersRef.current.onSelectConstellation?.(node.hub.categoryId);
       return;
     }
-    if (node.star) openStar(node.star);
+    if (node.star) handlersRef.current.onOpenItem?.(node.star.id);
   };
 
-  const handleSelectRef = useRef(handleSelect);
-  handleSelectRef.current = handleSelect;
+  const openTooltipTargetRef = useRef(openTooltipTarget);
+  openTooltipTargetRef.current = openTooltipTarget;
+  const visibleTooltip = selected ?? hover;
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -77,7 +63,8 @@ const UniverseCanvas = ({ data, onSelectConstellation, onOpenItem }: UniverseCan
       {
         onLabels: setLabels,
         onHover: (node, position) => setHover(node && position ? { node, position } : null),
-        onSelect: (node) => handleSelectRef.current(node),
+        onSelect: (node, position) => setSelected({ node, position }),
+        onDeselect: () => setSelected(null),
       },
       data,
     );
@@ -98,11 +85,11 @@ const UniverseCanvas = ({ data, onSelectConstellation, onOpenItem }: UniverseCan
         onSelect={(categoryId) => sceneRef.current?.focusOn(categoryId)}
       />
 
-      {hover && (
+      {visibleTooltip && (
         <StarTooltip
-          node={hover.node}
-          position={hover.position}
-          onClick={() => handleSelectRef.current(hover.node)}
+          node={visibleTooltip.node}
+          position={visibleTooltip.position}
+          onClick={() => openTooltipTargetRef.current(visibleTooltip.node)}
           onPointerOverChange={(over) => sceneRef.current?.setPointerOverTooltip(over)}
         />
       )}

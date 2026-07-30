@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { MemoryRouter } from 'react-router-dom';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SideBar from '@/components/domain/nav/SideBar';
+import { getSidebarExpandedSize } from '@/constants/breakpoints';
 import type { Workspace } from '@/services/workspaces';
 
 /**
@@ -101,6 +102,39 @@ describe('SideBar (통합)', () => {
       const text = aside(container).textContent ?? '';
       expect(text).not.toContain('저장 공간');
       expect(text).not.toContain('dngusdlqwkd@gmail.com');
+    });
+
+    it('화면이 좁아지면 먼저 접히고 다시 넓어지면 펼쳐진다', async () => {
+      await page.viewport(getSidebarExpandedSize(), 800);
+      const { container } = await renderSideBar();
+      const width = () => aside(container).getBoundingClientRect().width;
+
+      expect(width()).toBeCloseTo(300, 0);
+
+      await page.viewport(getSidebarExpandedSize() - 1, 800);
+      await expect.poll(width).toBeCloseTo(72, 0);
+
+      await page.viewport(getSidebarExpandedSize(), 800);
+      await expect.poll(width).toBeCloseTo(300, 0);
+
+      await page.viewport(1280, 800);
+    });
+
+    it('사용자가 접은 상태는 화면 크기가 바뀌어도 유지한다', async () => {
+      await page.viewport(getSidebarExpandedSize(), 800);
+      const { container } = await renderSideBar();
+      const width = () => aside(container).getBoundingClientRect().width;
+
+      await userEvent.click(toggleBtn(container));
+      await expect.poll(width).toBeCloseTo(72, 0);
+
+      await page.viewport(getSidebarExpandedSize() - 1, 800);
+      await expect.poll(width).toBeCloseTo(72, 0);
+
+      await page.viewport(getSidebarExpandedSize(), 800);
+      await expect.poll(width).toBeCloseTo(72, 0);
+
+      await page.viewport(1280, 800);
     });
   });
 

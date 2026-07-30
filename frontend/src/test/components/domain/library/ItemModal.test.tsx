@@ -104,8 +104,13 @@ describe('ItemModal', () => {
       const { container } = await render(
         <ItemModal workspaceId={3} itemId={1} onClose={() => {}} />,
       );
-      expect(container.textContent).toContain('아이디어');
-      expect(container.textContent).toContain('우주인 회의 메모');
+      // 메모는 편집 가능 — 제목은 input, 본문은 textarea 로 채워진다
+      expect((container.querySelector('input[aria-label="제목"]') as HTMLInputElement).value).toBe(
+        '아이디어',
+      );
+      expect(
+        (container.querySelector('textarea[aria-label="본문"]') as HTMLTextAreaElement).value,
+      ).toContain('우주인 회의 메모');
       expect(container.textContent).toContain('방금 전 저장');
     });
   });
@@ -127,8 +132,8 @@ describe('ItemModal', () => {
       const { container } = await render(
         <ItemModal workspaceId={3} itemId={1} onClose={onClose} />,
       );
-      // 안쪽 카드(제목) 클릭 → 카드가 stopPropagation 하므로 안 닫힘
-      await userEvent.click(container.querySelector('h2')!);
+      // 안쪽 카드(제목 입력) 클릭 → 카드가 stopPropagation 하므로 안 닫힘
+      await userEvent.click(container.querySelector('input[aria-label="제목"]')!);
       expect(onClose).not.toHaveBeenCalled();
       // 배경(오버레이) 자체에 클릭 — 중앙은 카드가 덮고 있어 요소에 직접 디스패치한다
       (container.firstElementChild as HTMLElement).click();

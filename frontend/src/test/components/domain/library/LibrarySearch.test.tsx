@@ -40,10 +40,22 @@ describe('LibrarySearch', () => {
     expect(params(container).get('ai')).toBe('1');
   });
 
-  it('검색 모드에선 ‹ 검색어 를 보이고, ‹ 를 누르면 대시보드로(쿼리 제거) 돌아간다', async () => {
+  // 문구는 토글의 현재 상태(localAi)를 따라야 한다 — URL 의 ai 를 보면 켜도 문구가 남는다
+  it('AI 모드를 켜면 권유 문구가 사라진다', async () => {
+    const { container } = await renderAt('/');
+    expect(container.textContent).toContain('AI 모드로 바꿔보세요');
+
+    await userEvent.click(container.querySelector('button[aria-label="AI 모드"]')!);
+    await expect.poll(() => container.textContent).not.toContain('AI 모드로 바꿔보세요');
+  });
+
+  it('검색 상태에선 입력창에 검색어가 채워지고, 다 지우면 전체로 돌아간다', async () => {
     const { container } = await renderAt('/?q=파스타');
-    expect(container.textContent).toContain('파스타');
-    await userEvent.click(container.querySelector('button[aria-label="검색 닫기"]')!);
+    const input = container.querySelector('input[aria-label="검색어"]') as HTMLInputElement;
+    expect(input.value).toBe('파스타');
+
+    // 입력을 다 지우면 ?q 가 빠져 전체 목록으로 돌아간다
+    await userEvent.clear(input);
     await expect.poll(() => rawSearch(container)).toBe('');
   });
 });

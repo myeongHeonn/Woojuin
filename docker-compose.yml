@@ -1,8 +1,17 @@
-# 로컬 개발용 인프라 (PostgreSQL + Redis + MinIO)
+# 로컬 개발용 인프라 (PostgreSQL + Redis + MinIO + Crawler)
 # 사용: docker compose up -d
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector 번들 이미지. 같은 PG16이라 기존 postgres-data 볼륨 그대로 호환된다.
+    # 임베딩 저장(item_embeddings.embedding vector(1536))과 이후 의미 기반 검색에 필요.
+    #
+    # ⚠️ 기존 postgres:16-alpine 볼륨을 이 이미지로 처음 올릴 땐 **REINDEX가 필수**다:
+    #     docker exec <postgres 컨테이너> psql -U <user> -d <db> -c "REINDEX DATABASE <db>;"
+    # alpine(musl)과 이 이미지(debian/glibc)는 텍스트 정렬(collation) 구현이 달라, musl에서
+    # 만들어진 텍스트 btree 인덱스가 glibc에선 조용히 틀어진다 — 인덱스를 타는 등호 조회가
+    # 행이 있는데도 0건을 돌려준다(실제로 겪음: 카테고리 이름 매칭·"기타" 폴백이 전부 실패,
+    # users.email 유니크 인덱스도 같은 위험). 데이터가 새 볼륨이면 해당 없음.
+    image: pgvector/pgvector:pg16
     container_name: woojuin-postgres
     environment:
       POSTGRES_DB: woojuin
@@ -31,6 +40,40 @@ services:
       - "9001:9001"   # 콘솔
     volumes:
       - minio-data:/data
+
+  # Scrapling 크롤러 사이드카. JS 렌더링·봇 차단 페이지 폴백용(자세한 건 crawler/README.md).
+  # 브라우저를 번들해 빌드가 오래 걸리고 이미지가 크다. 백엔드에서 CRAWLER_ENABLED=true로 켜야 쓰인다.
+  crawler:
+    build: ./crawler
+    container_name: woojuin-crawler
+    ports:
+      - "8001:8001"
+    # 배포용(docker-compose.deploy.yml)과 같은 형태로 변수화 — 값을 바꾸려고 이 파일을
+    # 고치면 그 수정이 커밋되어 남의 환경까지 따라 바뀐다. 기본값은 그대로라 .env를
+    # 건드리지 않은 사람에겐 동작 변화가 없다.
+    #
+    # 동시 렌더 수는 올리지 않는 게 좋다: 브라우저 1개가 400~500MB를 쓰고(실측), 백엔드
+    # 컨슈머가 순차 처리라 크롤러에 동시 요청이 2개를 넘지 않는다(재시도 회수기까지 겹친
+    # 최악값이 2). 올릴 이유가 생기는 건 컨슈머를 스레드풀로 바꾸거나 백엔드를 다중
+    # 인스턴스로 띄울 때이고, 그때는 메모리 상한도 함께 올려야 한다.
+    environment:
+      CRAWLER_SOLVE_CLOUDFLARE: ${CRAWLER_SOLVE_CLOUDFLARE:-true}
+      CRAWLER_MAX_CONCURRENCY: ${CRAWLER_MAX_CONCURRENCY:-2}
+    shm_size: "1gb"   # 브라우저 렌더 중 /dev/shm 부족으로 인한 크래시 방지
+
+  # AI Mix 사이드카 — 제목·요약 생성, 카테고리 분류, 임베딩, 3차원 좌표 축소(UMAP).
+  # ai/ai-mix(묶음 F 산출물) 그대로 컨테이너화한 것. OpenRouter를 호출하므로 키가 필수다 —
+  # 키가 없으면 컨테이너는 뜨지만 호출이 실패하고, 백엔드는 AiAnalyzer 폴백(빈 결과)으로
+  # 동작한다(앱 기동엔 지장 없음).
+  aimix:
+    build: ./ai/ai-mix
+    container_name: woojuin-aimix
+    ports:
+      - "8002:8002"
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_CHAT_MODEL: ${OPENROUTER_CHAT_MODEL:-qwen/qwen3-8b}
+      OPENROUTER_EMBEDDING_MODEL: ${OPENROUTER_EMBEDDING_MODEL:-openai/text-embedding-3-small}
 
 volumes:
   postgres-data:

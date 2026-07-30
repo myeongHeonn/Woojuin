@@ -1,5 +1,18 @@
-import { TYPE_LABEL } from '@/stores/mock/universe';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { TYPE_LABEL } from '@/types/item';
 import type { ScreenPosition, StarNode } from '@/utils/scene';
+import { INFO_CARD_CLASS } from '@/components/ui/infoCardStyles';
+
+const EDGE_GAP = 12;
+const STAR_GAP = 14;
+const CATEGORY_PREVIEW_LIMIT = 2;
+
+interface TooltipBounds {
+  containerWidth: number;
+  containerHeight: number;
+  cardWidth: number;
+  cardHeight: number;
+}
 
 interface StarTooltipProps {
   node: StarNode;
@@ -9,44 +22,112 @@ interface StarTooltipProps {
 }
 
 /**
- * 별 호버 툴팁 — 목업 `.tooltip`.
- * 별자리 중심은 간단히(개수만), 저장물은 제목까지 보여준다.
+ * 별 호버·선택 정보 카드.
+ * 지도 팝업과 같은 카드 구조·스타일을 쓰고 위치 계산만 성좌 좌표계에 맞게 처리한다.
  */
 const StarTooltip = ({ node, position, onClick, onPointerOverChange }: StarTooltipProps) => {
-  const { isHub, hub, star, categoryName, cssColor } = node;
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [bounds, setBounds] = useState<TooltipBounds | null>(null);
+  const { isHub, hub, star, categoryNames, cssColor } = node;
+  const visibleCategoryNames = categoryNames.slice(0, CATEGORY_PREVIEW_LIMIT);
+  const categoryLabel =
+    visibleCategoryNames.length > 0
+      ? `${visibleCategoryNames.map((name) => `#${name}`).join(' · ')}${
+          categoryNames.length > CATEGORY_PREVIEW_LIMIT ? ' · ...' : ''
+        }`
+      : '#미분류';
+
+  useLayoutEffect(() => {
+    const tooltip = tooltipRef.current;
+    const container = tooltip?.parentElement;
+    if (!tooltip || !container) return;
+
+    const measure = () => {
+      const next = {
+        containerWidth: container.clientWidth,
+        containerHeight: container.clientHeight,
+        cardWidth: tooltip.offsetWidth,
+        cardHeight: tooltip.offsetHeight,
+      };
+      setBounds((current) =>
+        current &&
+        current.containerWidth === next.containerWidth &&
+        current.containerHeight === next.containerHeight &&
+        current.cardWidth === next.cardWidth &&
+        current.cardHeight === next.cardHeight
+          ? current
+          : next,
+      );
+    };
+
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(container);
+    resizeObserver.observe(tooltip);
+    measure();
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  const cardWidth = bounds?.cardWidth ?? 0;
+  const cardHeight = bounds?.cardHeight ?? 0;
+  const containerWidth = bounds?.containerWidth ?? 0;
+  const containerHeight = bounds?.containerHeight ?? 0;
+  const maxLeft = Math.max(EDGE_GAP, containerWidth - cardWidth - EDGE_GAP);
+  const maxTop = Math.max(EDGE_GAP, containerHeight - cardHeight - EDGE_GAP);
+  const left = Math.min(Math.max(position.x - cardWidth / 2, EDGE_GAP), maxLeft);
+  const fitsAbove = position.y - cardHeight - STAR_GAP >= EDGE_GAP;
+  const fitsBelow = position.y + STAR_GAP + cardHeight <= containerHeight - EDGE_GAP;
+  const placement = fitsAbove || !fitsBelow ? 'top' : 'bottom';
+  const preferredTop =
+    placement === 'top' ? position.y - cardHeight - STAR_GAP : position.y + STAR_GAP;
+  const top = Math.min(Math.max(preferredTop, EDGE_GAP), maxTop);
 
   return (
     <div
-      role="tooltip"
+      ref={tooltipRef}
+      role="button"
+      tabIndex={0}
+      aria-label={
+        isHub && hub ? `${hub.name} 카테고리 정보` : `${star?.title ?? '저장물'} 상세 열기`
+      }
+      data-testid="star-info-card"
+      data-placement={placement}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        onClick();
+      }}
       onMouseEnter={() => onPointerOverChange(true)}
       onMouseLeave={() => onPointerOverChange(false)}
-      style={{ left: position.x, top: position.y }}
-      className="pointer-events-auto absolute z-[6] w-[238px] -translate-x-1/2 -translate-y-[118%] cursor-pointer rounded-[13px] border border-border bg-[rgba(23,24,29,.92)] px-[15px] py-[13px] shadow-tooltip backdrop-blur-[18px]"
+      style={{
+        left,
+        top,
+        visibility: bounds && position.visible ? 'visible' : 'hidden',
+      }}
+      className={`${INFO_CARD_CLASS.root} pointer-events-auto absolute z-[6]`}
     >
-      <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-3 px-[9px] py-[3px] text-[11px] font-bold">
+      <div className={INFO_CARD_CLASS.meta}>
         <span
-          className="h-1.5 w-1.5 shrink-0 rounded-full"
+          className={INFO_CARD_CLASS.dot}
           style={{ backgroundColor: cssColor }}
           aria-hidden="true"
         />
-        {categoryName ?? '미분류'}
-        {!isHub && star && (
-          <span className="font-semibold text-text-3">· {TYPE_LABEL[star.type]}</span>
-        )}
-      </span>
+        <span>
+          {isHub ? '카테고리' : `${categoryLabel}${star ? ` · ${TYPE_LABEL[star.type]}` : ''}`}
+        </span>
+      </div>
 
       {isHub && hub ? (
-        <div className="mt-1 text-[11px] text-text-3">
-          {hub.itemCount} memories · 클릭하면 대시보드
-        </div>
+        <>
+          <strong className={INFO_CARD_CLASS.title}>{hub.name}</strong>
+          <span className={INFO_CARD_CLASS.detail}>{hub.itemCount} memories</span>
+        </>
       ) : (
         star && (
           <>
-            <div className="mt-2 text-[13.5px] font-bold text-text-1">{star.title}</div>
-            <div className="mt-2 text-[11px] text-text-3">
-              {star.type === 'URL' ? '클릭하면 링크로 이동' : '클릭하여 열기'}
-            </div>
+            <strong className={INFO_CARD_CLASS.title}>{star.title}</strong>
+            <span className={INFO_CARD_CLASS.action}>클릭하여 상세 보기</span>
           </>
         )
       )}
