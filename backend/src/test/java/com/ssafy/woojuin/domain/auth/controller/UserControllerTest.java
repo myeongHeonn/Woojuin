@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ssafy.woojuin.domain.ai.usage.AiUsageResponse;
 import com.ssafy.woojuin.domain.ai.usage.AiUsageService;
 import com.ssafy.woojuin.domain.auth.service.UserProfileService;
+import com.ssafy.woojuin.domain.auth.dto.UserStatsResponse;
+import com.ssafy.woojuin.domain.auth.service.UserStatsService;
 import com.ssafy.woojuin.domain.auth.service.UserWithdrawalService;
 import com.ssafy.woojuin.global.security.aop.AuthenticationAspect;
 import com.ssafy.woojuin.global.security.aop.CurrentUserResolver;
@@ -40,6 +42,9 @@ class UserControllerTest {
 
     @MockBean
     private UserProfileService userProfileService;
+
+    @MockBean
+    private UserStatsService userStatsService;
 
     @MockBean
     private UserWithdrawalService userWithdrawalService;
@@ -78,6 +83,20 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.unlimited").value(false));
 
         verify(aiUsageService).getUsage(1L);
+    }
+
+    @Test
+    void getMyStats_returnsMyPageStats() throws Exception {
+        authenticateAs(1L);
+        when(userStatsService.getStats(1L)).thenReturn(new UserStatsResponse(128, 4, 12));
+
+        mockMvc.perform(get("/api/users/me/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalSaved").value(128))
+                .andExpect(jsonPath("$.data.workspaceCount").value(4))
+                .andExpect(jsonPath("$.data.savedThisWeek").value(12));
+
+        verify(userStatsService).getStats(1L);
     }
 
     @Test
