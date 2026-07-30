@@ -9,14 +9,15 @@
  */
 
 /** CSS 를 못 읽는 상황에서만 쓰는 값 — theme.css 와 같게 유지한다 */
-const FALLBACK = 640;
+const MOBILE_FALLBACK = 640;
+const SIDEBAR_EXPANDED_FALLBACK = 1024;
 
-function readBreakpoint(): number {
-  if (typeof document === 'undefined') return FALLBACK;
+function readBreakpoint(variable: string, fallback: number): number {
+  if (typeof document === 'undefined') return fallback;
 
-  const raw = getComputedStyle(document.documentElement).getPropertyValue('--breakpoint-desktop');
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(variable);
   const parsed = Number.parseFloat(raw); // '640px' → 640
-  return Number.isFinite(parsed) ? parsed : FALLBACK;
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 /**
@@ -25,7 +26,15 @@ function readBreakpoint(): number {
  * 함수인 이유: 모듈이 스타일시트보다 먼저 평가되면 상수로는 폴백이 굳어버린다.
  * 호출 시점에 읽으면 그럴 일이 없다.
  */
-export const getMobileSize = (): number => readBreakpoint();
+export const getMobileSize = (): number => readBreakpoint('--breakpoint-desktop', MOBILE_FALLBACK);
 
 /** 데스크톱 여부 — matchMedia 에 넣어 쓴다 */
 export const getDesktopQuery = (): string => `(min-width: ${getMobileSize()}px)`;
+
+/** 사이드바를 기본 펼침 상태로 보여줄 수 있는 최소 폭 */
+export const getSidebarExpandedSize = (): number =>
+  readBreakpoint('--breakpoint-sidebar-expanded', SIDEBAR_EXPANDED_FALLBACK);
+
+/** 데스크톱 셸 안에서 사이드바를 먼저 접어야 하는 폭 */
+export const getSidebarCompactQuery = (): string =>
+  `(max-width: ${getSidebarExpandedSize() - 1}px)`;

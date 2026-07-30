@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { page } from 'vitest/browser';
-import { getMobileSize, getDesktopQuery } from '@/constants/breakpoints';
+import {
+  getMobileSize,
+  getDesktopQuery,
+  getSidebarCompactQuery,
+  getSidebarExpandedSize,
+} from '@/constants/breakpoints';
 
 /**
  * 분기점의 원본은 theme.css 의 `--breakpoint-desktop` 하나다.
@@ -46,5 +51,26 @@ describe('모바일 분기점', () => {
       // 다른 테스트가 데스크톱 폭을 전제하므로 되돌린다
       await page.viewport(1280, 800);
     });
+  });
+});
+
+describe('사이드바 자동 접힘 분기점', () => {
+  it('theme.css 의 --breakpoint-sidebar-expanded 를 읽는다', () => {
+    const declared = getComputedStyle(document.documentElement).getPropertyValue(
+      '--breakpoint-sidebar-expanded',
+    );
+
+    expect(declared.trim()).not.toBe('');
+    expect(getSidebarExpandedSize()).toBe(Number.parseFloat(declared));
+  });
+
+  it('펼침 경계 바로 아래까지만 접힘 구간이다', async () => {
+    await page.viewport(getSidebarExpandedSize() - 1, 800);
+    expect(matchMedia(getSidebarCompactQuery()).matches).toBe(true);
+
+    await page.viewport(getSidebarExpandedSize(), 800);
+    expect(matchMedia(getSidebarCompactQuery()).matches).toBe(false);
+
+    await page.viewport(1280, 800);
   });
 });

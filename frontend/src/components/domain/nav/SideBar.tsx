@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { getSidebarCompactQuery } from '@/constants/breakpoints';
 import { classNames } from '@/utils/classNames';
 import { SideBarProvider } from '@/stores/context/SideBarContext';
 import SideBarBrand from './SideBarBrand';
@@ -8,7 +9,19 @@ import StorageBar from './StorageBar';
 import SideBarUser from './SideBarUser';
 
 const SideBar = () => {
-  const [sideBarClosed, setSideBarClosed] = useState(false);
+  const [sideBarClosed, setSideBarClosed] = useState(() =>
+    typeof window === 'undefined' ? false : window.matchMedia(getSidebarCompactQuery()).matches,
+  );
+
+  useEffect(() => {
+    const compactScreen = window.matchMedia(getSidebarCompactQuery());
+    const syncWithScreen = (event: MediaQueryListEvent) => setSideBarClosed(event.matches);
+
+    compactScreen.addEventListener('change', syncWithScreen);
+    setSideBarClosed(compactScreen.matches);
+
+    return () => compactScreen.removeEventListener('change', syncWithScreen);
+  }, []);
 
   const toggleSideBar = () => setSideBarClosed((closed) => !closed);
 
