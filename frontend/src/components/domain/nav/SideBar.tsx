@@ -5,7 +5,6 @@ import { SideBarProvider } from '@/stores/context/SideBarContext';
 import SideBarBrand from './SideBarBrand';
 import FixedNav from './FixedNav';
 import WorkspaceNav from './WorkspaceNav';
-import StorageBar from './StorageBar';
 import SideBarUser from './SideBarUser';
 
 const SideBar = () => {
@@ -59,7 +58,6 @@ const SideBar = () => {
         <FixedNav />
         <WorkspaceNav />
         <div className="flex-1" />
-        <StorageBar />
         <SideBarUser />
       </aside>
     </SideBarProvider>
