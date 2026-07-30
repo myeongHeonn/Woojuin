@@ -30,7 +30,12 @@ const SideBarBrand = () => {
         className="flex items-center gap-2.5 rounded-sm"
         onPointerEnter={() => setBrandHovered(true)}
         onPointerLeave={() => setBrandHovered(false)}
-        onFocus={() => setBrandHovered(true)}
+        // :focus-visible 일 때만 = 키보드 포커스만 호버로 취급한다. 마우스 클릭도 링크에
+        // 포커스를 남기는데, 그걸 호버로 치면 ①클릭 후 공전이 안 멈추고 ②다른 탭에 갔다
+        // 돌아올 때 브라우저가 포커스된 요소에 focus 를 다시 쏴서 유령 호버가 생긴다(실측).
+        onFocus={(e) => {
+          if (e.currentTarget.matches(':focus-visible')) setBrandHovered(true);
+        }}
         onBlur={() => setBrandHovered(false)}
       >
         <InteractiveLogo size={28} hovered={brandHovered} className="rounded-sm" />
