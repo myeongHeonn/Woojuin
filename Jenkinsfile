@@ -474,13 +474,19 @@ pipeline {
             }
         }
 
-        stage('AI Mix Health Check') {
-            // 백엔드와 달리 **빌드를 실패시키지 않고 UNSTABLE 로만 표시**한다.
-            //   - ai-mix 는 compose 의 depends_on 에 없고(profile 서비스는 넣을 수 없다),
-            //     백엔드는 사이드카가 없으면 요약·분류·임베딩을 NoOp 으로 폴백해 저장·검색은 정상이다.
+        stage('Sidecar Health Check') {
+            // 사이드카(aimix·crawler)는 백엔드와 달리 **빌드를 실패시키지 않고 UNSTABLE 로만
+            // 표시**한다.
+            //   - 둘 다 compose 의 depends_on 에 없다(profile 서비스는 넣을 수 없다 — 넣으면
+            //     compose 가 `depends on undefined service` 로 프로젝트 자체를 거부한다).
+            //   - 백엔드가 사이드카 부재를 견딘다: aimix 없으면 요약·분류·임베딩이 NoOp,
+            //     crawler 없으면 Jsoup 결과만 쓴다. 저장·검색·지도는 정상 동작한다.
             //     즉 이게 안 떠도 서비스는 살아 있으므로 배포를 막을 근거가 없다.
-            //   - 그렇다고 조용히 넘기면 "AI 기능만 안 되는" 상태를 아무도 모른다(우리가 반복해서
+            //   - 그렇다고 조용히 넘기면 "그 기능만 안 되는" 상태를 아무도 모른다(우리가 반복해서
             //     겪은 실패 유형). 노란 빌드 + 로그로 드러나게 한다.
+            //
+            // 📌 켜지 않은 사이드카는 **컨테이너가 아예 없다**(.env 의 COMPOSE_PROFILES 가 결정).
+            //    그건 정상 상태이므로 건너뛴다 — "안 켰다"와 "켰는데 죽었다"를 구분한다.
             when {
                 allOf {
                     anyOf { branch 'develop'; branch 'main' }
@@ -489,39 +495,54 @@ pipeline {
             }
             steps {
                 script {
-                    def container = "${env.STACK}-aimix-1"
-                    // healthcheck 의 start_period 가 30s → 최대 90초까지 기다린다.
-                    def status = sh(returnStdout: true, script: """
-                        for i in \$(seq 1 18); do
-                            s=\$(docker inspect --format '{{.State.Health.Status}}' ${container} 2>/dev/null || echo missing)
-                            if [ "\$s" != "starting" ]; then echo "\$s"; exit 0; fi
-                            sleep 5
-                        done
-                        docker inspect --format '{{.State.Health.Status}}' ${container} 2>/dev/null || echo missing
-                    """).trim()
+                    // ⚠️ `.each { }` 대신 for 루프를 쓴다 — Jenkins 는 파이프라인 코드를 CPS 로
+                    //    변환하는데, 클로저 안의 `continue` 성격의 `return` 이 직관과 다르게
+                    //    동작하는 사례가 알려져 있다. for 루프는 그 위험이 없다.
+                    def sidecars = [
+                        [name: 'aimix',   port: 8002, feature: '요약·분류·임베딩·우주 뷰'],
+                        [name: 'crawler', port: 8001, feature: 'SPA·봇차단 페이지 본문 추출 폴백'],
+                    ]
+                    for (s in sidecars) {
+                        def container = "${env.STACK}-${s.name}-1"
 
-                    if (status != 'healthy') {
-                        sh "docker logs --tail=50 ${container} 2>&1 || true"
-                        unstable("ai-mix 가 healthy 가 아니다(${status}) — 요약·분류·임베딩·우주 뷰가 " +
-                                 '동작하지 않는다. 저장·검색·지도는 정상 동작한다.')
-                        return
-                    }
+                        // healthcheck 의 start_period 가 30s → 최대 90초까지 기다린다.
+                        def status = sh(returnStdout: true, script: """
+                            for i in \$(seq 1 18); do
+                                st=\$(docker inspect --format '{{.State.Health.Status}}' ${container} 2>/dev/null || echo missing)
+                                if [ "\$st" != "starting" ]; then echo "\$st"; exit 0; fi
+                                sleep 5
+                            done
+                            docker inspect --format '{{.State.Health.Status}}' ${container} 2>/dev/null || echo missing
+                        """).trim()
 
-                    // ⚠️ healthy 가 "동작함"을 뜻하지 않는다. `/health` 는 **API 키가 없어도
-                    //    200 UP** 을 돌려준다(로컬 실측). 그래서 컨테이너 상태만 보면 키가 빠진
-                    //    상태를 절대 못 잡는다 — 우리가 반복해서 겪은 "조용한 실패" 그대로다.
-                    //    다행히 응답에 apiKeyConfigured 가 있어 그걸 근거로 판단한다.
-                    def body = sh(returnStdout: true, script: """
-                        docker exec ${container} python -c "import urllib.request;print(urllib.request.urlopen('http://localhost:8002/health').read().decode())" 2>/dev/null || echo '{}'
-                    """).trim()
-                    echo "ai-mix /health: ${body}"
+                        if (status == 'missing') {
+                            echo "${s.name}: 켜지 않음 (.env 의 COMPOSE_PROFILES 에 없다) — 건너뜀"
+                            continue
+                        }
+                        if (status != 'healthy') {
+                            sh "docker logs --tail=50 ${container} 2>&1 || true"
+                            unstable("${s.name} 이 healthy 가 아니다(${status}) — ${s.feature} 가 " +
+                                     '동작하지 않는다. 저장·검색·지도는 정상 동작한다.')
+                            continue
+                        }
 
-                    if (body.contains('"apiKeyConfigured":true')) {
-                        echo 'ai-mix 정상 (healthy + API 키 있음)'
-                    } else {
-                        unstable('ai-mix 는 떴지만 OPENROUTER_API_KEY 가 비어 있다 — 요약·분류·임베딩이 ' +
-                                 '전부 실패한다(컨테이너는 healthy 로 보인다). 서버 .env 와 Jenkins ' +
-                                 "credential(${env.ENV_CREDENTIAL}) 양쪽에 키를 넣을 것.")
+                        // ⚠️ healthy 가 "동작함"을 뜻하지 않는다. ai-mix 의 `/health` 는 **API 키가
+                        //    없어도 200 UP** 을 돌려준다(로컬 실측). 컨테이너 상태만 보면 키가 빠진
+                        //    상태를 절대 못 잡는다 — "조용한 실패" 그대로다. 응답 본문까지 본다.
+                        def body = sh(returnStdout: true, script: """
+                            docker exec ${container} python -c "import urllib.request;print(urllib.request.urlopen('http://localhost:${s.port}/health').read().decode())" 2>/dev/null || echo '{}'
+                        """).trim()
+                        echo "${s.name} /health: ${body}"
+
+                        // apiKeyConfigured 를 노출하는 사이드카(ai-mix)만 키 검사를 한다.
+                        // crawler 는 외부 API 키가 필요 없어 healthy 면 그게 준비 완료다.
+                        if (body.contains('"apiKeyConfigured":false')) {
+                            unstable("${s.name} 은 떴지만 OPENROUTER_API_KEY 가 비어 있다 — ${s.feature} 가 " +
+                                     '전부 실패한다(컨테이너는 healthy 로 보인다). 서버 .env 와 Jenkins ' +
+                                     "credential(${env.ENV_CREDENTIAL}) 양쪽에 키를 넣을 것.")
+                        } else {
+                            echo "${s.name} 정상 (healthy)"
+                        }
                     }
                 }
             }
