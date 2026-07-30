@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@/hooks/useUser';
@@ -7,7 +7,9 @@ import { classNames } from '@/utils/classNames';
 import { getSpacemanImage } from '@/utils/getSpacemanImage';
 import { useSideBar } from '@/stores/context/SideBarContext';
 import { logout } from '@/services/auth';
+import { deleteNotificationToken } from '@/services/notifications';
 import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
+import { fcmTokenAtom } from '@/stores/pushAtoms';
 
 /** 하단 유저 푸터 — 접힘 상태에서는 아바타만 남는다 */
 const SideBarUser = () => {
@@ -16,6 +18,8 @@ const SideBarUser = () => {
   const queryClient = useQueryClient();
   const setAccessToken = useSetAtom(accessTokenAtom);
   const setRefreshToken = useSetAtom(refreshTokenAtom);
+  const fcmToken = useAtomValue(fcmTokenAtom);
+  const setFcmToken = useSetAtom(fcmTokenAtom);
   const [menuOpen, setMenuOpen] = useState(false);
 
   // 서버 상태
@@ -24,11 +28,13 @@ const SideBarUser = () => {
   const handleLogout = async () => {
     try {
       await logout();
+      if (fcmToken) await deleteNotificationToken(fcmToken);
     } catch {
       // 서버 호출이 실패해도(네트워크 오류 등) 로컬 로그아웃은 진행한다
     }
     setAccessToken(null);
     setRefreshToken(null);
+    setFcmToken(null);
     queryClient.clear();
     navigate('/');
   };
