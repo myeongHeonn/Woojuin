@@ -4,7 +4,9 @@
  * w-sidebar·pl-1 같은 Tailwind 클래스가 실제 픽셀로 계산된다.
  */
 import { beforeEach } from 'vitest';
-import { userEvent } from '@vitest/browser/context';
+// '@vitest/browser/context' 는 deprecated — CI 로그에 "will stop working in the next
+// major version" 경고가 찍혀 공식 대체 경로(vitest/browser)로 바꿨다(vitest 4.x).
+import { userEvent } from 'vitest/browser';
 import '@/styles/index.css';
 
 /**
