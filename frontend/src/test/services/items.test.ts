@@ -2,9 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { api } from '@/services/client';
 import { saveImage, saveMemo, saveUrl } from '@/services/items';
 
-vi.mock('@/services/client', () => ({
-  api: { post: vi.fn(), get: vi.fn() },
-}));
+// 공용 mock 사용 — src/services/__mocks__/client.ts (파일별 팩토리는 동시 실행 시 경쟁한다)
+vi.mock('@/services/client');
 
 const post = vi.mocked(api.post);
 

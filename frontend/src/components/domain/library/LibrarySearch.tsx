@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SearchIcon } from '@/assets/icons';
 import SearchModeToggle from '@/components/domain/search/SearchModeToggle';
+import AiModeHint from '@/components/domain/search/AiModeHint';
 
 /**
  * 대시보드 검색창 — 카테고리 바 아래 작은 입력. 검색 상태를 URL(?q &ai)로 옮긴다.
@@ -38,20 +39,26 @@ const LibrarySearch = () => {
   };
 
   return (
-    <form
-      onSubmit={submit}
-      className="mb-2 ml-auto flex max-w-100 items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2"
-    >
-      <SearchIcon className="h-4 w-4 shrink-0 text-text-3" />
-      <input
-        value={text}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="검색"
-        aria-label="검색어"
-        className="min-w-0 flex-1 bg-transparent text-[13px] text-text-1 outline-none placeholder:text-text-3"
-      />
-      <SearchModeToggle aiMode={localAi} onToggle={() => setLocalAi((v) => !v)} />
-    </form>
+    // 우측 정렬·폭 제한은 래퍼가 갖는다 — 안내 문구가 검색창과 같은 폭 기준으로 오른쪽에 맞아야 하고,
+    // ml-auto 는 부모(LibraryPage 의 flex-col)의 flex auto margin 으로 동작한다
+    <div className="mb-2 ml-auto max-w-100">
+      <AiModeHint aiMode={localAi} className="mb-1 pr-1 text-right" />
+
+      <form
+        onSubmit={submit}
+        className="flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2"
+      >
+        <SearchIcon className="h-4 w-4 shrink-0 text-text-3" />
+        <input
+          value={text}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="검색"
+          aria-label="검색어"
+          className="min-w-0 flex-1 bg-transparent text-[13px] text-text-1 outline-none placeholder:text-text-3"
+        />
+        <SearchModeToggle aiMode={localAi} onToggle={() => setLocalAi((v) => !v)} />
+      </form>
+    </div>
   );
 };
 

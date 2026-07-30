@@ -2,9 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/services/client';
 import { updateMyProfile, type UpdateProfilePayload } from '@/services/auth';
 
-vi.mock('@/services/client', () => ({
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
-}));
+// 공용 mock 사용 — src/services/__mocks__/client.ts (파일별 팩토리는 동시 실행 시 경쟁한다)
+vi.mock('@/services/client');
 
 const patch = vi.mocked(api.patch);
 
