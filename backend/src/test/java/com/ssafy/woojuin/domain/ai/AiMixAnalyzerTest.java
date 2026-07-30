@@ -26,7 +26,7 @@ class AiMixAnalyzerTest {
             new CategoryCandidate(2L, "기타", "그 외"));
 
     private AiAnalysisRequest request() {
-        return new AiAnalysisRequest(AiSourceType.MEMO, "제목", "본문", CANDIDATES);
+        return new AiAnalysisRequest(1L, AiSourceType.MEMO, "제목", "본문", CANDIDATES);
     }
 
     @Test

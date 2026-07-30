@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.domain.item.processing;
 
 import com.ssafy.woojuin.domain.item.entity.ItemType;
+import com.ssafy.woojuin.global.common.Timing;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
@@ -128,12 +129,33 @@ public class ItemQueueConsumer
 
     @Override
     public void onMessage(MapRecord<String, String, String> record) {
+        long dispatchStarted = Timing.start();
+        long queueWaitMs = queueWaitMillis(record);
         ItemProcessingDispatcher.Outcome outcome = dispatcher.handle(record.getValue());
+        log.info("pipeline_timing itemId={} type={} stage=queue_consume "
+                        + "queueWaitMs={} dispatchMs={} outcome={}",
+                record.getValue().get("itemId"), record.getValue().get("type"),
+                queueWaitMs, Timing.elapsedMillis(dispatchStarted), outcome);
         // PROCESSED/POISON은 ACK로 큐에서 제거. NO_PROCESSOR/RETRYABLE은 pending에 남겨
         // PendingMessageReclaimer가 이어받게 한다.
         if (outcome == ItemProcessingDispatcher.Outcome.PROCESSED
                 || outcome == ItemProcessingDispatcher.Outcome.POISON) {
             redisTemplate.opsForStream().acknowledge(consumerGroup, record);
+        }
+    }
+
+    /**
+     * Redis Stream ID의 앞부분은 서버가 레코드를 생성한 epoch millis다. 기존 메시지 형식을
+     * 바꾸지 않고도 발행→소비 대기 시간을 계산할 수 있다. 파싱할 수 없는 커스텀 ID면 -1.
+     */
+    private long queueWaitMillis(MapRecord<String, String, String> record) {
+        String recordId = record.getId().getValue();
+        int separator = recordId.indexOf('-');
+        String epochMillis = separator >= 0 ? recordId.substring(0, separator) : recordId;
+        try {
+            return Math.max(0, System.currentTimeMillis() - Long.parseLong(epochMillis));
+        } catch (NumberFormatException e) {
+            return -1;
         }
     }
 

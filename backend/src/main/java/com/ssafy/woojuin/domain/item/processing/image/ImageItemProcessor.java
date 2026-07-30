@@ -15,6 +15,7 @@ import com.ssafy.woojuin.domain.item.service.S3Uploader;
 import com.ssafy.woojuin.domain.location.LocationResolver;
 import com.ssafy.woojuin.domain.location.ResolvedLocation;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import com.ssafy.woojuin.global.common.Timing;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -79,18 +80,37 @@ public class ImageItemProcessor implements ItemProcessor {
         }
 
         // 원본을 한 번만 내려받아 OCR과 썸네일 생성에 함께 쓴다.
+        long totalStarted = Timing.start();
+        long downloadStarted = Timing.start();
         byte[] bytes = tryDownload(item.getS3Key());
+        long downloadMs = Timing.elapsedMillis(downloadStarted);
+
+        long visionStarted = Timing.start();
         String text = tryExtract(bytes);
+        long visionMs = Timing.elapsedMillis(visionStarted);
         boolean textAcquired = text != null;
         if (textAcquired) {
             item.applyContent(text);
         }
 
+        long thumbnailStarted = Timing.start();
         tryGenerateThumbnail(item, bytes);
+        long thumbnailMs = Timing.elapsedMillis(thumbnailStarted);
+
         // 위치 확보(FR-023). 이미 내려받은 bytes를 재사용하므로 추가 다운로드가 없다.
+        long locationStarted = Timing.start();
         tryApplyExifLocation(item, bytes);
+        long locationMs = Timing.elapsedMillis(locationStarted);
+
+        long aiStarted = Timing.start();
         enrichWithAi(item, text);
+        long aiMs = Timing.elapsedMillis(aiStarted);
         finalizeStatus(item, textAcquired);
+        log.info("pipeline_timing itemId={} type=IMAGE stage=processor "
+                        + "downloadMs={} visionMs={} thumbnailMs={} locationMs={} aiMs={} "
+                        + "totalMs={} textAcquired={} status={}",
+                item.getId(), downloadMs, visionMs, thumbnailMs, locationMs, aiMs,
+                Timing.elapsedMillis(totalStarted), textAcquired, item.getStatus());
     }
 
     /**
@@ -167,7 +187,8 @@ public class ImageItemProcessor implements ItemProcessor {
         try {
             List<CategoryCandidate> candidates = categoryAssignmentService.candidates(item.getWorkspaceId());
             AiAnalysis analysis = aiAnalyzer.analyze(
-                    new AiAnalysisRequest(AiSourceType.IMAGE, item.getTitle(), text, candidates));
+                    new AiAnalysisRequest(
+                            item.getId(), AiSourceType.IMAGE, item.getTitle(), text, candidates));
             // 이미지 제목은 대부분 파일명이라 AI 제목의 효과가 가장 크다(null이면 기존 유지).
             item.update(analysis.title(), null);
             item.applySummary(analysis.summary());

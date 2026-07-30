@@ -11,6 +11,7 @@ import com.ssafy.woojuin.domain.category.repository.ItemCategoryRepository;
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.repository.ItemEmbeddingJdbcRepository;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
+import com.ssafy.woojuin.global.common.Timing;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -56,56 +57,103 @@ public class ItemEmbeddingService {
 
     /** 아이템 가공 완료 직후 호출된다. 어떤 실패도 밖으로 새지 않는다. */
     public void onItemProcessed(Long itemId) {
+        long totalStarted = Timing.start();
         AiMixClient client = aiMixClientProvider.getIfAvailable();
         if (client == null) {
+            log.info("pipeline_timing itemId={} stage=embedding_pipeline "
+                            + "totalMs={} outcome=aimix_disabled",
+                    itemId, Timing.elapsedMillis(totalStarted));
             return;   // aimix 꺼짐 — 요약·분류와 같은 스위치로 임베딩도 꺼진다
         }
         try {
             embedAndRecompute(client, itemId);
         } catch (Exception e) {
-            log.warn("임베딩·좌표 갱신 실패(무시): itemId={}, cause={}", itemId, e.toString());
+            log.warn("pipeline_timing itemId={} stage=embedding_pipeline "
+                            + "totalMs={} outcome=failed cause={}",
+                    itemId, Timing.elapsedMillis(totalStarted), e.toString());
         }
     }
 
     private void embedAndRecompute(AiMixClient client, Long itemId) {
+        long totalStarted = Timing.start();
         Item item = itemRepository.findById(itemId).orElse(null);
         if (item == null || item.getDeletedAt() != null) {
+            log.info("pipeline_timing itemId={} stage=embedding_pipeline "
+                            + "totalMs={} outcome=item_missing_or_deleted",
+                    itemId, Timing.elapsedMillis(totalStarted));
             return;
         }
         if (item.getSummary() == null || item.getSummary().isBlank()) {
-            log.debug("요약이 없어 임베딩 생략(AI 보강 실패 아이템): itemId={}", itemId);
+            log.info("pipeline_timing itemId={} stage=embedding_pipeline "
+                            + "totalMs={} outcome=summary_missing",
+                    itemId, Timing.elapsedMillis(totalStarted));
             return;
         }
         List<EmbeddingCategory> categories = categoriesOf(itemId);
         if (categories.isEmpty()) {
+            log.info("pipeline_timing itemId={} stage=embedding_pipeline "
+                            + "totalMs={} outcome=categories_missing",
+                    itemId, Timing.elapsedMillis(totalStarted));
             return;   // 기타 폴백조차 없는 옛 워크스페이스 — 계약상 카테고리 1개 이상 필수
         }
 
+        long embeddingStarted = Timing.start();
         EmbeddingResult result = client.createEmbedding(
                 itemId, item.getTitle(), item.getSummary(), categories);
+        long embeddingMs = Timing.elapsedMillis(embeddingStarted);
         if (embeddingRepository.findInputHash(itemId)
                 .filter(stored -> stored.equals(result.inputHash())).isPresent()) {
-            log.debug("입력 무변경, 임베딩·재계산 생략: itemId={}", itemId);
+            log.info("pipeline_timing itemId={} workspaceId={} stage=embedding_pipeline "
+                            + "embeddingMs={} databaseMs=0 coordinateMs=0 totalMs={} "
+                            + "outcome=input_unchanged",
+                    itemId, item.getWorkspaceId(), embeddingMs,
+                    Timing.elapsedMillis(totalStarted));
             return;
         }
 
+        long databaseStarted = Timing.start();
         embeddingRepository.upsert(itemId, item.getWorkspaceId(),
                 result.embedding(), result.model(), result.inputHash());
-        recomputeCoordinates(client, item.getWorkspaceId());
-        log.info("임베딩·좌표 갱신 완료: itemId={}, workspaceId={}", itemId, item.getWorkspaceId());
+        long databaseMs = Timing.elapsedMillis(databaseStarted);
+
+        long coordinateStarted = Timing.start();
+        recomputeCoordinates(client, item.getWorkspaceId(), itemId);
+        long coordinateMs = Timing.elapsedMillis(coordinateStarted);
+        log.info("pipeline_timing itemId={} workspaceId={} stage=embedding_pipeline "
+                        + "embeddingMs={} databaseMs={} coordinateMs={} totalMs={} outcome=completed",
+                itemId, item.getWorkspaceId(), embeddingMs, databaseMs, coordinateMs,
+                Timing.elapsedMillis(totalStarted));
     }
 
     /** 워크스페이스 전체 임베딩으로 3차원 좌표를 다시 계산해 반영한다. */
-    private void recomputeCoordinates(AiMixClient client, Long workspaceId) {
+    private void recomputeCoordinates(AiMixClient client, Long workspaceId, Long triggerItemId) {
+        long totalStarted = Timing.start();
+        long vectorLoadStarted = Timing.start();
         List<ItemVector> vectors = embeddingRepository.findActiveVectors(workspaceId);
+        long vectorLoadMs = Timing.elapsedMillis(vectorLoadStarted);
         if (vectors.isEmpty()) {
+            log.info("pipeline_timing itemId={} workspaceId={} stage=coordinate_reduction "
+                            + "vectorCount=0 vectorLoadMs={} reduceMs=0 databaseMs=0 totalMs={} "
+                            + "outcome=no_vectors",
+                    triggerItemId, workspaceId, vectorLoadMs, Timing.elapsedMillis(totalStarted));
             return;
         }
+
+        long reduceStarted = Timing.start();
         List<ItemPoint> points = client.reduceCoordinates(vectors);
+        long reduceMs = Timing.elapsedMillis(reduceStarted);
         List<Object[]> updates = points.stream()
                 .map(point -> new Object[] {point.x(), point.y(), point.z(), point.itemId()})
                 .toList();
+
+        long databaseStarted = Timing.start();
         embeddingRepository.updateCoordinates(updates);
+        long databaseMs = Timing.elapsedMillis(databaseStarted);
+        log.info("pipeline_timing itemId={} workspaceId={} stage=coordinate_reduction "
+                        + "vectorCount={} vectorLoadMs={} reduceMs={} databaseMs={} totalMs={} "
+                        + "outcome=completed",
+                triggerItemId, workspaceId, vectors.size(), vectorLoadMs, reduceMs, databaseMs,
+                Timing.elapsedMillis(totalStarted));
     }
 
     private List<EmbeddingCategory> categoriesOf(Long itemId) {

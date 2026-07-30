@@ -12,6 +12,7 @@ import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import com.ssafy.woojuin.global.common.Timing;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -60,9 +61,14 @@ public class MemoItemProcessor implements ItemProcessor {
             return;
         }
 
+        long totalStarted = Timing.start();
+        long aiStarted = Timing.start();
         enrichWithAi(item);
+        long aiMs = Timing.elapsedMillis(aiStarted);
         item.markDone();
-        log.info("메모 가공 완료: itemId={}, status={}", item.getId(), item.getStatus());
+        log.info("pipeline_timing itemId={} type=MEMO stage=processor "
+                        + "aiMs={} totalMs={} status={}",
+                item.getId(), aiMs, Timing.elapsedMillis(totalStarted), item.getStatus());
     }
 
     /**
@@ -73,7 +79,8 @@ public class MemoItemProcessor implements ItemProcessor {
         try {
             List<CategoryCandidate> candidates = categoryAssignmentService.candidates(item.getWorkspaceId());
             AiAnalysis analysis = aiAnalyzer.analyze(
-                    new AiAnalysisRequest(AiSourceType.MEMO, item.getTitle(), item.getContent(), candidates));
+                    new AiAnalysisRequest(
+                            item.getId(), AiSourceType.MEMO, item.getTitle(), item.getContent(), candidates));
             item.update(analysis.title(), null);   // AI가 다듬은 제목(null이면 기존 유지)
             item.applySummary(analysis.summary());
             categoryAssignmentService.assign(item.getId(), item.getWorkspaceId(), analysis.categories());
