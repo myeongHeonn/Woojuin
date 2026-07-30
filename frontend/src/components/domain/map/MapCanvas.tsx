@@ -92,6 +92,7 @@ const MapCanvas = ({
     <section
       aria-label="저장한 장소 지도"
       data-testid="map-canvas"
+      data-tutorial-page-content="map"
       className="absolute inset-0 overflow-hidden bg-space"
     >
       <div className="woojuin-open-free-map absolute inset-0">

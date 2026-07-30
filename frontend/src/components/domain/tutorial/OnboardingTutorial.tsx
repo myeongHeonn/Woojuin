@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMatch } from 'react-router-dom';
+import { useLocation, useMatch, useNavigate } from 'react-router-dom';
 import {
   completeTutorial,
   fetchMyProfile,
@@ -12,6 +12,7 @@ import { useSpaces } from '@/hooks/useSpaces';
 interface TutorialStep {
   selector: string;
   fallbackSelector?: string;
+  actionView?: 'library' | 'map';
   label: string;
   title: string;
   description: string;
@@ -39,22 +40,38 @@ const personalSteps: TutorialStep[] = [
       '저장한 정보는 별로 표현되고, 관련된 정보는 서로 이어져요.\n별을 누르면 저장한 내용을 바로 확인할 수 있어요.',
   },
   {
+    selector: '[data-tutorial="search"]',
+    label: '통합 검색',
+    title: '필요한 정보를 빠르게 찾아요',
+    description: '검색창에서는 단어 기반으로, AI 모드에서는 대화하듯이 검색할 수 있어요.',
+  },
+  {
     selector: '[data-tutorial-view="library"]',
+    actionView: 'library',
+    label: '대시보드뷰',
+    title: '대시보드뷰를 눌러보세요',
+    description: '대시보드뷰에서 저장한 정보를 한눈에 확인할 수 있어요.',
+  },
+  {
+    selector: '[data-tutorial-page-content="library"]',
+    fallbackSelector: '[data-tutorial-view="library"]',
     label: '대시보드뷰',
     title: '저장한 정보를 한눈에 확인해요',
     description: '링크·사진·메모를 한곳에서 확인하고 수정하거나 삭제할 수\n있어요.',
   },
   {
     selector: '[data-tutorial-view="map"]',
+    actionView: 'map',
+    label: '지도뷰',
+    title: '지도뷰를 눌러보세요',
+    description: '지도뷰에서 위치가 있는 정보를 확인할 수 있어요.',
+  },
+  {
+    selector: '[data-tutorial-page-content="map"]',
+    fallbackSelector: '[data-tutorial-view="map"]',
     label: '지도뷰',
     title: '장소 정보는 지도에서 확인해요',
     description: '위치 정보가 있는 링크와 사진은 지도에도 표시돼요.',
-  },
-  {
-    selector: '[data-tutorial="search"]',
-    label: '통합 검색',
-    title: '필요한 정보를 빠르게 찾아요',
-    description: '검색창에서는 단어 기반으로, AI 모드에서는 대화하듯이 검색할 수 있어요.',
   },
   {
     selector: '[data-tutorial="workspaces"]',
@@ -108,6 +125,8 @@ interface HighlightRect {
 }
 
 const OnboardingTutorial = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: profile, isSuccess: isProfileLoaded } = useQuery({
     queryKey: ['user', 'me'],
@@ -136,6 +155,20 @@ const OnboardingTutorial = () => {
       (isSharedWorkspace && !profile.sharedWorkspaceTutorialCompleted));
   const steps = isSharedWorkspace ? sharedWorkspaceSteps : personalSteps;
   const step = steps[stepIndex];
+
+  useEffect(() => {
+    if (!isOpen || stepIndex !== 0 || workspaceId === undefined) return;
+    if (!location.pathname.endsWith('/universe')) {
+      navigate(`/workspace/${workspaceId}/universe`, { replace: true });
+    }
+  }, [isOpen, location.pathname, navigate, stepIndex, workspaceId]);
+
+  useEffect(() => {
+    if (!isOpen || !step.actionView) return;
+    if (location.pathname.endsWith(`/${step.actionView}`)) {
+      setStepIndex((index) => index + 1);
+    }
+  }, [isOpen, location.pathname, step.actionView]);
 
   useEffect(() => {
     setDismissedForCurrentVisit(false);
@@ -209,84 +242,138 @@ const OnboardingTutorial = () => {
 
   if (!isOpen) return null;
 
-  const finish = () => {
+  const finish = (moveToUniverse = false) => {
     const tutorialType: TutorialType = isSharedWorkspace ? 'SHARED_WORKSPACE' : 'PERSONAL';
     completeMutation.mutate(tutorialType);
     setDismissedForCurrentVisit(true);
     setStepIndex(0);
+    if (moveToUniverse && workspaceId !== undefined) {
+      navigate(`/workspace/${workspaceId}/universe`);
+    }
   };
 
+  const overlayPanels = rect
+    ? [
+        { top: 0, left: 0, right: 0, height: rect.top },
+        { top: rect.top + rect.height, left: 0, right: 0, bottom: 0 },
+        { top: rect.top, left: 0, width: rect.left, height: rect.height },
+        {
+          top: rect.top,
+          left: rect.left + rect.width,
+          right: 0,
+          height: rect.height,
+        },
+      ]
+    : [];
+
   return (
-    <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 z-0" aria-hidden="true" />
+    <div className="pointer-events-none fixed inset-0 z-[100]" role="dialog" aria-modal="true">
+      {overlayPanels.map((style, index) => (
+        <div
+          key={index}
+          className={`pointer-events-auto fixed ${
+            step.actionView ? 'bg-black/25 backdrop-blur-[1px]' : 'bg-black/55'
+          }`}
+          style={style}
+          aria-hidden="true"
+        />
+      ))}
 
       {rect && (
         <div
-          className="pointer-events-none fixed z-10 rounded-lg border-2 border-accent shadow-[0_0_0_9999px_rgba(0,0,0,.78),0_0_24px_rgba(124,108,240,.65)]"
+          className="pointer-events-none fixed z-10 rounded-lg border-2 border-accent shadow-[0_0_18px_rgba(124,108,240,.55)]"
           style={rect}
         />
       )}
-      {!rect && <div className="pointer-events-none absolute inset-0 bg-black/80" />}
+      {!rect && (
+        <div className="pointer-events-auto absolute inset-0 bg-black/70" />
+      )}
 
-      <div
-        className="fixed z-20 rounded-lg border border-border bg-surface p-5 text-left shadow-modal"
-        style={{ width: bubbleStyle.width, left: bubbleStyle.left, top: bubbleStyle.top }}
-      >
-        {bubbleStyle.direction !== 'none' && (
-          <span
-            className={`absolute left-1/2 h-0 w-0 -translate-x-1/2 border-x-[10px] border-x-transparent ${
-              bubbleStyle.direction === 'top'
-                ? '-top-[10px] border-b-[10px] border-b-surface'
-                : '-bottom-[10px] border-t-[10px] border-t-surface'
-            }`}
-          />
-        )}
-
-        <div className="flex items-start gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-accent">{step.label}</p>
-            <h2 className="mt-1 text-lg font-extrabold">{step.title}</h2>
-          </div>
-          <button
-            type="button"
-            onClick={finish}
-            className="ml-auto shrink-0 whitespace-nowrap text-xs text-text-3 hover:text-text-1"
-          >
-            건너뛰기
-          </button>
-        </div>
-
-        <p className="mt-3 whitespace-pre-line break-keep text-sm leading-6 text-text-2">
-          {step.description}
-        </p>
-
-        <div className="mt-5 flex items-center">
-          <span className="text-xs font-semibold text-text-3">
-            {stepIndex + 1} / {steps.length}
+      {step.actionView && rect && (
+        <div
+          className="pointer-events-none fixed z-20 flex -translate-x-1/2 flex-col items-center gap-1 whitespace-nowrap text-center"
+          style={{
+            left: rect.left + rect.width / 2,
+            top: rect.top < window.innerHeight / 2 ? rect.top + rect.height + 14 : rect.top - 64,
+          }}
+        >
+          {rect.top >= window.innerHeight / 2 && (
+            <span className="animate-bounce text-2xl leading-none text-accent" aria-hidden="true">
+              ↓
+            </span>
+          )}
+          <span className="rounded-full border border-accent/45 bg-surface/95 px-4 py-2 text-sm font-extrabold text-text-1 shadow-float">
+            {step.title}
           </span>
-          <div className="ml-auto flex">
+          {rect.top < window.innerHeight / 2 && (
+            <span className="animate-bounce text-2xl leading-none text-accent" aria-hidden="true">
+              ↑
+            </span>
+          )}
+        </div>
+      )}
+
+      {!step.actionView && (
+        <div
+          className="pointer-events-auto fixed z-20 rounded-lg border border-border bg-surface p-5 text-left shadow-modal"
+          style={{ width: bubbleStyle.width, left: bubbleStyle.left, top: bubbleStyle.top }}
+        >
+          {bubbleStyle.direction !== 'none' && (
+            <span
+              className={`absolute left-1/2 h-0 w-0 -translate-x-1/2 border-x-[10px] border-x-transparent ${
+                bubbleStyle.direction === 'top'
+                  ? '-top-[10px] border-b-[10px] border-b-surface'
+                  : '-bottom-[10px] border-t-[10px] border-t-surface'
+              }`}
+            />
+          )}
+
+          <div className="flex items-start gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-accent">{step.label}</p>
+              <h2 className="mt-1 text-lg font-extrabold">{step.title}</h2>
+            </div>
             <button
               type="button"
-              disabled={stepIndex === 0}
-              onClick={() => setStepIndex((index) => index - 1)}
-              className="rounded-l-md border border-border px-3 py-2 text-xs font-semibold text-text-2 enabled:hover:bg-surface-2 disabled:opacity-30"
+              onClick={() => finish()}
+              className="ml-auto shrink-0 whitespace-nowrap text-xs text-text-3 hover:text-text-1"
             >
-              이전
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                stepIndex === steps.length - 1
-                  ? finish()
-                  : setStepIndex((index) => index + 1)
-              }
-              className="rounded-r-md bg-accent px-4 py-2 text-xs font-semibold text-white hover:bg-accent-hover"
-            >
-              {stepIndex === steps.length - 1 ? '시작하기' : '다음'}
+              건너뛰기
             </button>
           </div>
+
+          <p className="mt-3 whitespace-pre-line break-keep text-sm leading-6 text-text-2">
+            {step.description}
+          </p>
+
+          <div className="mt-5 flex items-center">
+            <span className="text-xs font-semibold text-text-3">
+              {stepIndex + 1} / {steps.length}
+            </span>
+            <div className="ml-auto flex">
+              <button
+                type="button"
+                disabled={stepIndex === 0}
+                onClick={() => setStepIndex((index) => index - 1)}
+                className="rounded-l-md border border-border px-3 py-2 text-xs font-semibold text-text-2 enabled:hover:bg-surface-2 disabled:opacity-30"
+              >
+                이전
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  stepIndex === steps.length - 1
+                    ? finish(true)
+                    : setStepIndex((index) => index + 1)
+                }
+                className="rounded-r-md bg-accent px-4 py-2 text-xs font-semibold text-white hover:bg-accent-hover"
+              >
+                {stepIndex === steps.length - 1 ? '시작하기' : '다음'}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
