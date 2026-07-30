@@ -189,7 +189,14 @@ pipeline {
                             echo "비교 기준: ${base}  (${baseWhy})\n변경된 파일:\n${files ?: '(없음)'}"
                             def lines = files ? files.split('\n') : []
 
-                            env.CHANGED_BE = lines.any { it.startsWith('backend/') } ? 'true' : 'false'
+                            // ai-mix(FastAPI 사이드카) 는 백엔드 **스택의 일부**다. 이미지를 커밋 SHA 로
+                            // 고정해 배포하므로 배포 시점에 그 태그가 반드시 존재해야 한다 →
+                            // ai-mix 만 바뀐 경우에도 스택을 다시 올려야 하고(새 이미지 반영),
+                            // 백엔드만 바뀐 경우에도 ai-mix 이미지를 그 SHA 로 만들어 둬야 한다.
+                            // 그래서 둘을 하나의 플래그로 묶는다. 캐시가 있으면 재빌드는 몇 초다.
+                            env.CHANGED_BE = lines.any {
+                                it.startsWith('backend/') || it.startsWith('ai/ai-mix/')
+                            } ? 'true' : 'false'
                             env.CHANGED_FE = lines.any { it.startsWith('frontend/') } ? 'true' : 'false'
 
                             // 파이프라인 자체나 배포 정의가 바뀌면 양쪽을 다 돌려 검증한다.
@@ -253,6 +260,26 @@ pipeline {
                     docker build \
                         -t woojuin-backend:${env.SHORT_SHA} \
                         -f backend/Dockerfile backend
+                """
+            }
+        }
+
+        stage('AI Mix Build Image') {
+            // ai-mix = 요약·카테고리 분류·임베딩·UMAP 3차원 축소를 담당하는 FastAPI 사이드카.
+            // UMAP 이 파이썬 생태계에만 제대로 된 구현이 있어 별도 서비스로 뺐다(팀 결정).
+            //
+            // 크롤러와 같은 패턴: 레지스트리 없이 **서버에서 직접 빌드**하고 compose 는 image 로 참조.
+            // 백엔드와 같은 이유로 태그는 커밋 SHA — 환경별 산출물이 아니라 런타임 env 주입이므로
+            // 프론트처럼 -dev/-prod 접미사가 필요 없다(dev/prod 가 같은 이미지를 공유해도 무해).
+            //
+            // umap-learn 이 numpy/scikit-learn/numba 를 끌고 와 첫 빌드는 수 분이 걸린다.
+            // 그 다음부터는 requirements 가 그대로면 BuildKit 캐시로 전부 CACHED 가 된다.
+            when { expression { env.CHANGED_BE == 'true' } }
+            steps {
+                sh """
+                    docker build \
+                        -t woojuin-aimix:${env.SHORT_SHA} \
+                        -f ai/ai-mix/Dockerfile ai/ai-mix
                 """
             }
         }
@@ -336,11 +363,18 @@ pipeline {
                     withCredentials([file(credentialsId: "${env.ENV_CREDENTIAL}", variable: 'ENV_FILE')]) {
                         // BACKEND_IMAGE 를 쉘 환경변수로 준다. compose 치환에서 쉘 환경변수가
                         // --env-file 보다 우선하므로 .env.dev 의 값을 이번 커밋 SHA 로 덮어쓴다.
+                        // --profile aimix: compose 에서 ai-mix 는 profile 뒤에 있어 기본 up 으로는
+                        //   뜨지 않는다(크롤러와 같은 방식). 여기서 명시해야 스택에 포함된다.
+                        //   ⚠️ 배포마다 항상 붙인다 — 빠뜨리면 다음 배포에서 desired state 에
+                        //      ai-mix 가 없어져 AI 기능이 조용히 사라진다.
+                        //   crawler 는 여전히 profile 밖이다(이미지 빌드·자원 판단이 별건 — 문서 참고).
                         sh """
                             BACKEND_IMAGE=woojuin-backend:${env.SHORT_SHA} \
+                            AIMIX_IMAGE=woojuin-aimix:${env.SHORT_SHA} \
                             docker compose -p ${STACK} \
                                 --env-file "\$ENV_FILE" \
                                 -f ${DEPLOY_FILE} \
+                                --profile aimix \
                                 up -d
                         """
                     }
