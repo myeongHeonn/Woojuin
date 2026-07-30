@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-react';
+import { userEvent } from 'vitest/browser';
 import { MemoryRouter } from 'react-router-dom';
 import SettingsCard from '@/components/domain/mypage/SettingsCard';
 import type { AiUsage } from '@/services/auth';
@@ -56,11 +57,19 @@ describe('마이페이지 설정 카드', () => {
   it('문의 이메일과 개인정보 처리방침 링크를 제공한다', async () => {
     const { container } = await renderSettingsCard(limitedUsage);
 
+    expect(container.textContent).not.toContain('이메일 또는 MM으로 연락해 주세요.');
+
+    const helpButton = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('도움말 및 고객센터'),
+    ) as HTMLButtonElement;
+    await userEvent.click(helpButton);
+
     const emailLink = container.querySelector(
       'a[href="mailto:chlehdwns82@sunmoon.ac.kr"]',
     ) as HTMLAnchorElement;
     const privacyLink = container.querySelector('a[href="/privacy"]') as HTMLAnchorElement;
 
+    expect(container.textContent).toContain('이메일 또는 MM으로 연락해 주세요.');
     expect(emailLink.textContent).toContain('chlehdwns82@sunmoon.ac.kr');
     expect(privacyLink.textContent).toContain('개인정보 처리방침');
   });

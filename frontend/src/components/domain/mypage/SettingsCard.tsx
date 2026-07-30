@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import Modal from '@/components/ui/Modal';
 import type { AiUsage } from '@/services/auth';
 
 interface SettingsCardProps {
@@ -11,6 +13,7 @@ interface SettingsCardProps {
 }
 
 const SettingsCard = ({ aiUsage, aiUsageLoading, aiUsageError }: SettingsCardProps) => {
+  const [helpOpen, setHelpOpen] = useState(false);
   const usagePercent =
     aiUsage && aiUsage.limitEnabled && !aiUsage.unlimited && aiUsage.limit > 0
       ? Math.min(100, (aiUsage.used / aiUsage.limit) * 100)
@@ -110,31 +113,44 @@ const SettingsCard = ({ aiUsage, aiUsageLoading, aiUsageError }: SettingsCardPro
         )}
       </section>
 
-      <section
-        aria-labelledby="help-center-title"
-        className="rounded-[20px] border border-border-soft bg-surface px-5 py-[18px]"
-      >
-        <h2 id="help-center-title" className="text-sm font-semibold text-text-1">
-          도움말 및 고객센터
-        </h2>
-        <p className="mt-2 text-xs leading-5 text-text-3">
-          서비스 이용 중 오류나 문의 사항은 아래 이메일로 보내주세요.
-        </p>
-        <a
-          href="mailto:chlehdwns82@sunmoon.ac.kr"
-          className="mt-2 inline-flex text-xs font-semibold text-accent hover:text-accent-hover hover:underline"
+      <section className="rounded-[20px] border border-border-soft bg-surface p-1.5">
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          className="flex w-full items-center rounded-md px-5 py-[13px] text-left hover:bg-surface-2"
         >
-          chlehdwns82@sunmoon.ac.kr
-        </a>
+          <span className="flex-1 text-sm font-semibold text-text-1">도움말 및 고객센터</span>
+          <span aria-hidden="true" className="text-lg leading-none text-text-3">
+            ›
+          </span>
+        </button>
+      </section>
+
+      <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title="도움말 및 고객센터">
+        <p className="text-[13px] leading-relaxed text-text-2">
+          서비스 이용 중 오류나 문의 사항은 이메일 또는 MM으로 연락해 주세요.
+        </p>
+
+        <div className="mt-4 rounded-[14px] bg-surface-2 px-4 py-3.5">
+          <p className="text-[11px] font-bold tracking-[0.08em] text-text-3">이메일</p>
+          <a
+            href="mailto:chlehdwns82@sunmoon.ac.kr"
+            className="mt-1.5 inline-flex break-all text-[13px] font-semibold text-accent hover:text-accent-hover hover:underline"
+          >
+            chlehdwns82@sunmoon.ac.kr
+          </a>
+          <p className="mt-3 text-xs text-text-3">또는 팀 MM에서 편하게 문의해 주세요.</p>
+        </div>
+
         <div className="mt-4 border-t border-border-soft pt-3">
           <Link
             to="/privacy"
-            className="text-xs font-medium text-text-2 hover:text-text-1 hover:underline"
+            className="inline-flex text-xs font-medium text-text-2 hover:text-text-1 hover:underline"
           >
             개인정보 처리방침
           </Link>
         </div>
-      </section>
+      </Modal>
     </>
   );
 };
