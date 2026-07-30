@@ -10,6 +10,7 @@ import com.ssafy.woojuin.domain.category.repository.CategoryRepository;
 import com.ssafy.woojuin.domain.category.repository.ItemCategoryRepository;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -43,6 +44,14 @@ public class CategoryService {
     }
 
     /**
+     * 순서: 생성 순(id)으로 나열하되 "기타"만 맨 뒤. 폴백 카테고리라 사용자가 새로
+     * 추가한 카테고리보다 앞에 끼어 있으면 어색하다 — 목록 끝에 고정한다.
+     */
+    private static final Comparator<Category> ETC_LAST =
+            Comparator.comparing((Category c) -> CategoryDefaults.ETC.equals(c.getName()))
+                    .thenComparing(Category::getId);
+
+    /**
      * hasItems=true면 활성(휴지통 제외) 아이템이 하나라도 있는 카테고리만 반환한다 —
      * 필터 칩처럼 "실제로 아이템이 있는 카테고리"만 보여줄 때 쓴다. 기본(false)은 전체
      * 반환(카테고리 관리·수동 지정 등 빈 카테고리도 필요한 경로용).
@@ -58,7 +67,7 @@ public class CategoryService {
                     .filter(category -> withItems.contains(category.getId()))
                     .toList();
         }
-        return categories.stream().map(CategoryResponse::from).toList();
+        return categories.stream().sorted(ETC_LAST).map(CategoryResponse::from).toList();
     }
 
     @Transactional

@@ -79,6 +79,22 @@ class CategoryServiceTest {
     }
 
     @Test
+    void 기타는_목록_맨_뒤로_보낸다() {
+        memberOf(1L);
+        // DB가 돌려주는 순서와 무관하게(기타가 중간에 끼어 와도) 기타는 끝, 나머지는 id 순.
+        when(categoryRepository.findByWorkspaceId(1L)).thenReturn(java.util.List.of(
+                category(11L, 1L, "아이디어·영감"),
+                category(12L, 1L, CategoryDefaults.ETC),
+                category(10L, 1L, "돈·재테크"),
+                category(13L, 1L, "새카테고리")));
+
+        java.util.List<CategoryResponse> result = service.list(1L, 1L, false);
+
+        assertThat(result).extracting(CategoryResponse::name)
+                .containsExactly("돈·재테크", "아이디어·영감", "새카테고리", CategoryDefaults.ETC);
+    }
+
+    @Test
     void 카테고리를_생성한다() {
         memberOf(1L);
         when(categoryRepository.existsByWorkspaceIdAndName(1L, "새카테고리")).thenReturn(false);
