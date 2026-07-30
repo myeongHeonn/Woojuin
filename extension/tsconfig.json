@@ -12,7 +12,8 @@
     },
     "types": [
       "chrome",
-      "node"
+      "node",
+      "vite/client"
     ],
     "jsx": "react-jsx",
     "strict": true,

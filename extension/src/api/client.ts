@@ -1,6 +1,9 @@
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/storage/authStorage';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+  ?? (import.meta.env.MODE === 'development'
+    ? 'http://localhost:8080/api'
+    : 'https://api.woojuin.store/api');
 
 interface ApiResponse<T> { status: number; message: string; data: T }
 interface TokenData { accessToken: string; refreshToken: string }

@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { login, logout } from '@/api/auth';
 import { ApiError } from '@/api/client';
 import { saveUrl } from '@/api/items';
@@ -33,7 +33,9 @@ export default function Popup() {
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState('');
   const [urlExpanded, setUrlExpanded] = useState(false);
+  const [urlOverflowing, setUrlOverflowing] = useState(false);
   const [contextFeedback, setContextFeedback] = useState<ContextSaveFeedback | null>(null);
+  const urlRef = useRef<HTMLParagraphElement>(null);
 
   const loadWorkspaces = useCallback(async () => {
     setStatus('loading');
@@ -77,6 +79,15 @@ export default function Popup() {
     return () => chrome.storage.onChanged.removeListener(handleStorageChange);
   }, []);
 
+  useEffect(() => {
+    setUrlExpanded(false);
+    const frame = requestAnimationFrame(() => {
+      const element = urlRef.current;
+      setUrlOverflowing(Boolean(element && element.scrollHeight > element.clientHeight + 1));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [url]);
+
   async function handleLogin(event: FormEvent) {
     event.preventDefault();
     setStatus('loading');
@@ -103,7 +114,7 @@ export default function Popup() {
     try {
       await saveUrl(workspaceId, url);
       setStatus('success');
-      setMessage('우주인으로 보냈습니다. AI가 백그라운드에서 정리합니다.');
+      setMessage('AI가 내용을 정리하고 있어요.');
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) setAuthenticated(false);
       setStatus('error');
@@ -157,12 +168,10 @@ export default function Popup() {
         </select>
       </label>
       <div style={styles.urlBox}>
-        <p style={styles.url}>
-          {url
-            ? urlExpanded || url.length <= 160 ? url : `${url.slice(0, 160)}…`
-            : '현재 탭의 주소를 읽지 못했습니다.'}
+        <p ref={urlRef} style={urlExpanded ? styles.url : styles.urlCollapsed}>
+          {url || '현재 탭의 주소를 읽지 못했습니다.'}
         </p>
-        {url.length > 160 && (
+        {urlOverflowing && (
           <button onClick={() => setUrlExpanded((expanded) => !expanded)} style={styles.more}>
             {urlExpanded ? '접기' : '더보기'}
           </button>
@@ -171,11 +180,11 @@ export default function Popup() {
       <button onClick={handleSave}
         disabled={status === 'saving' || status === 'loading' || status === 'success' || !workspaceId}
         style={status === 'success' ? styles.completed : styles.primary}>
-        {status === 'saving' ? '보내는 중…' : status === 'success' ? '우주인으로 보냄 완료' : '현재 페이지 저장'}
+        {status === 'saving' ? '보내는 중…' : status === 'success' ? '우주인으로 보냈어요' : '현재 페이지 저장'}
       </button>
       {!workspaces.length && status !== 'loading' &&
         <p style={styles.error}>사용 가능한 워크스페이스가 없습니다.</p>}
-      {message && <p style={status === 'success' ? styles.success : styles.error}>{message}</p>}
+      {message && <p style={status === 'success' ? styles.pageSuccess : styles.error}>{message}</p>}
       {contextFeedback && (
         <p style={contextFeedback.success ? styles.success : styles.error}>
           우클릭 저장: {contextFeedback.message}
@@ -196,8 +205,10 @@ const styles: Record<string, React.CSSProperties> = {
   link: { border: 0, background: 'transparent', color: '#5b55e7', cursor: 'pointer' },
   urlBox: { margin: '14px 0', padding: 10, borderRadius: 8, background: '#f4f6fa' },
   url: { margin: 0, fontSize: 12, lineHeight: 1.5, wordBreak: 'break-all' },
+  urlCollapsed: { margin: 0, fontSize: 12, lineHeight: 1.5, wordBreak: 'break-all', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' },
   more: { display: 'block', margin: '8px 0 0 auto', padding: 0, border: 0, background: 'transparent', color: '#5b55e7', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
   completed: { width: '100%', padding: '10px 12px', border: 0, borderRadius: 8, background: '#16784b', color: 'white', fontWeight: 700 },
   error: { marginBottom: 0, color: '#c33030', fontSize: 12 },
   success: { marginBottom: 0, color: '#16784b', fontSize: 12 },
+  pageSuccess: { marginBottom: 0, color: '#16784b', fontSize: 12, textAlign: 'center' as const },
 };
