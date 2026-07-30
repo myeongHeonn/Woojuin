@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import math
 import time
 from typing import Any, Callable
@@ -12,7 +11,6 @@ from .config import Settings
 
 
 RETRYABLE_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504, 529}
-logger = logging.getLogger("uvicorn.error")
 
 
 def _strip_code_fence(content: str) -> str:
@@ -160,19 +158,12 @@ class OpenRouterClient:
             raise OpenRouterError("OpenRouter의 임베딩 응답 형식이 올바르지 않습니다") from exc
 
     def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        total_started = time.perf_counter()
         if not self.settings.api_key:
-            logger.warning(
-                "openrouter_timing path=%s attempt=0 totalMs=%s outcome=missing_api_key",
-                path,
-                self._elapsed_ms(total_started),
-            )
             raise ConfigurationError("OPENROUTER_API_KEY가 설정되어 있지 않습니다")
 
         last_error: Exception | None = None
         attempts = self.settings.max_retries + 1
         for attempt in range(attempts):
-            attempt_started = time.perf_counter()
             try:
                 response = self.session.post(
                     self.settings.base_url + path,
@@ -190,100 +181,25 @@ class OpenRouterClient:
                         and attempt + 1 < attempts
                     ):
                         last_error = error
-                        retry_delay = min(2**attempt, 8)
-                        logger.warning(
-                            "openrouter_timing path=%s attempt=%s/%s status=%s "
-                            "attemptMs=%s totalMs=%s retryDelaySec=%s outcome=retry",
-                            path,
-                            attempt + 1,
-                            attempts,
-                            response.status_code,
-                            self._elapsed_ms(attempt_started),
-                            self._elapsed_ms(total_started),
-                            retry_delay,
-                        )
-                        self.sleeper(retry_delay)
+                        self.sleeper(min(2**attempt, 8))
                         continue
-                    logger.warning(
-                        "openrouter_timing path=%s attempt=%s/%s status=%s "
-                        "attemptMs=%s totalMs=%s outcome=http_error",
-                        path,
-                        attempt + 1,
-                        attempts,
-                        response.status_code,
-                        self._elapsed_ms(attempt_started),
-                        self._elapsed_ms(total_started),
-                    )
                     raise error
                 body = response.json()
                 if not isinstance(body, dict):
                     raise OpenRouterError("OpenRouter 응답은 JSON 객체여야 합니다")
-                logger.info(
-                    "openrouter_timing path=%s attempt=%s/%s status=%s "
-                    "attemptMs=%s totalMs=%s outcome=success",
-                    path,
-                    attempt + 1,
-                    attempts,
-                    response.status_code,
-                    self._elapsed_ms(attempt_started),
-                    self._elapsed_ms(total_started),
-                )
                 return body
             except (requests.Timeout, requests.ConnectionError) as exc:
                 last_error = exc
                 if attempt + 1 >= attempts:
                     break
-                retry_delay = min(2**attempt, 8)
-                logger.warning(
-                    "openrouter_timing path=%s attempt=%s/%s error=%s "
-                    "attemptMs=%s totalMs=%s retryDelaySec=%s outcome=retry",
-                    path,
-                    attempt + 1,
-                    attempts,
-                    type(exc).__name__,
-                    self._elapsed_ms(attempt_started),
-                    self._elapsed_ms(total_started),
-                    retry_delay,
-                )
-                self.sleeper(retry_delay)
+                self.sleeper(min(2**attempt, 8))
             except requests.RequestException as exc:
-                logger.warning(
-                    "openrouter_timing path=%s attempt=%s/%s error=%s "
-                    "attemptMs=%s totalMs=%s outcome=request_error",
-                    path,
-                    attempt + 1,
-                    attempts,
-                    type(exc).__name__,
-                    self._elapsed_ms(attempt_started),
-                    self._elapsed_ms(total_started),
-                )
                 raise OpenRouterError("OpenRouter HTTP 요청에 실패했습니다") from exc
             except ValueError as exc:
-                logger.warning(
-                    "openrouter_timing path=%s attempt=%s/%s "
-                    "attemptMs=%s totalMs=%s outcome=invalid_json",
-                    path,
-                    attempt + 1,
-                    attempts,
-                    self._elapsed_ms(attempt_started),
-                    self._elapsed_ms(total_started),
-                )
                 raise OpenRouterError("OpenRouter 응답 JSON을 읽지 못했습니다") from exc
-        logger.warning(
-            "openrouter_timing path=%s attempts=%s error=%s totalMs=%s "
-            "outcome=connection_failed",
-            path,
-            attempts,
-            type(last_error).__name__,
-            self._elapsed_ms(total_started),
-        )
         raise OpenRouterError(
             f"OpenRouter 연결에 실패했습니다({type(last_error).__name__})"
         ) from last_error
-
-    @staticmethod
-    def _elapsed_ms(started: float) -> int:
-        return int((time.perf_counter() - started) * 1000)
 
     def _headers(self) -> dict[str, str]:
         headers = {

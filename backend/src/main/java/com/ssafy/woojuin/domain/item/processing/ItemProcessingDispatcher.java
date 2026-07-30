@@ -3,7 +3,6 @@ package com.ssafy.woojuin.domain.item.processing;
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.service.ItemEmbeddingService;
-import com.ssafy.woojuin.global.common.Timing;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -57,25 +56,15 @@ public class ItemProcessingDispatcher {
             return Outcome.NO_PROCESSOR;
         }
 
-        long totalStarted = Timing.start();
         try {
-            long processorStarted = Timing.start();
             processor.process(message);
-            long processorMs = Timing.elapsedMillis(processorStarted);
             // 가공 트랜잭션 커밋 후에 임베딩·좌표를 갱신한다 — 느린 HTTP 호출이라 아이템
             // 트랜잭션 밖이어야 하고, 실패는 저쪽에서 전부 흡수하므로 ACK에 영향이 없다.
-            long embeddingStarted = Timing.start();
             itemEmbeddingService.onItemProcessed(message.itemId());
-            long embeddingMs = Timing.elapsedMillis(embeddingStarted);
-            log.info("pipeline_timing itemId={} type={} stage=dispatcher "
-                            + "processorMs={} embeddingAndCoordinateMs={} totalMs={} outcome=processed",
-                    message.itemId(), message.type(), processorMs, embeddingMs,
-                    Timing.elapsedMillis(totalStarted));
             return Outcome.PROCESSED;
         } catch (Exception e) {
-            log.error("pipeline_timing itemId={} type={} stage=dispatcher "
-                            + "totalMs={} outcome=retryable",
-                    message.itemId(), message.type(), Timing.elapsedMillis(totalStarted), e);
+            log.error("아이템 처리 실패, 재시도 예정: itemId={}, type={}",
+                    message.itemId(), message.type(), e);
             return Outcome.RETRYABLE;
         }
     }

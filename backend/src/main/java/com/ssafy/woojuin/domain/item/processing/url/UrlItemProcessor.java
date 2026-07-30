@@ -13,7 +13,6 @@ import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
 import com.ssafy.woojuin.domain.location.LocationResolver;
 import com.ssafy.woojuin.global.common.ItemStatus;
-import com.ssafy.woojuin.global.common.Timing;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
@@ -105,13 +104,9 @@ public class UrlItemProcessor implements ItemProcessor {
             return;
         }
 
-        long totalStarted = Timing.start();
-        long normalizeStarted = Timing.start();
         String normalizedUrl = urlNormalizer.normalize(item.getUrl());
-        long normalizeMs = Timing.elapsedMillis(normalizeStarted);
 
         // 트랙 A: 미리보기. OG 스크래핑에 쓴 Document는 트랙 B가 재활용하도록 넘겨받는다.
-        long previewStarted = Timing.start();
         Document doc = null;
         UrlPreview preview;
         Optional<UrlPreview> oembed = oEmbedClient.fetch(normalizedUrl);
@@ -125,31 +120,19 @@ public class UrlItemProcessor implements ItemProcessor {
             preview = new UrlPreview(fallbackTitleOf(item.getUrl()), null, null);
         }
         item.applyPreview(preview.title(), preview.thumbnailUrl(), preview.description());
-        long previewMs = Timing.elapsedMillis(previewStarted);
 
         // 트랙 B: 본문 확보. Document가 없으면(oEmbed 경로/트랙 A fetch 실패) 본문도 없다.
-        long contentStarted = Timing.start();
         String content = (doc != null) ? contentExtractor.extract(doc) : null;
         boolean contentAcquired = content != null;
         if (contentAcquired) {
             item.applyContent(content);
         }
-        long contentMs = Timing.elapsedMillis(contentStarted);
 
         // 위치 확보(FR-023). 썸네일과 같은 등급의 부가 정보라 상태에는 영향이 없다.
-        long locationStarted = Timing.start();
         tryResolveLocation(item, normalizedUrl, doc);
-        long locationMs = Timing.elapsedMillis(locationStarted);
 
-        long aiStarted = Timing.start();
         enrichWithAi(item, content);   // 본문이 없어도 title로 분류 시도(상태에는 영향 없음)
-        long aiMs = Timing.elapsedMillis(aiStarted);
         finalizeStatus(item, preview, contentAcquired);
-        log.info("pipeline_timing itemId={} type=URL stage=processor "
-                        + "normalizeMs={} previewMs={} contentMs={} locationMs={} aiMs={} "
-                        + "totalMs={} contentAcquired={} status={}",
-                item.getId(), normalizeMs, previewMs, contentMs, locationMs, aiMs,
-                Timing.elapsedMillis(totalStarted), contentAcquired, item.getStatus());
     }
 
     /**
@@ -300,8 +283,7 @@ public class UrlItemProcessor implements ItemProcessor {
         try {
             List<CategoryCandidate> candidates = categoryAssignmentService.candidates(item.getWorkspaceId());
             AiAnalysis analysis = aiAnalyzer.analyze(
-                    new AiAnalysisRequest(
-                            item.getId(), AiSourceType.URL, item.getTitle(), content, candidates));
+                    new AiAnalysisRequest(AiSourceType.URL, item.getTitle(), content, candidates));
             item.update(analysis.title(), null);   // AI가 다듬은 제목(null이면 기존 유지)
             item.applySummary(analysis.summary());
             categoryAssignmentService.assign(item.getId(), item.getWorkspaceId(), analysis.categories());

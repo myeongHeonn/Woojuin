@@ -16,9 +16,7 @@ import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
-import com.ssafy.woojuin.global.common.Timing;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,7 +26,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-@Slf4j
 @Service
 public class ItemService {
 
@@ -57,7 +54,6 @@ public class ItemService {
     }
 
     public ItemCreateResponse createFromRequest(Long workspaceId, Long userId, ItemCreateRequest request) {
-        long totalStarted = Timing.start();
         verifyMembership(workspaceId, userId);
         validate(request);
 
@@ -69,24 +65,15 @@ public class ItemService {
                 .content(request.content())
                 .build();
 
-        long persistStarted = Timing.start();
-        ItemCreateResponse response = save(item, workspaceId);
-        log.info("pipeline_timing itemId={} type={} stage=save_request "
-                        + "uploadMs=0 persistAndQueueMs={} totalMs={}",
-                response.itemId(), request.type(), Timing.elapsedMillis(persistStarted),
-                Timing.elapsedMillis(totalStarted));
-        return response;
+        return save(item, workspaceId);
     }
 
     public ItemCreateResponse createFromImage(Long workspaceId, Long userId, MultipartFile file) {
-        long totalStarted = Timing.start();
         verifyMembership(workspaceId, userId);
 
         // S3 업로드는 느린 네트워크 I/O라 트랜잭션 밖에서 먼저 끝낸다. 트랜잭션 안에서
         // 하면 업로드가 끝날 때까지 DB 커넥션을 붙잡고 있어 풀이 마른다.
-        long uploadStarted = Timing.start();
         String s3Key = s3Uploader.upload(file, workspaceId);
-        long uploadMs = Timing.elapsedMillis(uploadStarted);
 
         Item item = Item.builder()
                 .workspaceId(workspaceId)
@@ -98,14 +85,7 @@ public class ItemService {
 
         // DB 저장이 실패하면 방금 올린 S3 원본이 고아로 남는다 — 저장 실패 시에만
         // 보상 삭제한다(publish 실패는 이미 커밋된 뒤라 대상이 아님, save(Item,Long,Runnable) 참고).
-        long persistStarted = Timing.start();
-        ItemCreateResponse response =
-                save(item, workspaceId, () -> s3Uploader.deleteQuietly(s3Key));
-        log.info("pipeline_timing itemId={} type=IMAGE stage=save_request "
-                        + "uploadMs={} persistAndQueueMs={} totalMs={}",
-                response.itemId(), uploadMs, Timing.elapsedMillis(persistStarted),
-                Timing.elapsedMillis(totalStarted));
-        return response;
+        return save(item, workspaceId, () -> s3Uploader.deleteQuietly(s3Key));
     }
 
     /**

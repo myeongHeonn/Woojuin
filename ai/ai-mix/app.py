@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import logging
-import time
 from functools import lru_cache
 from typing import Any
 
@@ -39,26 +37,6 @@ app = FastAPI(
     version="1.0.0",
     description="우주인 AI 단계별 OpenRouter 호출 서비스",
 )
-logger = logging.getLogger("uvicorn.error")
-
-
-@app.middleware("http")
-async def log_request_timing(request: Request, call_next):
-    started = time.perf_counter()
-    status_code = 500
-    try:
-        response = await call_next(request)
-        status_code = response.status_code
-        return response
-    finally:
-        duration_ms = int((time.perf_counter() - started) * 1000)
-        logger.info(
-            "aimix_request_timing method=%s path=%s status=%s durationMs=%s",
-            request.method,
-            request.url.path,
-            status_code,
-            duration_ms,
-        )
 
 
 @lru_cache

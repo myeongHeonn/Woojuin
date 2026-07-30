@@ -1,6 +1,5 @@
 package com.ssafy.woojuin.domain.ai;
 
-import com.ssafy.woojuin.global.common.Timing;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,48 +23,27 @@ public class AiMixAnalyzer implements AiAnalyzer {
 
     @Override
     public AiAnalysis analyze(AiAnalysisRequest request) {
-        long totalStarted = Timing.start();
-        long summaryStarted = Timing.start();
         AiMixClient.TitleSummary titleSummary;
         try {
             titleSummary = client.createTitleSummary(
                     request.sourceType(), request.title(), request.text());
         } catch (Exception e) {
-            long summaryMs = Timing.elapsedMillis(summaryStarted);
-            log.warn("pipeline_timing itemId={} type={} stage=ai_analysis "
-                            + "summaryMs={} classificationMs=-1 totalMs={} outcome=summary_failed cause={}",
-                    request.itemId(), request.sourceType(), summaryMs,
-                    Timing.elapsedMillis(totalStarted), e.toString());
+            log.warn("ai-mix 제목·요약 생성 실패: sourceType={}, cause={}", request.sourceType(), e.toString());
             return AiAnalysis.empty();
         }
-        long summaryMs = Timing.elapsedMillis(summaryStarted);
         if (titleSummary == null) {
             // 보낼 신호가 없었거나(제목·본문 모두 빈 값) 응답이 비었음 — 분류도 근거가 없다.
-            log.info("pipeline_timing itemId={} type={} stage=ai_analysis "
-                            + "summaryMs={} classificationMs=-1 totalMs={} outcome=no_signal",
-                    request.itemId(), request.sourceType(), summaryMs,
-                    Timing.elapsedMillis(totalStarted));
             return AiAnalysis.empty();
         }
 
-        long classificationStarted = Timing.start();
-        long classificationMs;
         List<String> categories;
         try {
             categories = client.classify(
                     titleSummary.title(), titleSummary.summary(), request.candidateCategories());
-            classificationMs = Timing.elapsedMillis(classificationStarted);
         } catch (Exception e) {
-            classificationMs = Timing.elapsedMillis(classificationStarted);
-            log.warn("ai-mix 카테고리 분류 실패(제목·요약은 유지): itemId={}, cause={}",
-                    request.itemId(), e.toString());
+            log.warn("ai-mix 카테고리 분류 실패(제목·요약은 유지): cause={}", e.toString());
             categories = List.of();
         }
-        log.info("pipeline_timing itemId={} type={} stage=ai_analysis "
-                        + "summaryMs={} classificationMs={} totalMs={} outcome={}",
-                request.itemId(), request.sourceType(), summaryMs, classificationMs,
-                Timing.elapsedMillis(totalStarted),
-                categories.isEmpty() ? "summary_only" : "completed");
         return new AiAnalysis(titleSummary.title(), titleSummary.summary(), categories);
     }
 }
