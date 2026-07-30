@@ -58,6 +58,16 @@ describe('SideBar (통합)', () => {
     expect(text).toContain('홍길동');
   });
 
+  it('로고·서비스명은 홈으로 가는 링크다', async () => {
+    // 브랜드 클릭 = 홈 복귀. /home 은 개인 우주로 넘겨주는 라우트다(FixedNav 폴백과 동일)
+    const { container } = await renderSideBar();
+    const brand = [...container.querySelectorAll('a')].find((a) =>
+      a.textContent?.includes('WooJuIn'),
+    );
+    expect(brand).not.toBeUndefined();
+    expect(brand).toHaveAttribute('href', '/home');
+  });
+
   describe('항목 선택 — Context 가 하위 컴포넌트를 넘나든다', () => {
     it('개인 스페이스에 있으면 Personal Space 가 선택돼 보인다', async () => {
       // 선택은 클릭이 아니라 현재 URL 이 정한다 — /workspace/1 이 개인 스페이스다
