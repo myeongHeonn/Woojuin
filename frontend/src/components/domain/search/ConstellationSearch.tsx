@@ -5,6 +5,7 @@ import { useSearch, searchKey } from '@/hooks/useSearch';
 import { SearchIcon } from '@/assets/icons';
 import SearchModeToggle from './SearchModeToggle';
 import SearchMeta from './SearchMeta';
+import AiModeHint from './AiModeHint';
 import ItemCard from '@/components/domain/library/ItemCard';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import CloseButton from '@/components/ui/button/CloseButton';
@@ -44,6 +45,14 @@ const ConstellationSearch = () => {
 
   const showPanel = q.trim().length > 0;
 
+  const onChange = (value: string) => {
+    setText(value);
+    //다 지우면 검색 모달을 닫는다.
+    if (value.trim() === '' && q) {
+      reset();
+    }
+  };
+
   return (
     <>
       <div className="absolute bottom-[calc(88px+env(safe-area-inset-bottom))] left-1/2 z-30 w-[min(520px,90%)] -translate-x-1/2 desktop:bottom-10">
@@ -81,6 +90,9 @@ const ConstellationSearch = () => {
           </div>
         )}
 
+        {/* 입력 바 바로 위 우측. 바가 하단 고정이라 검색해도 바는 안 움직이고 패널이 위로 쌓인다 */}
+        <AiModeHint aiMode={aiMode} className="mb-1.5 pr-1.5 text-right" />
+
         <form
           onSubmit={submit}
           className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface/90 px-4 py-3 shadow-float backdrop-blur-xl"
@@ -88,7 +100,7 @@ const ConstellationSearch = () => {
           <SearchIcon className="h-[18px] w-[18px] shrink-0 text-text-3" />
           <input
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => onChange(e.target.value)}
             placeholder="무엇이든 검색"
             aria-label="검색어"
             className="min-w-0 flex-1 bg-transparent text-[15px] text-text-1 outline-none placeholder:text-text-3"
