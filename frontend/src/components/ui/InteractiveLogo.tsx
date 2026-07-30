@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef } from 'react';
-import { classNames } from '@/utils/classNames';
 
 interface InteractiveLogoProps {
   /** 로고 한 변 (px) */
@@ -27,7 +26,7 @@ interface InteractiveLogoProps {
  *
  * 작은 크기(사이드바 28px) 보정 — 원본 시안은 340px 기준이라 그대로 줄이면 궤도가 안 보인다:
  *  - 궤도선을 stroke 0.1 → 0.9 로 굵히고, 평소엔 거의 숨겼다가 호버 때만 드러낸다
- *  - 호버 시 로고 전체를 살짝 확대한다 (transform 이라 레이아웃은 밀지 않는다)
+ *  (호버 확대는 넣었다가 뺐다 — 접힌 사이드바 등에서 로고가 커지는 게 어색하다는 피드백)
  *
  * prefers-reduced-motion 이면 인트로·공전 없이 완성된 모양으로 고정된다.
  */
@@ -311,14 +310,9 @@ const InteractiveLogo = ({ size = 28, hovered = false, className }: InteractiveL
       xmlns="http://www.w3.org/2000/svg"
       role="img"
       aria-label="우주인 로고"
-      // 사이드바 크기(28px)에선 디테일이 안 보여서 확대를 두는데, **로고 자체에 올렸을 때만**
-      // 커진다(CSS :hover). hovered prop(로고+이름 묶음 호버)은 공전·궤도선만 켠다 —
-      // 글자에 올렸는데 로고가 커지는 건 어색하다는 피드백 반영.
-      // transform 이라 옆 요소(서비스명·토글 버튼)를 밀지 않는다.
-      className={classNames(
-        'transition-transform duration-300 ease-out hover:scale-[1.45]',
-        className,
-      )}
+      // 호버 확대는 넣었다가 뺐다 — 접힌 사이드바 등에서 로고가 커지는 게 어색하다는
+      // 피드백. 작은 크기 보정은 궤도선 굵기(0.1→0.9)와 호버 시 표시만으로 한다.
+      className={className}
       style={{
         width: size,
         height: size,
