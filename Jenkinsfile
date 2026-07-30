@@ -562,18 +562,30 @@ pipeline {
                 //    `docker run -v` 의 경로는 **호스트 데몬이 해석**하므로 호스트 경로가 유효하다.
                 //    → 산출물이 담긴 이미지를 호스트 웹루트를 마운트한 채로 실행해 복사한다.
                 //
-                // ⚠️ 지우고 복사하는 사이 몇 초간 404 가 날 수 있다. 정적 파일의 무중단 교체는
-                //    nginx root 를 심볼릭 링크로 두고 새 디렉토리를 만든 뒤 링크만 바꾸는 방식이다.
-                //    dev 에는 과하다고 보고 지금은 단순하게 간다(개선 항목으로 문서화됨).
+                // 🔴 옛 빌드의 해시 애셋을 **지우지 않는다** (2026-07-31, rm -rf 제거).
+                //    배포를 가로질러 열려 있던 탭은 자기(옛) index.html 이 가리키는 옛 해시
+                //    청크를 요청하는데, 지워 버리면 lazy 페이지로 이동하는 순간
+                //    "Failed to fetch dynamically imported module" 로 크래시한다(dev 실측).
+                //    해시 파일명은 내용 기반이라 옛 파일을 남겨 둬도 충돌·버전 섞임이 없고,
+                //    새 방문은 매번 덮어써지는 index.html 이 새 청크로 이끈다.
+                //    대신 7일간 어떤 배포에도 포함되지 않은 파일만 정리한다(cp 가 mtime 을
+                //    갱신하므로 mtime 7일 초과 = 최근 7일의 모든 빌드에서 빠진 파일).
+                //    7일 넘긴 탭은 프론트의 vite:preloadError 핸들러가 새로고침으로 복구한다.
+                //
+                // 부수 효과: 예전의 "지우고 복사하는 사이 몇 초간 404" 창도 없어졌다.
+                //    (남는 건 index.html 덮어쓰기 순간뿐 — 심볼릭 링크 교체는 백로그 유지)
                 //
                 // `cp -r /dist/. /out/` 의 `.` 이 중요하다 — `/dist` 로 쓰면 /out/dist 가 되어
-                // nginx 가 404 를 낸다.
+                // nginx 가 404 를 낸다. 빈 디렉토리 정리의 rmdir 는 비어 있지 않으면 실패하는
+                // 성질을 그대로 이용한다(|| true 로 무시).
                 lock("${env.DEPLOY_LOCK}") {
                     sh """
                         docker run --rm \
                             -v ${FRONTEND_WEBROOT}:/out \
                             woojuin-frontend:${env.SHORT_SHA}-${env.TARGET_ENV} \
-                            sh -c 'rm -rf /out/* && cp -r /dist/. /out/ && ls -1 /out | head'
+                            sh -c 'find /out -type f -mtime +7 -delete && \
+                                   find /out -mindepth 1 -depth -type d -exec rmdir {} + 2>/dev/null; \
+                                   cp -r /dist/. /out/ && ls -1 /out | head'
                     """
                     // nginx 가 실제로 새 파일을 내주는지 확인한다 — 복사만 성공하고 nginx 설정이
                     // 어긋나 있으면 404 인데, 그건 배포 성공이 아니다.
