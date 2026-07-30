@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Modal from '@/components/ui/Modal';
 import SubmitButton from '@/components/ui/button/SubmitButton';
@@ -14,14 +15,16 @@ interface CreateWorkspaceModalProps {
 /** 사이드바 "New workspace" 클릭 시 뜨는 생성 폼 */
 const CreateWorkspaceModal = ({ open, onClose }: CreateWorkspaceModalProps) => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [name, setName] = useState('');
 
   const createMutation = useMutation({
     mutationFn: createWorkspace,
-    onSuccess: () => {
+    onSuccess: (workspace) => {
       queryClient.invalidateQueries({ queryKey: ['workspaces'] });
       setName('');
       onClose();
+      navigate(`/workspace/${workspace.id}/universe`);
     },
   });
 

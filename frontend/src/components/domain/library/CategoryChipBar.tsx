@@ -81,53 +81,59 @@ const CategoryChipBar = ({
   const { scrollRef, atStart, atEnd, onScroll, scrollBy } = useHorizontalScroll(chips.length);
 
   return (
-    <div className="flex items-center gap-2 pt-10 pb-10">
-      {/* ── 고정 왼쪽 ─────────────────────────── */}
-      {manage}
+    // 모바일은 2줄(고정 컨트롤 / 카테고리 스크롤), 데스크톱은 한 줄로 편다.
+    <div className="flex flex-col gap-2 pt-10 pb-10 desktop:flex-row desktop:items-center">
+      {/* ── 고정 컨트롤 (관리·즐겨찾기) ─────────── */}
+      <div className="flex shrink-0 items-center gap-2">
+        {manage}
 
-      <FilterChip active={favoriteActive} onClick={onToggleFavorite}>
-        즐겨찾기
-      </FilterChip>
-
-      <div className="h-5 w-px shrink-0 bg-border" />
-
-      {/* ── 카테고리 (가로 스크롤) ──────────────── */}
-      <ScrollButton
-        icon={ChevronLeftIcon}
-        label="이전 카테고리"
-        disabled={atStart}
-        onClick={() => scrollBy(-220)}
-      />
-
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        role="group"
-        aria-label="카테고리 필터"
-        className="scrollbar-none flex min-w-0 flex-1 items-center gap-2 overflow-x-auto"
-      >
-        <FilterChip active={selected.length === 0} onClick={onSelectAll}>
-          전체
+        <FilterChip active={favoriteActive} onClick={onToggleFavorite}>
+          즐겨찾기
         </FilterChip>
 
-        {chips.map(({ categoryId, name, color }) => (
-          <FilterChip
-            key={categoryId}
-            active={selected.includes(categoryId)}
-            leading={<Dot hex={color} />}
-            onClick={() => onToggle(categoryId)}
-          >
-            {name}
-          </FilterChip>
-        ))}
+        {/* 구분선은 한 줄일 때(데스크톱)만 의미 있다 */}
+        <div className="hidden h-5 w-px shrink-0 bg-border desktop:block" />
       </div>
 
-      <ScrollButton
-        icon={ChevronRightIcon}
-        label="다음 카테고리"
-        disabled={atEnd}
-        onClick={() => scrollBy(220)}
-      />
+      {/* ── 카테고리 (가로 스크롤) ──────────────── */}
+      <div className="flex min-w-0 items-center gap-2 desktop:flex-1">
+        <ScrollButton
+          icon={ChevronLeftIcon}
+          label="이전 카테고리"
+          disabled={atStart}
+          onClick={() => scrollBy(-220)}
+        />
+
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          role="group"
+          aria-label="카테고리 필터"
+          className="scrollbar-none flex min-w-0 flex-1 items-center gap-2 overflow-x-auto"
+        >
+          <FilterChip active={selected.length === 0} onClick={onSelectAll}>
+            전체
+          </FilterChip>
+
+          {chips.map(({ categoryId, name, color }) => (
+            <FilterChip
+              key={categoryId}
+              active={selected.includes(categoryId)}
+              leading={<Dot hex={color} />}
+              onClick={() => onToggle(categoryId)}
+            >
+              {name}
+            </FilterChip>
+          ))}
+        </div>
+
+        <ScrollButton
+          icon={ChevronRightIcon}
+          label="다음 카테고리"
+          disabled={atEnd}
+          onClick={() => scrollBy(220)}
+        />
+      </div>
     </div>
   );
 };

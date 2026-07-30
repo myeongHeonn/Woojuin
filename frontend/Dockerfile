@@ -45,8 +45,23 @@ FROM test AS build
 #    vite.config.ts 의 `envDir: '..'`(레포 루트) 때문에 파일로 넘기려면 루트에 .env 를
 #    만들어야 하는데, 환경변수로 주면 그 함정을 피할 수 있다.
 ARG VITE_API_BASE_URL
-ARG VITE_FCM_VAPID_KEY=
+# Firebase 웹 앱 설정. dev/prod가 같은 Firebase 프로젝트를 쓰지만 값은 여기 하드코딩하지
+# 않는다 — Jenkinsfile의 environment 블록 한 곳에서만 관리하고 --build-arg로 넘겨받는다
+# (VITE_API_BASE_URL과 같은 패턴).
+ARG VITE_FCM_API_KEY
+ARG VITE_FCM_AUTH_DOMAIN
+ARG VITE_FCM_PROJECT_ID
+ARG VITE_FCM_STORAGE_BUCKET
+ARG VITE_FCM_MESSAGING_SENDER_ID
+ARG VITE_FCM_APP_ID
+ARG VITE_FCM_VAPID_KEY
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_FCM_API_KEY=$VITE_FCM_API_KEY
+ENV VITE_FCM_AUTH_DOMAIN=$VITE_FCM_AUTH_DOMAIN
+ENV VITE_FCM_PROJECT_ID=$VITE_FCM_PROJECT_ID
+ENV VITE_FCM_STORAGE_BUCKET=$VITE_FCM_STORAGE_BUCKET
+ENV VITE_FCM_MESSAGING_SENDER_ID=$VITE_FCM_MESSAGING_SENDER_ID
+ENV VITE_FCM_APP_ID=$VITE_FCM_APP_ID
 ENV VITE_FCM_VAPID_KEY=$VITE_FCM_VAPID_KEY
 
 # `npm run build` = `tsc -b && vite build` — 타입 체크가 이미 포함돼 있다.

@@ -40,6 +40,17 @@ export async function createWorkspace(payload: CreateWorkspacePayload) {
   return res.data.data;
 }
 
+// 워크스페이스 이름 변경 — OWNER 전용(서버가 검증)
+export async function updateWorkspace(workspaceId: number, name: string) {
+  const res = await api.patch<ApiResponse<Workspace>>(`/workspaces/${workspaceId}`, { name });
+  return res.data.data;
+}
+
+// 워크스페이스 삭제 — OWNER 전용(서버가 검증, MEMBER 는 403). 응답 data 없음
+export async function deleteWorkspace(workspaceId: number) {
+  await api.delete<ApiResponse<null>>(`/workspaces/${workspaceId}`);
+}
+
 // ── 공유(멤버·초대) ─────────────────────────────
 
 // 멤버 목록

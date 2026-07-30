@@ -69,7 +69,8 @@ woojuin:
   # 이유는 위 ai 블록 주석과 동일(빈 줄을 "키 있음"으로 오해하는 문제). 키가 없으면
   # 이미지 텍스트 추출만 꺼지고(NoOp) 썸네일·EXIF 좌표·저장은 계속 동작한다.
   # timeout이 ai(8000)보다 긴 건 VL 추론이 이미지 크기에 따라 수 초를 넘기 때문이다.
-  # 컨슈머가 순차 처리라 커넥션 점유가 겹치진 않지만, 늘릴 땐 그 점을 같이 볼 것.
+  # 컨슈머가 병렬(queue.consumer-count)이라 이 시간만큼의 DB 커넥션 점유가 컨슈머 수만큼
+  # 겹칠 수 있다 — timeout이나 컨슈머 수를 늘릴 땐 커넥션 풀을 같이 볼 것.
   vision:
     base-url: ${VISION_BASE_URL:https://openrouter.ai/api/v1}
     model: ${VISION_MODEL:qwen/qwen3-vl-8b-instruct}
@@ -80,7 +81,7 @@ woojuin:
   # aimix는 docker-compose에 포함돼 함께 뜨므로 기본 켜둔다. 사이드카 없이 백엔드만
   # 돌릴 땐 AIMIX_ENABLED=false로 끄면 요약·분류만 조용히 비활성화된다(NoOp).
   # timeout이 넉넉한 건 아이템 하나에 LLM 두 번(요약→분류)이 나가는 데다 ai-mix가
-  # 자체 재시도를 하기 때문이다. 컨슈머가 순차 처리라 커넥션 점유가 겹치진 않는다.
+  # 자체 재시도를 하기 때문이다. 커넥션 점유는 컨슈머 수만큼 겹친다(vision 주석 참고).
   aimix:
     enabled: ${AIMIX_ENABLED:true}
     base-url: ${AIMIX_BASE_URL:http://localhost:8002}
@@ -104,10 +105,24 @@ woojuin:
   queue:
     stream-key: woojuin:item-processing
     consumer-group: ai-workers
+    # 병렬 컨슈머 수. 3인 근거: 프로세서가 @Transactional이라 컨슈머 하나가 크롤·LLM 호출
+    # 내내 DB 커넥션 하나를 점유한다 — Hikari 기본 풀 10에서 컨슈머 3 + 회수기 1이면 장기
+    # 점유 최대 4, 나머지 6이 웹 요청 몫이다. 더 올리려면 풀 크기를 같이 늘릴 것.
+    consumer-count: ${QUEUE_CONSUMER_COUNT:3}
     max-delivery: 3            # 이 횟수만큼 배달·재시도한 뒤에도 실패하면 FAILED 확정
-    reclaim-idle-ms: 60000     # pending이 이 시간 이상 방치되면 회수 대상(처리 중 유예)
+    # pending이 이 시간 이상 방치되면 회수 대상. URL 워스트케이스(Scrapling 폴백 40s×2 +
+    # aimix 45s)가 2분을 넘길 수 있어, 그보다 짧으면 아직 처리 중인 메시지를 회수기가
+    # claim해서 같은 아이템을 동시에 두 번 가공한다(AI 이중 호출). 진짜 죽은 메시지의
+    # 재시도가 3분 늦어지는 것과의 트레이드오프.
+    reclaim-idle-ms: 180000
     reclaim-interval-ms: 30000 # 회수 스케줄러 실행 주기
     reclaim-batch-size: 32     # 한 주기에 살펴볼 pending 최대 건수
+    # 재발행 안전망(StuckItemRepublisher) — 큐에 메시지가 아예 없어 회수기도 못 구하는
+    # 영구 PROCESSING 아이템(발행 실패·컨슈머 정지 중 유실)을 다시 발행한다.
+    # after가 회수기 재시도 수명(≈10분)보다 길어야 하는 이유는 그쪽 javadoc 참고.
+    republish-after-ms: 900000
+    republish-interval-ms: 300000
+    republish-batch-size: 50
   fetch:
     timeout-ms: 5000
     max-body-bytes: 3145728   # 3MB. 미리보기/본문 추출에 이보다 큰 HTML은 불필요
