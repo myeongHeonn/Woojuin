@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -27,6 +28,13 @@ public class WorkspaceSseRegistry {
     /** 이 시간 동안 이벤트가 없으면 서버가 연결을 닫는다. 클라이언트는 자동으로 다시 붙는다. */
     private static final long TIMEOUT_MS = 30 * 60 * 1000L;
 
+    /**
+     * 유휴 연결 유지용 하트비트 주기. 호스트 nginx의 proxy_read_timeout 기본값(60초)보다
+     * 짧아야 한다 — 이벤트가 없는 60초가 지나면 nginx가 연결을 끊어서, 위 TIMEOUT_MS가
+     * 무색하게 클라이언트가 1분마다 재연결을 반복하게 된다.
+     */
+    private static final long HEARTBEAT_INTERVAL_MS = 25 * 1000L;
+
     /** workspaceId → (연결 식별자 → emitter). 바깥·안쪽 모두 동시 접근이라 concurrent 로 둔다. */
     private final Map<Long, Map<Long, SseEmitter>> emittersByWorkspace = new ConcurrentHashMap<>();
 
@@ -41,9 +49,14 @@ public class WorkspaceSseRegistry {
         SseEmitter emitter = new SseEmitter(TIMEOUT_MS);
         long connectionId = connectionSequence.incrementAndGet();
 
-        emittersByWorkspace
-                .computeIfAbsent(workspaceId, key -> new ConcurrentHashMap<>())
-                .put(connectionId, emitter);
+        // remove()와 같은 compute 락 안에서 넣는다. computeIfAbsent로 받은 맵에 바깥에서
+        // put 하면, 그 틈에 remove가 "빈 맵"이라며 바깥 맵에서 지운 고아 맵에 들어갈 수
+        // 있다 — 그 연결은 브로드캐스트를 영영 못 받는다(StrictMode의 이중 구독이 이 패턴).
+        emittersByWorkspace.compute(workspaceId, (key, emitters) -> {
+            Map<Long, SseEmitter> target = (emitters != null) ? emitters : new ConcurrentHashMap<>();
+            target.put(connectionId, emitter);
+            return target;
+        });
 
         // 끊기는 경로가 셋이라 전부 같은 정리를 건다. 하나라도 빠지면 죽은 emitter 가 쌓인다.
         emitter.onCompletion(() -> remove(workspaceId, connectionId));
@@ -82,13 +95,35 @@ public class WorkspaceSseRegistry {
         });
     }
 
+    /**
+     * 모든 연결에 주기적으로 comment 라인을 흘린다.
+     *
+     * <p>SSE 스펙상 {@code :}로 시작하는 comment는 클라이언트가 무시하므로 프론트 처리가
+     * 필요 없다. 목적은 둘 — 프록시(nginx)의 유휴 타임아웃을 갱신해 연결을 유지하고,
+     * 브라우저가 조용히 사라진 죽은 연결을 다음 하트비트에서 발견해 정리한다.
+     */
+    @Scheduled(fixedRate = HEARTBEAT_INTERVAL_MS)
+    public void sendHeartbeats() {
+        emittersByWorkspace.forEach((workspaceId, emitters) ->
+                emitters.forEach((connectionId, emitter) -> {
+                    try {
+                        emitter.send(SseEmitter.event().comment("ping"));
+                    } catch (IOException | IllegalStateException e) {
+                        remove(workspaceId, connectionId);
+                    }
+                }));
+    }
+
     private void remove(Long workspaceId, Long connectionId) {
-        Map<Long, SseEmitter> emitters = emittersByWorkspace.get(workspaceId);
-        if (emitters == null) {
-            return;
-        }
-        emitters.remove(connectionId);
-        // 마지막 연결이 빠지면 맵 자체도 지워 워크스페이스 수만큼 빈 맵이 쌓이지 않게 한다
-        emittersByWorkspace.remove(workspaceId, Map.of());
+        // 마지막 연결이 빠지면 맵도 함께 지운다(워크스페이스 수만큼 빈 맵이 쌓이지 않게).
+        // subscribe와 같은 compute 락을 타므로 "비어서 지운다"와 "새 연결을 넣는다"가
+        // 겹치지 않는다.
+        emittersByWorkspace.compute(workspaceId, (key, emitters) -> {
+            if (emitters == null) {
+                return null;
+            }
+            emitters.remove(connectionId);
+            return emitters.isEmpty() ? null : emitters;
+        });
     }
 }

@@ -3,6 +3,7 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useAtomValue } from 'jotai';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { accessTokenAtom } from '@/stores/authAtoms';
+import { requestTokenRefresh } from '@/services/client';
 
 /** 서버가 보내는 변경 신호 종류 — 백엔드 WorkspaceEventType 과 같은 값을 쓴다 */
 type WorkspaceEventType = 'item' | 'category' | 'workspace' | 'member';
@@ -10,6 +11,12 @@ type WorkspaceEventType = 'item' | 'category' | 'workspace' | 'member';
 const EVENT_STREAM = 'text/event-stream';
 /** 일시적 실패(네트워크 끊김 등) 재연결 간격 */
 const RETRY_DELAY_MS = 3000;
+/**
+ * 무효화 병합 간격. URL 배치·원클릭 저장처럼 아이템 N개가 잇달아 완료되면 신호도 N번
+ * 오는데, 순차 도착이라 react-query가 합쳐주지 않아 그대로 N번 재조회가 나간다.
+ * 이 간격 안에 온 같은 종류 신호를 한 번의 무효화로 합친다.
+ */
+const INVALIDATE_DEBOUNCE_MS = 400;
 
 /** 재시도해도 결과가 같은 실패(4xx) — 이걸 던지면 재연결을 멈춘다 */
 class FatalConnectionError extends Error {
@@ -62,6 +69,19 @@ export function useWorkspaceEvents(workspaceId: number) {
     const controller = new AbortController();
     const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
+    // 같은 종류 신호가 몰려오면 무효화를 한 번으로 합친다(INVALIDATE_DEBOUNCE_MS 참고)
+    const pendingTypes = new Set<WorkspaceEventType>();
+    let flushTimer: ReturnType<typeof setTimeout> | undefined;
+    const flush = () => {
+      flushTimer = undefined;
+      pendingTypes.forEach((type) => invalidate(queryClient, type));
+      pendingTypes.clear();
+    };
+    const scheduleInvalidate = (type: WorkspaceEventType) => {
+      pendingTypes.add(type);
+      flushTimer ??= setTimeout(flush, INVALIDATE_DEBOUNCE_MS);
+    };
+
     fetchEventSource(`${baseUrl}/workspaces/${workspaceId}/events`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       signal: controller.signal,
@@ -73,9 +93,15 @@ export function useWorkspaceEvents(workspaceId: number) {
         const contentType = response.headers.get('content-type');
         if (response.ok && contentType?.includes(EVENT_STREAM)) return;
 
-        // 4xx 는 다시 시도해도 결과가 같다(토큰 만료·권한 없음·엔드포인트 없음).
-        // 재시도하면 요청만 폭주하므로 연결을 접는다 — 토큰이 갱신되면 accessToken 이
-        // 바뀌어 이 effect 가 다시 돌고, 그때 새 연결이 열린다.
+        // 401은 토큰 만료 — SSE는 axios 인터셉터를 안 타므로 여기서 직접 갱신을 걸어야
+        // 한다. 갱신이 성공하면 accessToken 아톰이 바뀌어 이 effect가 다시 돌고 새 토큰으로
+        // 재연결된다(실패하면 토큰이 비워져 연결을 더 안 연다). 기다릴 필요는 없어서 안 기다린다.
+        if (response.status === 401) {
+          void requestTokenRefresh();
+          throw new FatalConnectionError(response.status);
+        }
+        // 그 외 4xx 는 다시 시도해도 결과가 같다(권한 없음·엔드포인트 없음).
+        // 재시도하면 요청만 폭주하므로 연결을 접는다.
         if (response.status >= 400 && response.status < 500) {
           throw new FatalConnectionError(response.status);
         }
@@ -86,7 +112,7 @@ export function useWorkspaceEvents(workspaceId: number) {
       onmessage(event) {
         // 연결 확인용(connected)은 무시하고 실제 변경 신호만 처리한다
         if (event.event in INVALIDATION_TARGETS) {
-          invalidate(queryClient, event.event as WorkspaceEventType);
+          scheduleInvalidate(event.event as WorkspaceEventType);
         }
       },
 
@@ -106,6 +132,14 @@ export function useWorkspaceEvents(workspaceId: number) {
       // abort 로 끊었거나 위에서 포기한 경우 — 둘 다 의도한 종료라 조용히 넘어간다
     });
 
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      // 모아둔 무효화가 있으면 버리지 않고 즉시 반영한다 — 버리면 방금 바뀐 데이터가
+      // 신선한 캐시로 남는다
+      if (flushTimer !== undefined) {
+        clearTimeout(flushTimer);
+        flush();
+      }
+    };
   }, [workspaceId, accessToken, queryClient]);
 }
