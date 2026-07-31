@@ -304,8 +304,10 @@ public class UrlItemProcessor implements ItemProcessor {
             eventPublisher.publishEvent(new ItemDoneEvent(item.getId()));
         } else if (!preview.hasNothing()) {
             item.markPartial();
+            // PARTIAL도 미리보기(제목·썸네일)는 있으니 알려준다 — 도메인 폴백조차 없는 FAILED만 생략.
+            eventPublisher.publishEvent(new ItemDoneEvent(item.getId()));
         } else {
-            item.markFailed();   // 도메인 폴백조차 비었을 때 — 사실상 URL 파싱 불가
+            item.markFailed();   // 도메인 폴백조차 비었을 때 — 사실상 URL 파싱 불가. 알림 생략(AGENTS.md 규칙 6).
         }
         eventPublisher.publishEvent(WorkspaceChangedEvent.of(item.getWorkspaceId(), WorkspaceEventType.ITEM));
         log.info("URL 가공 완료: itemId={}, status={}", item.getId(), item.getStatus());

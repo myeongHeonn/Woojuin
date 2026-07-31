@@ -1,0 +1,117 @@
+# 모니터링 스택 — 메트릭(Prometheus/Grafana) + 컨테이너 로그 뷰어(Dozzle)
+#
+# 앱 스택(dev/prod)과 **별개의 compose 프로젝트**다. 앱 배포 파이프라인과 무관하게
+# 서버에서 한 번 띄워 두고 계속 돌린다:
+#
+#   cd ~/woojuin/monitoring   # 이 디렉토리를 서버에 복사해 두는 위치
+#   docker compose -p woojuin-monitoring --env-file .env.monitoring \
+#       -f docker-compose.monitoring.yml up -d
+#
+# 필요한 파일: .env.monitoring (템플릿: .env.monitoring.example — 그라파나 관리자 비밀번호)
+#
+# 접근은 전부 127.0.0.1 바인딩 + SSH 터널이다 (MinIO 콘솔과 같은 패턴):
+#   ssh -L 3000:localhost:3000 -L 9999:localhost:9999 ubuntu@<서버>
+#   Grafana → http://localhost:3000  /  Dozzle(로그) → http://localhost:9999
+# 팀이 자주 보게 되면 grafana.woojuin.store 서브도메인으로 승격(nginx+cert, minio 절차 참고).
+#
+# ⚠️ Prometheus 가 dev/prod 스택의 내부 네트워크에 **참여해서** 백엔드를 스크레이프한다.
+#    그래서 앱 스택을 `docker compose down`(네트워크까지 제거)하려면 모니터링을 먼저
+#    내려야 한다. 파이프라인은 `up -d`만 쓰므로 평소 배포에는 영향 없다.
+#
+# 메모리 예산: 합계 상한 ~1.3GB (실사용은 그 절반 수준. 2026-07-31 available 9.4Gi 실측 기준 여유)
+
+services:
+  # ── 로그: 전 컨테이너 실시간 tail·검색 (보존은 없음 — 보존/검색이 필요해지면 Loki 추가)
+  dozzle:
+    image: amir20/dozzle:v8.13.8
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:9999:8080"
+    restart: unless-stopped
+    mem_limit: 64m
+
+  # ── 메트릭 저장·수집
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=4GB
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"   # 디버그용 (targets 상태 확인)
+    networks:
+      - monitoring
+      # 백엔드 컨테이너에 내부에서 접근하기 위해 앱 스택 네트워크에 참여한다.
+      # /actuator 는 nginx 가 외부를 막고 있어(deny all) 내부 스크레이프만 가능한 구조 유지.
+      - woojuin-dev-internal
+      - woojuin-prod-internal
+    restart: unless-stopped
+    mem_limit: 512m
+
+  # ── 대시보드
+  grafana:
+    image: grafana/grafana:11.1.4
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD 가 없다 - .env.monitoring 확인}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      # Prometheus 데이터소스를 자동 등록 — 첫 로그인 후 바로 대시보드 임포트 가능
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [monitoring]
+    restart: unless-stopped
+    mem_limit: 384m
+
+  # ── 호스트 메트릭 (CPU·메모리·디스크·네트워크)
+  #    호스트 포트를 열지 않는다 — Prometheus 가 monitoring 네트워크로 스크레이프.
+  #    (기본 포트 9100 이 dev MinIO 호스트 포트와 겹치지만, publish 를 안 하므로 무관)
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks: [monitoring]
+    restart: unless-stopped
+    mem_limit: 64m
+
+  # ── 컨테이너별 메트릭 (mem_limit 대비 실사용, CPU, 네트워크 — 우리 자원 튜닝의 근거 데이터)
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    networks: [monitoring]
+    restart: unless-stopped
+    mem_limit: 256m
+
+networks:
+  monitoring:
+  # 앱 스택이 만든 네트워크 (compose 프로젝트명 접두사). 앱 스택이 먼저 떠 있어야 한다.
+  woojuin-dev-internal:
+    external: true
+    name: woojuin-dev_internal
+  woojuin-prod-internal:
+    external: true
+    name: woojuin-prod_internal
+
+volumes:
+  prometheus-data:
+  grafana-data:

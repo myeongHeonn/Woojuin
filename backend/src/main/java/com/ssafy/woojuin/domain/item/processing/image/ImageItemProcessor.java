@@ -187,11 +187,12 @@ public class ImageItemProcessor implements ItemProcessor {
     private void finalizeStatus(Item item, boolean textAcquired) {
         if (textAcquired) {
             item.markDone();
-            eventPublisher.publishEvent(new ItemDoneEvent(item.getId()));
         } else {
             item.markPartial();
         }
         eventPublisher.publishEvent(WorkspaceChangedEvent.of(item.getWorkspaceId(), WorkspaceEventType.ITEM));
+        // PARTIAL도 사용자에게 알려줄 결과가 있다(썸네일·원본 이미지는 저장됨) — FAILED만 생략.
+        eventPublisher.publishEvent(new ItemDoneEvent(item.getId()));
         log.info("이미지 가공 완료: itemId={}, status={}", item.getId(), item.getStatus());
     }
 }

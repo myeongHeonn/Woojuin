@@ -13,6 +13,7 @@ import com.ssafy.woojuin.domain.ai.AiAnalyzer;
 import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
+import com.ssafy.woojuin.domain.item.event.ItemDoneEvent;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.service.S3Uploader;
@@ -116,6 +117,8 @@ class ImageItemProcessorTest {
         assertThat(item.getContent()).isNull();
         // 본문이 없어도 분류는 시도한다(title 기반)
         verify(categoryAssignmentService).assign(eq(item.getId()), eq(1L), any());
+        // PARTIAL도 사용자에게 보여줄 결과(썸네일·원본)는 있으므로 알림은 보낸다.
+        verify(eventPublisher).publishEvent(new ItemDoneEvent(item.getId()));
     }
 
     @Test
