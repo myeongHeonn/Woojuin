@@ -65,12 +65,12 @@ describe('마이페이지 설정 카드', () => {
     await userEvent.click(helpButton);
 
     const emailLink = container.querySelector(
-      'a[href="mailto:chlehdwns82@sunmoon.ac.kr"]',
+      'a[href="mailto:woojuin105@gmail.com"]',
     ) as HTMLAnchorElement;
     const privacyLink = container.querySelector('a[href="/privacy"]') as HTMLAnchorElement;
 
     expect(container.textContent).toContain('이메일 또는 MM으로 연락해 주세요.');
-    expect(emailLink.textContent).toContain('chlehdwns82@sunmoon.ac.kr');
+    expect(emailLink.textContent).toContain('woojuin105@gmail.com');
     expect(privacyLink.textContent).toContain('개인정보 처리방침');
   });
 });
