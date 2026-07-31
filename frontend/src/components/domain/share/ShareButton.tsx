@@ -17,20 +17,22 @@ const ShareButton = ({ workspaceId }: { workspaceId: number }) => {
 
   return (
     <>
-      <HeaderPopover
-        trigger={<GlassButton icon={<SettingsIcon />} aria-label="워크스페이스 설정" />}
-      >
-        {(close) => (
-          <ShareModal
-            workspaceId={workspaceId}
-            onClose={close}
-            onRequestDelete={() => {
-              close();
-              setDeleteOpen(true);
-            }}
-          />
-        )}
-      </HeaderPopover>
+      <div data-tutorial="workspace-share">
+        <HeaderPopover
+          trigger={<GlassButton icon={<SettingsIcon />} aria-label="워크스페이스 설정" />}
+        >
+          {(close) => (
+            <ShareModal
+              workspaceId={workspaceId}
+              onClose={close}
+              onRequestDelete={() => {
+                close();
+                setDeleteOpen(true);
+              }}
+            />
+          )}
+        </HeaderPopover>
+      </div>
 
       <DeleteWorkspaceModal
         workspaceId={workspaceId}

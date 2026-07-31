@@ -15,6 +15,7 @@ import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
+import com.ssafy.woojuin.domain.item.event.ItemDoneEvent;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.location.Geocoder;
 import com.ssafy.woojuin.domain.location.LocationResolver;
@@ -119,6 +120,8 @@ class UrlItemProcessorTest {
         assertThat(item.getStatus()).isEqualTo(ItemStatus.PARTIAL);
         assertThat(item.getTitle()).isEqualTo("제목");
         assertThat(item.getContent()).isNull();
+        // PARTIAL도 미리보기(제목)는 있으므로 알림은 보낸다.
+        verify(eventPublisher).publishEvent(new ItemDoneEvent(item.getId()));
         // 본문이 없어도 분류는 시도한다(title 기반)
         verify(categoryAssignmentService).assign(eq(item.getId()), eq(1L), any());
     }

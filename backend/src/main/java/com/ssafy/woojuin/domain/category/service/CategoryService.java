@@ -10,6 +10,8 @@ import com.ssafy.woojuin.domain.category.repository.CategoryRepository;
 import com.ssafy.woojuin.domain.category.repository.ItemCategoryRepository;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceEventType;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -84,6 +86,7 @@ public class CategoryService {
         // AI 분류용 설명은 커밋 후 비동기로 생성한다(CategoryDescriptionGenerator) —
         // 생성 API가 LLM 호출을 기다리게 하지 않는다.
         eventPublisher.publishEvent(new CategoryDescriptionNeededEvent(saved.getId(), trimmed));
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.CATEGORY));
         return CategoryResponse.from(saved);
     }
 
@@ -106,6 +109,7 @@ public class CategoryService {
             // 이름이 바뀌면 설명이 비워지므로(Category.rename) 새 설명을 비동기로 다시 생성한다.
             eventPublisher.publishEvent(new CategoryDescriptionNeededEvent(category.getId(), trimmed));
         }
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.CATEGORY));
         return CategoryResponse.from(category);
     }
 
@@ -119,6 +123,9 @@ public class CategoryService {
         // 아이템 연결을 먼저 끊어야 고아 조인 행이 남지 않는다.
         itemCategoryRepository.deleteByCategoryId(categoryId);
         categoryRepository.delete(category);
+        // 아이템의 카테고리 표시도 함께 달라지므로 ITEM 신호까지 보낸다
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.CATEGORY));
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.ITEM));
     }
 
     /** categoryId가 그 워크스페이스 소속인지까지 확인한다(다른 워크스페이스 카테고리 접근 차단). */

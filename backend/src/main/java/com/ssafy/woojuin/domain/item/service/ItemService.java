@@ -1,5 +1,7 @@
 package com.ssafy.woojuin.domain.item.service;
 
+import com.ssafy.woojuin.domain.ai.usage.AiUsageReservation;
+import com.ssafy.woojuin.domain.ai.usage.AiUsageService;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemDetailResponse;
@@ -16,7 +18,10 @@ import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceEventType;
 import java.util.List;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -39,11 +44,14 @@ public class ItemService {
     private final ItemCategoryQueryService itemCategoryQueryService;
     private final CategoryAssignmentService categoryAssignmentService;
     private final ItemSummaryAssembler itemSummaryAssembler;
+    private final AiUsageService aiUsageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ItemService(ItemRepository itemRepository, S3Uploader s3Uploader,
             ItemQueueProducer itemQueueProducer, WorkspaceMemberRepository workspaceMemberRepository,
             ItemCategoryQueryService itemCategoryQueryService,
-            CategoryAssignmentService categoryAssignmentService, ItemSummaryAssembler itemSummaryAssembler) {
+            CategoryAssignmentService categoryAssignmentService, ItemSummaryAssembler itemSummaryAssembler,
+            AiUsageService aiUsageService, ApplicationEventPublisher eventPublisher) {
         this.itemRepository = itemRepository;
         this.s3Uploader = s3Uploader;
         this.itemQueueProducer = itemQueueProducer;
@@ -51,11 +59,14 @@ public class ItemService {
         this.itemCategoryQueryService = itemCategoryQueryService;
         this.categoryAssignmentService = categoryAssignmentService;
         this.itemSummaryAssembler = itemSummaryAssembler;
+        this.aiUsageService = aiUsageService;
+        this.eventPublisher = eventPublisher;
     }
 
     public ItemCreateResponse createFromRequest(Long workspaceId, Long userId, ItemCreateRequest request) {
         verifyMembership(workspaceId, userId);
         validate(request);
+        AiUsageReservation usageReservation = aiUsageService.reserveForItemCreation(workspaceId);
 
         Item item = Item.builder()
                 .workspaceId(workspaceId)
@@ -65,15 +76,22 @@ public class ItemService {
                 .content(request.content())
                 .build();
 
-        return save(item, workspaceId);
+        return save(item, workspaceId, usageReservation);
     }
 
     public ItemCreateResponse createFromImage(Long workspaceId, Long userId, MultipartFile file) {
         verifyMembership(workspaceId, userId);
+        AiUsageReservation usageReservation = aiUsageService.reserveForItemCreation(workspaceId);
 
         // S3 업로드는 느린 네트워크 I/O라 트랜잭션 밖에서 먼저 끝낸다. 트랜잭션 안에서
         // 하면 업로드가 끝날 때까지 DB 커넥션을 붙잡고 있어 풀이 마른다.
-        String s3Key = s3Uploader.upload(file, workspaceId);
+        String s3Key;
+        try {
+            s3Key = s3Uploader.upload(file, workspaceId);
+        } catch (RuntimeException e) {
+            aiUsageService.release(usageReservation);
+            throw e;
+        }
 
         Item item = Item.builder()
                 .workspaceId(workspaceId)
@@ -85,7 +103,9 @@ public class ItemService {
 
         // DB 저장이 실패하면 방금 올린 S3 원본이 고아로 남는다 — 저장 실패 시에만
         // 보상 삭제한다(publish 실패는 이미 커밋된 뒤라 대상이 아님, save(Item,Long,Runnable) 참고).
-        return save(item, workspaceId, () -> s3Uploader.deleteQuietly(s3Key));
+        return save(
+                item, workspaceId, usageReservation,
+                () -> s3Uploader.deleteQuietly(s3Key));
     }
 
     /**
@@ -105,8 +125,9 @@ public class ItemService {
      * @Transactional을 추가할 것 — 그때도 큐 발행은 ItemQueueProducer가 커밋 이후로
      * 미뤄주므로 순서는 계속 안전하다.
      */
-    private ItemCreateResponse save(Item item, Long workspaceId) {
-        return save(item, workspaceId, () -> { });
+    private ItemCreateResponse save(
+            Item item, Long workspaceId, AiUsageReservation usageReservation) {
+        return save(item, workspaceId, usageReservation, () -> { });
     }
 
     /**
@@ -114,15 +135,24 @@ public class ItemService {
      * 저장은 됐는데 큐 발행이 실패한 경우는 이미 행이 커밋된 뒤라 여기서 건드리면 안
      * 된다 — DB엔 아이템이 있는데 참조하는 S3 원본이 지워지는 더 나쁜 상태가 된다.
      */
-    private ItemCreateResponse save(Item item, Long workspaceId, Runnable onSaveFailure) {
+    private ItemCreateResponse save(
+            Item item,
+            Long workspaceId,
+            AiUsageReservation usageReservation,
+            Runnable onSaveFailure) {
         Item saved;
         try {
             saved = itemRepository.save(item);
         } catch (RuntimeException e) {
             onSaveFailure.run();
+            aiUsageService.release(usageReservation);
             throw e;
         }
+        // DB에 PROCESSING 아이템이 생긴 뒤에는 큐 발행이 실패해도 사용량을 유지한다.
+        // StuckItemRepublisher가 나중에 다시 발행하며 큐 재시도는 추가 차감하지 않는다.
+        aiUsageService.commit(usageReservation);
         itemQueueProducer.publish(saved.getId(), workspaceId, saved.getType());
+        publishItemChanged(workspaceId);
         return ItemCreateResponse.from(saved);
     }
 
@@ -192,6 +222,7 @@ public class ItemService {
         if (request.categoryIds() != null) {
             categoryAssignmentService.replace(item.getId(), item.getWorkspaceId(), request.categoryIds());
         }
+        publishItemChanged(item.getWorkspaceId());
         return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
@@ -206,13 +237,16 @@ public class ItemService {
     public ItemFavoriteResponse changeFavorite(Long itemId, Long userId, boolean favorite) {
         Item item = findActiveItem(itemId, userId);
         item.changeFavorite(favorite);
+        publishItemChanged(item.getWorkspaceId());
         return ItemFavoriteResponse.from(item);
     }
 
     /** 삭제는 항상 휴지통 이동이 먼저다 (AGENTS.md 도메인 규칙). */
     @Transactional
     public void moveToTrash(Long itemId, Long userId) {
-        findActiveItem(itemId, userId).moveToTrash();
+        Item item = findActiveItem(itemId, userId);
+        item.moveToTrash();
+        publishItemChanged(item.getWorkspaceId());
     }
 
     @Transactional(readOnly = true)
@@ -232,6 +266,7 @@ public class ItemService {
     public ItemDetailResponse restore(Long itemId, Long userId) {
         Item item = findTrashedItem(itemId, userId);
         item.restore();
+        publishItemChanged(item.getWorkspaceId());
         return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
@@ -262,6 +297,7 @@ public class ItemService {
         String thumbnailS3Key = item.getThumbnailS3Key();
 
         itemRepository.delete(item);
+        publishItemChanged(item.getWorkspaceId());
 
         // 원본과 썸네일 둘 다 정리한다(썸네일은 IMAGE가 생성됐을 때만 존재).
         if (s3Key != null) {
@@ -279,6 +315,10 @@ public class ItemService {
                 .orElseThrow(() -> new ItemNotFoundException(itemId));
         verifyMembership(item.getWorkspaceId(), userId);
         return item;
+    }
+
+    private void publishItemChanged(Long workspaceId) {
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.ITEM));
     }
 
     private Item findTrashedItem(Long itemId, Long userId) {

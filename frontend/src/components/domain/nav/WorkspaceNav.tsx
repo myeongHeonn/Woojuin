@@ -23,52 +23,54 @@ const WorkspaceNav = () => {
 
   return (
     <>
-      {!sideBarClosed && (
-        <div className="px-3.5 pt-5 pb-2 text-[11px] font-bold tracking-[0.16em] text-text-3">
-          SPACE
-        </div>
-      )}
+      <div data-tutorial="workspaces">
+        {!sideBarClosed && (
+          <div className="px-3.5 pt-5 pb-2 text-[11px] font-bold tracking-[0.16em] text-text-3">
+            SPACE
+          </div>
+        )}
 
-      <NavItem
-        icon={<WorkspacesIcon />}
-        label="Workspaces"
-        collapsed={sideBarClosed}
-        onClick={() => setListOpen((o) => !o)}
-        trailing={
-          !sideBarClosed && (
-            <span
-              className={classNames(
-                'ml-auto text-[11px] transition-transform duration-200',
-                !listOpen && 'rotate-180',
-              )}
-            >
-              ⌃
-            </span>
-          )
-        }
-      />
+        <NavItem
+          icon={<WorkspacesIcon />}
+          label="Workspaces"
+          collapsed={sideBarClosed}
+          onClick={() => setListOpen((o) => !o)}
+          trailing={
+            !sideBarClosed && (
+              <span
+                className={classNames(
+                  'ml-auto text-[11px] transition-transform duration-200',
+                  !listOpen && 'rotate-180',
+                )}
+              >
+                ⌃
+              </span>
+            )
+          }
+        />
 
-      {listOpen && (
-        /* 들여쓰기는 목록의 책임 — 컨테이너 패딩이라 자식 폭이 자동으로 좁아진다 */
-        <div className={classNames(!sideBarClosed && 'pl-1')}>
-          {teams.map((ws) => (
+        {listOpen && (
+          /* 들여쓰기는 목록의 책임 — 컨테이너 패딩이라 자식 폭이 자동으로 좁아진다 */
+          <div className={classNames(!sideBarClosed && 'pl-1')}>
+            {teams.map((ws) => (
+              <NavItem
+                key={ws.id}
+                icon={<PlanetIcon />}
+                label={ws.name}
+                to={`/workspace/${ws.id}`}
+                collapsed={sideBarClosed}
+              />
+            ))}
             <NavItem
-              key={ws.id}
-              icon={<PlanetIcon />}
-              label={ws.name}
-              to={`/workspace/${ws.id}`}
+              icon={<span className="text-[17px] leading-none">＋</span>}
+              label="New workspace"
+              muted
               collapsed={sideBarClosed}
+              onClick={handleNewWorkspace}
             />
-          ))}
-          <NavItem
-            icon={<span className="text-[17px] leading-none">＋</span>}
-            label="New workspace"
-            muted
-            collapsed={sideBarClosed}
-            onClick={handleNewWorkspace}
-          />
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       <CreateWorkspaceModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
     </>

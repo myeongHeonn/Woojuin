@@ -22,7 +22,7 @@ const WORKSPACES: Workspace[] = [
  *
  * 목록은 캐시에 미리 넣어 첫 렌더부터 보이게 한다 — 요청이 끝나길 기다리지 않아도 된다.
  * 프로필은 일부러 비워 둔다. 요청이 실패하면 useUser 가 USER_MOCK 으로 떨어지는데,
- * 아래 단언들(홍길동·저장 공간)이 기대하는 값이 바로 그 목업이다.
+ * 아래 단언(홍길동)이 기대하는 값이 바로 그 목업이다.
  */
 const renderSideBar = (path = '/workspace/1') => {
   const queryClient = new QueryClient({
@@ -49,14 +49,23 @@ const toggleBtn = (c: HTMLElement) =>
   ) as HTMLElement;
 
 describe('SideBar (통합)', () => {
-  it('브랜드·네비·워크스페이스·저장공간·유저를 모두 렌더한다', async () => {
+  it('브랜드·네비·워크스페이스·유저를 모두 렌더한다', async () => {
     const { container } = await renderSideBar();
     const text = aside(container).textContent ?? '';
     for (const part of ['WooJuIn', 'Personal Space', 'SPACE', 'Workspaces', '몽골 여행']) {
       expect(text).toContain(part);
     }
-    expect(text).toContain('저장 공간');
     expect(text).toContain('홍길동');
+  });
+
+  it('로고·서비스명은 홈으로 가는 링크다', async () => {
+    // 브랜드 클릭 = 홈 복귀. /home 은 개인 우주로 넘겨주는 라우트다(FixedNav 폴백과 동일)
+    const { container } = await renderSideBar();
+    const brand = [...container.querySelectorAll('a')].find((a) =>
+      a.textContent?.includes('WooJuIn'),
+    );
+    expect(brand).not.toBeUndefined();
+    expect(brand).toHaveAttribute('href', '/home');
   });
 
   describe('항목 선택 — Context 가 하위 컴포넌트를 넘나든다', () => {
@@ -96,11 +105,10 @@ describe('SideBar (통합)', () => {
       await expect.poll(width).toBeCloseTo(72, 0);
     });
 
-    it('접으면 저장 공간과 유저 정보가 사라진다', async () => {
+    it('접으면 유저 정보가 사라진다', async () => {
       const { container } = await renderSideBar();
       await userEvent.click(toggleBtn(container));
       const text = aside(container).textContent ?? '';
-      expect(text).not.toContain('저장 공간');
       expect(text).not.toContain('dngusdlqwkd@gmail.com');
     });
 

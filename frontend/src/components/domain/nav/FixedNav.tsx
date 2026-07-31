@@ -17,13 +17,15 @@ const FixedNav = () => {
   const { personalSpaceId } = useSpaces();
 
   return (
-    <NavItem
-      icon={<PlanetIcon />}
-      label="Personal Space"
-      // 목록 로드 전엔 id 를 모른다 — /home 이 로드 후 개인 우주로 넘겨준다
-      to={personalSpaceId ? `/workspace/${personalSpaceId}` : '/home'}
-      collapsed={sideBarClosed}
-    />
+    <div data-tutorial="personal">
+      <NavItem
+        icon={<PlanetIcon />}
+        label="Personal Space"
+        // 목록 로드 전엔 id 를 모른다 — /home 이 로드 후 개인 우주로 넘겨준다
+        to={personalSpaceId ? `/workspace/${personalSpaceId}` : '/home'}
+        collapsed={sideBarClosed}
+      />
+    </div>
   );
 };
 
