@@ -1,12 +1,12 @@
 import { useMutation } from '@tanstack/react-query';
-import { useSetAtom } from 'jotai';
+import { useAtom, useSetAtom } from 'jotai';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import axios from 'axios';
 import { login } from '@/services/auth';
 import { loginSchema, type LoginFormValues } from '@/schemas/authSchemas';
-import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
+import { accessTokenAtom, postLoginRedirectAtom, refreshTokenAtom } from '@/stores/authAtoms';
 import FormTextField from '@/components/ui/form/FormTextField';
 import SubmitButton from '@/components/ui/button/SubmitButton';
 import GoogleAuthButton from './GoogleAuthButton';
@@ -22,6 +22,7 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const setAccessToken = useSetAtom(accessTokenAtom);
   const setRefreshToken = useSetAtom(refreshTokenAtom);
+  const [postLoginRedirect, setPostLoginRedirect] = useAtom(postLoginRedirectAtom);
   const formMethods = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
   const { handleSubmit } = formMethods;
 
@@ -30,7 +31,9 @@ const LoginForm = () => {
     onSuccess: (tokens) => {
       setAccessToken(tokens.accessToken);
       setRefreshToken(tokens.refreshToken);
-      navigate('/home');
+      // 로그인 전 가려던 경로가 있으면 그리로, 없으면 기본 도착지(/home)로.
+      setPostLoginRedirect(null);
+      navigate(postLoginRedirect ?? '/home');
     },
   });
 
