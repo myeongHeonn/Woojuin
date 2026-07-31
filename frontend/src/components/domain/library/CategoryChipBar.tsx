@@ -1,8 +1,8 @@
-import type { ComponentType, ReactNode, SVGProps } from 'react';
-import { classNames } from '@/utils/classNames';
+import type { ReactNode } from 'react';
 import { useHorizontalScroll } from '@/hooks/useHorizontalScroll';
 import Dot from '@/components/ui/Dot';
 import FilterChip from '@/components/ui/FilterChip';
+import ScrollButton from '@/components/ui/button/ScrollButton';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/assets/icons';
 
 /** 칩 하나가 그리는 데 필요한 것 — 서버 CategoryResponse(id·이름·hex 색) */
@@ -27,33 +27,6 @@ interface CategoryChipBarProps {
   /** [관리] 자리 — 트리거+팝오버가 한 몸이라 버튼 대신 슬롯으로 받는다 */
   manage: ReactNode;
 }
-
-/** 홑화살표 스크롤 버튼 — 끝에 닿으면 비활성 */
-const ScrollButton = ({
-  icon: Icon,
-  label,
-  disabled,
-  onClick,
-}: {
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
-  label: string;
-  disabled: boolean;
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    aria-label={label}
-    disabled={disabled}
-    onClick={onClick}
-    className={classNames(
-      'grid h-8 w-7 shrink-0 place-items-center rounded-sm text-text-3 transition-colors',
-      '[&>svg]:h-[18px] [&>svg]:w-[18px]',
-      disabled ? 'cursor-default opacity-30' : 'cursor-pointer hover:text-text-1',
-    )}
-  >
-    <Icon />
-  </button>
-);
 
 /**
  * 보관함 상단 필터 바.

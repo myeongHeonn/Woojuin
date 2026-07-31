@@ -56,14 +56,18 @@ const ShareModal = ({ workspaceId, onClose, onRequestDelete }: ShareModalProps) 
     rename.mutate(next, { onSuccess: () => setEditingName(null) });
   };
 
-  // 탈퇴 → 이 워크스페이스 접근 불가, 개인 홈으로 보낸다
-  const handleLeave = () =>
+  // 탈퇴 → 이 워크스페이스 접근 불가, 개인 홈으로 보낸다.
+  // 내 id 를 아직 모르면(프로필 로딩 중) 아무것도 하지 않는다 — 잘못된 대상을 내보내는 것보다
+  // 한 번 더 누르게 하는 편이 낫다. 버튼도 그 동안 비활성이다.
+  const handleLeave = () => {
+    if (myUserId === undefined) return;
     remove.mutate(myUserId, {
       onSuccess: () => {
         onClose();
         navigate('/home');
       },
     });
+  };
 
   return (
     <div className="w-[300px]">
@@ -83,7 +87,8 @@ const ShareModal = ({ workspaceId, onClose, onRequestDelete }: ShareModalProps) 
           <button
             type="button"
             onClick={handleLeave}
-            className="text-xs text-text-3 transition-colors hover:text-danger"
+            disabled={myUserId === undefined}
+            className="text-xs text-text-3 transition-colors hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
           >
             나가기
           </button>

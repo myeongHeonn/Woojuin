@@ -6,10 +6,24 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SideBar from '@/components/domain/nav/SideBar';
 import { getSidebarExpandedSize } from '@/constants/breakpoints';
 import type { Workspace } from '@/services/workspaces';
+import type { UserProfile } from '@/services/auth';
+
+const PROFILE: UserProfile = {
+  id: 1,
+  email: 'woojuin@example.com',
+  nickname: '우주인',
+  profileImageUrl: null,
+  provider: 'LOCAL',
+  emailVerified: true,
+  avatarColor: 'BLUE',
+  personalSpaceId: 1,
+  personalTutorialCompleted: true,
+  sharedWorkspaceTutorialCompleted: true,
+};
 
 /**
- * 워크스페이스 목록은 서버에서 온다. 개인 스페이스 id 는 USER_MOCK 의 1 이므로
- * id 1 을 개인으로 두면 나머지 둘만 Workspaces 목록에 남는다(useSpaces 규칙).
+ * 워크스페이스 목록은 서버에서 온다. type 이 PERSONAL 인 것을 개인 스페이스로 보므로
+ * (useSpaces 규칙) id 1 을 개인으로 두면 나머지 둘만 Workspaces 목록에 남는다.
  */
 const WORKSPACES: Workspace[] = [
   { id: 1, name: 'Personal Space', type: 'PERSONAL', role: 'OWNER' },
@@ -20,15 +34,16 @@ const WORKSPACES: Workspace[] = [
 /**
  * useUser·useSpaces 가 서버 상태(useQuery)를 쓰므로 QueryClientProvider 가 필요하다.
  *
- * 목록은 캐시에 미리 넣어 첫 렌더부터 보이게 한다 — 요청이 끝나길 기다리지 않아도 된다.
- * 프로필은 일부러 비워 둔다. 요청이 실패하면 useUser 가 USER_MOCK 으로 떨어지는데,
- * 아래 단언(홍길동)이 기대하는 값이 바로 그 목업이다.
+ * 목록·프로필 모두 캐시에 미리 넣어 첫 렌더부터 보이게 한다 — 요청이 끝나길 기다리지 않아도 된다.
+ * 프로필을 넣는 이유: useUser 는 값이 없으면 빈 문자열을 주므로(가짜 사용자를 만들지 않는다)
+ * 캐시가 비어 있으면 닉네임 단언이 검증할 대상 자체가 없다.
  */
 const renderSideBar = (path = '/workspace/1') => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
   queryClient.setQueryData(['workspaces'], WORKSPACES);
+  queryClient.setQueryData(['user', 'me'], PROFILE);
 
   return render(
     <QueryClientProvider client={queryClient}>
@@ -55,7 +70,7 @@ describe('SideBar (통합)', () => {
     for (const part of ['WooJuIn', 'Personal Space', 'SPACE', 'Workspaces', '몽골 여행']) {
       expect(text).toContain(part);
     }
-    expect(text).toContain('홍길동');
+    expect(text).toContain('우주인');
   });
 
   it('로고·서비스명은 홈으로 가는 링크다', async () => {

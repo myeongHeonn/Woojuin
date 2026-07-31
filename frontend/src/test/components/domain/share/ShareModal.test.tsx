@@ -18,13 +18,21 @@ vi.mock('@/services/workspaces', async (importOriginal) => ({
 vi.mock('@/hooks/useUser', () => ({ useUser: () => ({ userId: 1 }) }));
 
 const members = (myRole: 'OWNER' | 'MEMBER'): WorkspaceMember[] => [
-  { userId: 1, nickname: '우현', email: 'a@x.com', role: myRole, joinedAt: '' },
+  {
+    userId: 1,
+    nickname: '우현',
+    email: 'a@x.com',
+    role: myRole,
+    joinedAt: '',
+    avatarColor: 'BLUE',
+  },
   {
     userId: 2,
     nickname: '지수',
     email: 'b@x.com',
     role: myRole === 'OWNER' ? 'MEMBER' : 'OWNER',
     joinedAt: '',
+    avatarColor: 'PINK',
   },
 ];
 
