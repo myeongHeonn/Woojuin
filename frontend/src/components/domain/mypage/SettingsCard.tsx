@@ -134,10 +134,10 @@ const SettingsCard = ({ aiUsage, aiUsageLoading, aiUsageError }: SettingsCardPro
         <div className="mt-4 rounded-[14px] bg-surface-2 px-4 py-3.5">
           <p className="text-[11px] font-bold tracking-[0.08em] text-text-3">이메일</p>
           <a
-            href="mailto:chlehdwns82@sunmoon.ac.kr"
+            href="mailto:woojuin105@gmail.com"
             className="mt-1.5 inline-flex break-all text-[13px] font-semibold text-accent hover:text-accent-hover hover:underline"
           >
-            chlehdwns82@sunmoon.ac.kr
+            woojuin105@gmail.com
           </a>
           <p className="mt-3 text-xs text-text-3">또는 팀 MM에서 편하게 문의해 주세요.</p>
         </div>
