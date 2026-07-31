@@ -5,8 +5,22 @@ import MemberList from '@/components/domain/share/MemberList';
 import type { WorkspaceMember } from '@/services/workspaces';
 
 const members: WorkspaceMember[] = [
-  { userId: 1, nickname: '우현', email: 'a@x.com', role: 'OWNER', joinedAt: '' },
-  { userId: 2, nickname: '지수', email: 'b@x.com', role: 'MEMBER', joinedAt: '' },
+  {
+    userId: 1,
+    nickname: '우현',
+    email: 'a@x.com',
+    role: 'OWNER',
+    joinedAt: '',
+    avatarColor: 'BLUE',
+  },
+  {
+    userId: 2,
+    nickname: '지수',
+    email: 'b@x.com',
+    role: 'MEMBER',
+    joinedAt: '',
+    avatarColor: 'PINK',
+  },
 ];
 
 const kickBtn = (c: HTMLElement, name: string) =>

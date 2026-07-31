@@ -81,7 +81,12 @@ const ConstellationSearch = () => {
                 {items.length === 0 ? (
                   <p className="py-6 text-center text-sm text-text-3">검색 결과가 없어요</p>
                 ) : (
-                  <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-none">
+                  // 결과는 가로로 늘어선다 — 좌우 버튼 대신 하단에 얇은 스크롤바로 넘긴다.
+                  <div
+                    role="group"
+                    aria-label="검색 결과"
+                    className="mt-2 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar]:h-1.5"
+                  >
                     {items.map((item) => (
                       <ItemCard
                         key={item.itemId}

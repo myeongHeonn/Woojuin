@@ -56,8 +56,22 @@ beforeEach(() => {
   vi.mocked(fetchMembers)
     .mockReset()
     .mockResolvedValue([
-      { userId: 1, nickname: '우현', email: 'a@x.com', role: 'OWNER', joinedAt: '' },
-      { userId: 2, nickname: '지수', email: 'b@x.com', role: 'MEMBER', joinedAt: '' },
+      {
+        userId: 1,
+        nickname: '우현',
+        email: 'a@x.com',
+        role: 'OWNER',
+        joinedAt: '',
+        avatarColor: 'BLUE',
+      },
+      {
+        userId: 2,
+        nickname: '지수',
+        email: 'b@x.com',
+        role: 'MEMBER',
+        joinedAt: '',
+        avatarColor: 'PINK',
+      },
     ]);
   vi.mocked(deleteWorkspace).mockReset().mockResolvedValue(undefined);
 });

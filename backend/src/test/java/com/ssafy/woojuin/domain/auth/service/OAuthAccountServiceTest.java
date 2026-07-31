@@ -100,6 +100,45 @@ class OAuthAccountServiceTest {
     }
 
     @Test
+    @DisplayName("provider가 닉네임을 안 주면 이메일 아이디로 채운다 — NOT NULL 컬럼이라 비면 가입이 깨진다")
+    void findOrCreateUser_blankNickname_fallsBackToEmailLocalPart() {
+        User saved = createWithNickname(null, "hong.gildong@google.com");
+
+        assertThat(saved.getNickname()).isEqualTo("hong.gildong");
+    }
+
+    @Test
+    @DisplayName("닉네임도 이메일도 못 쓰면 고정 폴백 닉네임을 쓴다")
+    void findOrCreateUser_noNicknameNoEmail_usesDefaultNickname() {
+        User saved = createWithNickname("   ", null);
+
+        assertThat(saved.getNickname()).isEqualTo("우주인");
+    }
+
+    @Test
+    @DisplayName("닉네임이 50자를 넘으면 잘라 저장한다 — 컬럼 length=50")
+    void findOrCreateUser_tooLongNickname_isTruncated() {
+        String tooLong = "가".repeat(60);
+
+        User saved = createWithNickname(tooLong, "test@google.com");
+
+        assertThat(saved.getNickname()).hasSize(50);
+    }
+
+    /** 신규 가입 경로를 태우고 저장된 User 를 돌려준다. */
+    private User createWithNickname(String nickname, String email) {
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-new"))
+                .thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        oAuthAccountService.findOrCreateUser(AuthProvider.GOOGLE, "google-new", email, nickname);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        return captor.getValue();
+    }
+
+    @Test
     @DisplayName("신규 계정을 생성하면 UserSignedUpEvent를 발행한다")
     void findOrCreateUser_newAccount_publishesUserSignedUpEvent() {
         when(userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-456"))
