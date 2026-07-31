@@ -20,6 +20,8 @@ export interface WorkspaceMember {
   email: string;
   role: 'OWNER' | 'MEMBER';
   joinedAt: string;
+  /** 멤버가 고른 우주인 색상(대문자, 예: "BLUE") — 아바타 색으로 쓴다 */
+  avatarColor: string;
 }
 
 /** 초대 응답 — code 로 공유 링크를 만든다 */

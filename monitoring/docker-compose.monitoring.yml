@@ -88,8 +88,23 @@ services:
     mem_limit: 64m
 
   # ── 컨테이너별 메트릭 (mem_limit 대비 실사용, CPU, 네트워크 — 우리 자원 튜닝의 근거 데이터)
+  #
+  # ⚠️ 이 호스트의 도커는 containerd 이미지 스토어를 쓴다(`docker info` → storage driver:
+  #    overlayfs). v0.49 의 도커 핸들러는 구형(overlay2) layerdb 경로에서 rw 레이어를 찾다
+  #    실패해 **컨테이너 등록 자체가 죽는다** — 타깃은 up 인데 이름 붙은 컨테이너 지표가
+  #    0개인 증상("failed to identify the read-write layer ID", 2026-07-31 서버 실측).
+  #    아래 digest 는 그 문제가 해소된 버전(당시 latest)을 고정한 것이다.
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    image: gcr.io/cadvisor/cadvisor@sha256:3de2bd5203120b866d74a9b283b2ffb8ec382fbf9dc321814700c6ea6f44ec57
+    # cgroup v2 호스트에서 컨테이너 감지에 필요
+    privileged: true
+    command:
+      # 시스템 슬라이스 cgroup 노이즈 제거 — 도커 컨테이너만 수집
+      - --docker_only=true
+      # 기본 비활성 목록 + disk. disk 는 v0.49 디버깅 중 끈 것이라 새 버전에선 다시 켜도
+      # 될 수 있지만, 서버에서 검증된 상태 그대로 고정한다(컨테이너별 디스크 사용량만 빠짐).
+      # 이 플래그는 기본값을 **대체**하므로 목록 전체를 다시 적어야 한다.
+      - --disable_metrics=advtcp,cpu_topology,cpuset,disk,hugetlb,memory_numa,perf_event,process,referenced_memory,resctrl,sched,tcp,udp
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro

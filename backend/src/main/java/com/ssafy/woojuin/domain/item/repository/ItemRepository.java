@@ -37,7 +37,7 @@ public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificat
      * (목록 조회와 달리 필터가 없다).
      *
      * <p>WHERE 조건은 {@code idx_items_ws_geo} 부분 인덱스의 조건과 정확히 일치시켰다
-     * (ItemIndexInitializer 참고). 조건이 갈리면 인덱스를 못 탄다.
+     * ({@code db/migration/V1__init.sql} 참고). 조건이 갈리면 인덱스를 못 탄다.
      *
      * <p>정렬하지 않는다 — 지도는 핀을 좌표로 배치하므로 순서에 의미가 없다.
      */

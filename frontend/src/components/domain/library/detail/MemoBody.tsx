@@ -39,7 +39,8 @@ const MemoBody = ({ item, workspaceId }: { item: ItemDetail; workspaceId: number
         onChange={(e) => setContent(e.target.value)}
         aria-label="본문"
         placeholder="메모를 입력하세요"
-        className="min-h-[160px] w-full resize-none bg-transparent text-[15px] leading-loose text-text-2 outline-none placeholder:text-text-3"
+        // pointer-coarse:text-base — iOS 입력 포커스 시 확대 방지(fieldStyles 주석 참고)
+        className="min-h-[160px] w-full resize-none bg-transparent text-[15px] leading-loose text-text-2 outline-none pointer-coarse:text-base placeholder:text-text-3"
       />
 
       <div className="mt-2 flex items-center justify-between gap-2">

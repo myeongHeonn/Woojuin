@@ -18,6 +18,9 @@ import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredExcept
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceInvitationRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceEventType;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,15 +42,17 @@ public class WorkspaceInvitationService {
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final WorkspaceInvitationRepository workspaceInvitationRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public WorkspaceInvitationService(WorkspaceRepository workspaceRepository,
                                        WorkspaceMemberRepository workspaceMemberRepository,
                                        WorkspaceInvitationRepository workspaceInvitationRepository,
-                                       UserRepository userRepository) {
+                                       UserRepository userRepository, ApplicationEventPublisher eventPublisher) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.workspaceInvitationRepository = workspaceInvitationRepository;
         this.userRepository = userRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -88,6 +93,7 @@ public class WorkspaceInvitationService {
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
         workspaceMemberRepository.save(
                 WorkspaceMember.builder().workspace(workspace).user(joiner).role(WorkspaceRole.MEMBER).build());
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspace.getId(), WorkspaceEventType.MEMBER));
 
         return WorkspaceResponse.of(workspace, WorkspaceRole.MEMBER);
     }

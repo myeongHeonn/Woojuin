@@ -1,5 +1,6 @@
 package com.ssafy.woojuin.domain.workspace.controller;
 
+import com.ssafy.woojuin.domain.auth.entity.AvatarColor;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceMemberResponse;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceLastOwnerException;
@@ -72,11 +73,13 @@ class WorkspaceMemberControllerTest {
         authenticateAs(1L);
         when(workspaceMemberService.list(10L, 1L)).thenReturn(List.of(
                 new WorkspaceMemberResponse(1L, "우주인", "test@woojuin.com", WorkspaceRole.OWNER,
-                        OffsetDateTime.now(), false)));
+                        OffsetDateTime.now(), false, AvatarColor.BLUE)));
 
         mockMvc.perform(get("/api/workspaces/10/members"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].role").value("OWNER"));
+                .andExpect(jsonPath("$.data[0].role").value("OWNER"))
+                // 공유 워크스페이스에서 각자 고른 색을 쓰려면 목록에 색이 실려야 한다
+                .andExpect(jsonPath("$.data[0].avatarColor").value("BLUE"));
     }
 
     @Test
@@ -123,7 +126,7 @@ class WorkspaceMemberControllerTest {
         authenticateAs(1L);
         when(workspaceMemberService.updateRole(eq(10L), eq(2L), eq(1L), any())).thenReturn(
                 new WorkspaceMemberResponse(2L, "닉네임", "a@woojuin.com", WorkspaceRole.OWNER,
-                        OffsetDateTime.now(), false));
+                        OffsetDateTime.now(), false, AvatarColor.WHITE));
 
         mockMvc.perform(patch("/api/workspaces/10/members/2")
                         .contentType(MediaType.APPLICATION_JSON)

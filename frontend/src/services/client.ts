@@ -43,6 +43,17 @@ api.interceptors.request.use((config) => {
 
 let refreshPromise: Promise<string | null> | null = null;
 
+/**
+ * 토큰 갱신을 요청한다. 동시에 여러 곳이 401을 맞아도 실제 refresh는 한 번만 나간다.
+ * axios 인터셉터 밖(SSE 연결 등)에서도 같은 정책을 타야 해서 함수로 노출한다.
+ */
+export function requestTokenRefresh(): Promise<string | null> {
+  refreshPromise ??= refreshAccessToken().finally(() => {
+    refreshPromise = null;
+  });
+  return refreshPromise;
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = jotaiStore.get(refreshTokenAtom);
   if (!refreshToken) return null;
@@ -67,11 +78,7 @@ api.interceptors.response.use(
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
-      // 동시에 여러 요청이 401을 맞아도 refresh는 한 번만 나가도록 진행 중인 요청을 공유한다.
-      refreshPromise ??= refreshAccessToken().finally(() => {
-        refreshPromise = null;
-      });
-      const newAccessToken = await refreshPromise;
+      const newAccessToken = await requestTokenRefresh();
       if (newAccessToken) {
         original.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(original);

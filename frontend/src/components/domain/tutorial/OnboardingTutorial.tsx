@@ -46,7 +46,8 @@ const personalSteps: TutorialStep[] = [
     view: 'universe',
     label: '통합 검색',
     title: '필요한 정보를 빠르게 찾아요',
-    description: '검색창에서는 단어 기반으로, AI 모드에서는 대화하듯이 검색할 수 있어요.',
+    description:
+      '검색창에서 필요한 정보를 검색할 수 있어요.\nAI 모드에서는 대화하듯이 검색할 수 있어요.',
   },
   {
     selector: '[data-tutorial-view="library"]',
@@ -100,7 +101,8 @@ const sharedWorkspaceSteps: TutorialStep[] = [
     fallbackSelector: '[data-tutorial="workspace-share"]',
     label: '사용자',
     title: '참여 중인 멤버와 역할을 확인해요',
-    description: '상단의 프로필을 누르면 참여 중인 멤버와 OWNER·MEMBER 역할을 확인할 수 있어요.',
+    description:
+      '상단의 프로필을 누르면 참여 중인 멤버가 보여요.\n공유 워크스페이스에서 저장하면 OWNER의 월간 저장 횟수가 차감돼요.',
   },
   {
     selector: '[data-tutorial="workspace-share"]',
@@ -243,6 +245,33 @@ const OnboardingTutorial = () => {
     };
   }, [rect]);
 
+  const actionBubbleStyle = useMemo(() => {
+    const width = Math.min(320, window.innerWidth - 24);
+    if (!rect) {
+      return { width, left: 12, top: 12, direction: 'none' as const, arrowLeft: width / 2 };
+    }
+
+    const bubbleHeight = 64;
+    const gap = 38;
+    const placeBelow = rect.top + rect.height + gap + bubbleHeight < window.innerHeight;
+    const left = Math.min(
+      window.innerWidth - width - 12,
+      Math.max(12, rect.left + rect.width / 2 - width / 2),
+    );
+    const top = placeBelow
+      ? rect.top + rect.height + gap
+      : Math.max(12, rect.top - bubbleHeight - gap);
+    const arrowLeft = Math.min(width - 26, Math.max(26, rect.left + rect.width / 2 - left));
+
+    return {
+      width,
+      left,
+      top,
+      direction: placeBelow ? ('up' as const) : ('down' as const),
+      arrowLeft,
+    };
+  }, [rect]);
+
   if (!isOpen) return null;
 
   const finish = (moveToUniverse = false) => {
@@ -316,25 +345,26 @@ const OnboardingTutorial = () => {
 
       {step.actionView && rect && (
         <div
-          className="pointer-events-none fixed z-20 flex -translate-x-1/2 flex-col items-center gap-1 whitespace-nowrap text-center"
+          className="pointer-events-none fixed z-20 rounded-lg border border-border bg-surface p-5 text-left shadow-modal"
           style={{
-            left: rect.left + rect.width / 2,
-            top: rect.top < window.innerHeight / 2 ? rect.top + rect.height + 14 : rect.top - 64,
+            width: actionBubbleStyle.width,
+            left: actionBubbleStyle.left,
+            top: actionBubbleStyle.top,
           }}
         >
-          {rect.top >= window.innerHeight / 2 && (
-            <span className="animate-bounce text-2xl leading-none text-accent" aria-hidden="true">
-              ↓
-            </span>
-          )}
-          <span className="rounded-full border border-accent/45 bg-surface/95 px-4 py-2 text-sm font-extrabold text-text-1 shadow-float">
-            {step.title}
+          <span
+            className={`absolute text-3xl leading-none text-accent ${
+              actionBubbleStyle.direction === 'up'
+                ? '-top-9 animate-bounce'
+                : '-bottom-9 animate-bounce'
+            }`}
+            style={{ left: actionBubbleStyle.arrowLeft, transform: 'translateX(-50%)' }}
+            aria-hidden="true"
+          >
+            {actionBubbleStyle.direction === 'up' ? '↑' : '↓'}
           </span>
-          {rect.top < window.innerHeight / 2 && (
-            <span className="animate-bounce text-2xl leading-none text-accent" aria-hidden="true">
-              ↑
-            </span>
-          )}
+
+          <h2 className="whitespace-nowrap text-center text-lg font-extrabold">{step.title}</h2>
         </div>
       )}
 

@@ -81,7 +81,12 @@ const ConstellationSearch = () => {
                 {items.length === 0 ? (
                   <p className="py-6 text-center text-sm text-text-3">검색 결과가 없어요</p>
                 ) : (
-                  <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-none">
+                  // 결과는 가로로 늘어선다 — 좌우 버튼 대신 하단에 얇은 스크롤바로 넘긴다.
+                  <div
+                    role="group"
+                    aria-label="검색 결과"
+                    className="mt-2 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar]:h-1.5"
+                  >
                     {items.map((item) => (
                       <ItemCard
                         key={item.itemId}
@@ -110,7 +115,9 @@ const ConstellationSearch = () => {
             onChange={(e) => onChange(e.target.value)}
             placeholder="무엇이든 검색"
             aria-label="검색어"
-            className="min-w-0 flex-1 bg-transparent text-[15px] text-text-1 outline-none placeholder:text-text-3"
+            // pointer-coarse:text-base — 터치 기기에서 16px 미만이면 iOS 가 포커스 시
+            // 화면을 확대하고 키보드가 닫혀도 배율을 되돌리지 않는다(fieldStyles 주석 참고)
+            className="min-w-0 flex-1 bg-transparent text-[15px] text-text-1 outline-none pointer-coarse:text-base placeholder:text-text-3"
           />
           <SearchModeToggle aiMode={localAi} onToggle={() => setLocalAi((v) => !v)} />
         </form>
