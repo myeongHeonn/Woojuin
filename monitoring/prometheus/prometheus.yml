@@ -1,0 +1,35 @@
+# Prometheus 스크레이프 설정.
+#
+# 백엔드 타깃은 **컨테이너 이름**으로 부른다 — Prometheus 가 앱 스택의 internal 네트워크에
+# 참여하므로 도커 내장 DNS 가 이름을 풀어 준다. 서비스 이름(backend)을 쓰지 않는 이유는
+# dev/prod 두 네트워크에 같은 별칭이 있어 어느 쪽인지 모호해지기 때문이다.
+#
+# 백엔드 재생성(배포) 시 컨테이너가 바뀌어도 이름(woojuin-<env>-backend-1)이 유지되므로
+# 타깃 설정은 그대로 유효하다. 잠깐 down 으로 뜨는 건 배포 다운타임 그 자체다.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: node
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # Spring Boot (micrometer-registry-prometheus). /actuator/prometheus 는
+  # management.endpoints.web.exposure 에 prometheus 가 포함돼야 열린다(backend MR 참고).
+  - job_name: backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['woojuin-dev-backend-1:8080']
+        labels: { env: dev }
+      - targets: ['woojuin-prod-backend-1:8080']
+        labels: { env: prod }
