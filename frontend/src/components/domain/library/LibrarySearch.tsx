@@ -54,7 +54,8 @@ const LibrarySearch = () => {
           onChange={(e) => onChange(e.target.value)}
           placeholder="검색"
           aria-label="검색어"
-          className="min-w-0 flex-1 bg-transparent text-[13px] text-text-1 outline-none placeholder:text-text-3"
+          // pointer-coarse:text-base — iOS 입력 포커스 시 확대 방지(fieldStyles 주석 참고)
+          className="min-w-0 flex-1 bg-transparent text-[13px] text-text-1 outline-none pointer-coarse:text-base placeholder:text-text-3"
         />
         <SearchModeToggle aiMode={localAi} onToggle={() => setLocalAi((v) => !v)} />
       </form>
