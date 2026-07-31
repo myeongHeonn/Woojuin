@@ -28,26 +28,26 @@ const LandingPage = () => {
       <LandingHeader />
 
       <section ref={heroRef} className="relative min-h-dvh overflow-hidden px-6">
-      <AnimatedLogoBackdrop />
+        <AnimatedLogoBackdrop />
 
-      <main className="pointer-events-none relative z-[12] mx-auto flex min-h-dvh max-w-3xl flex-col items-center pb-14 pt-[48vh] text-center desktop:pt-[58vh]">
-        <h1 className="text-hero font-extrabold tracking-[-0.02em]">
-          저장은{' '}
-          <span key={countdownRun} className="landing-countdown" aria-label="1">
-            <span className="landing-countdown-seven">7</span>
-            <span className="landing-countdown-six">6</span>
-            <span className="landing-countdown-five">5</span>
-            <span className="landing-countdown-four">4</span>
-            <span className="landing-countdown-three">3</span>
-            <span className="landing-countdown-two">2</span>
-            <span className="landing-countdown-one">1</span>
-          </span>
-          초, 정리는 AI가
-        </h1>
-        <p className="mt-4 max-w-2xl text-[16px] leading-7 text-text-2 desktop:text-lg">
-          흩어진 링크·사진·메모를 하나의 우주에 모아보세요.
-        </p>
-      </main>
+        <main className="landing-hero-content pointer-events-none relative z-[12] mx-auto flex min-h-dvh max-w-3xl flex-col items-center pb-32 pt-[max(66vh,470px)] text-center desktop:pt-[max(64vh,580px)]">
+          <h1 className="text-hero font-extrabold tracking-[-0.02em]">
+            저장은{' '}
+            <span key={countdownRun} className="landing-countdown" aria-label="1">
+              <span className="landing-countdown-seven">7</span>
+              <span className="landing-countdown-six">6</span>
+              <span className="landing-countdown-five">5</span>
+              <span className="landing-countdown-four">4</span>
+              <span className="landing-countdown-three">3</span>
+              <span className="landing-countdown-two">2</span>
+              <span className="landing-countdown-one">1</span>
+            </span>
+            초, 정리는 AI가
+          </h1>
+          <p className="mt-4 max-w-2xl text-[16px] leading-7 text-text-2 desktop:text-lg">
+            흩어진 링크·사진·메모를 하나의 우주에 모아보세요.
+          </p>
+        </main>
       </section>
 
       <LandingFeatureSections />
@@ -57,7 +57,9 @@ const LandingPage = () => {
         className="fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 whitespace-nowrap rounded-full border border-white/10 bg-accent px-6 py-3.5 text-sm font-extrabold tracking-[0.08em] text-white shadow-modal transition hover:-translate-y-1 hover:bg-accent-hover desktop:bottom-7 desktop:px-8"
       >
         WOULD YOU IN?
-        <span aria-hidden="true" className="text-lg leading-none">→</span>
+        <span aria-hidden="true" className="text-lg leading-none">
+          →
+        </span>
       </Link>
     </div>
   );

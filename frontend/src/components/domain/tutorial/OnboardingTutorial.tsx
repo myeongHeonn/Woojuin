@@ -13,6 +13,7 @@ interface TutorialStep {
   selector: string;
   fallbackSelector?: string;
   actionView?: 'library' | 'map';
+  view?: 'universe' | 'library' | 'map';
   label: string;
   title: string;
   description: string;
@@ -34,6 +35,7 @@ const personalSteps: TutorialStep[] = [
   },
   {
     selector: '[data-tutorial-view="universe"]',
+    view: 'universe',
     label: '우주뷰',
     title: '저장한 정보들이 연결돼요',
     description:
@@ -41,6 +43,7 @@ const personalSteps: TutorialStep[] = [
   },
   {
     selector: '[data-tutorial="search"]',
+    view: 'universe',
     label: '통합 검색',
     title: '필요한 정보를 빠르게 찾아요',
     description: '검색창에서는 단어 기반으로, AI 모드에서는 대화하듯이 검색할 수 있어요.',
@@ -55,6 +58,7 @@ const personalSteps: TutorialStep[] = [
   {
     selector: '[data-tutorial-page-content="library"]',
     fallbackSelector: '[data-tutorial-view="library"]',
+    view: 'library',
     label: '대시보드뷰',
     title: '저장한 정보를 한눈에 확인해요',
     description: '링크·사진·메모를 한곳에서 확인하고 수정하거나 삭제할 수\n있어요.',
@@ -69,6 +73,7 @@ const personalSteps: TutorialStep[] = [
   {
     selector: '[data-tutorial-page-content="map"]',
     fallbackSelector: '[data-tutorial-view="map"]',
+    view: 'map',
     label: '지도뷰',
     title: '장소 정보는 지도에서 확인해요',
     description: '위치 정보가 있는 링크와 사진은 지도에도 표시돼요.',
@@ -78,8 +83,7 @@ const personalSteps: TutorialStep[] = [
     fallbackSelector: '[data-tutorial="workspace-title"]',
     label: '워크스페이스',
     title: '함께할 때는 워크스페이스를 만들어요',
-    description:
-      '공유 워크스페이스에는 멤버를 초대할 수 있어요.\n함께 정보를 모아 관리해요.',
+    description: '공유 워크스페이스에는 멤버를 초대할 수 있어요.\n함께 정보를 모아 관리해요.',
   },
 ];
 
@@ -89,16 +93,14 @@ const sharedWorkspaceSteps: TutorialStep[] = [
     fallbackSelector: '[data-tutorial="workspaces"]',
     label: '공유 워크스페이스',
     title: '저장한 정보를 멤버들과 함께 관리해요',
-    description:
-      '모든 멤버가 워크스페이스의 정보와 카테고리를 함께\n추가·수정·삭제할 수 있어요.',
+    description: '모든 멤버가 워크스페이스의 정보와 카테고리를 함께\n추가·수정·삭제할 수 있어요.',
   },
   {
     selector: '[data-tutorial="workspace-members"]',
     fallbackSelector: '[data-tutorial="workspace-share"]',
     label: '사용자',
     title: '참여 중인 멤버와 역할을 확인해요',
-    description:
-      '상단의 프로필을 누르면 참여 중인 멤버와 OWNER·MEMBER 역할을 확인할 수 있어요.',
+    description: '상단의 프로필을 누르면 참여 중인 멤버와 OWNER·MEMBER 역할을 확인할 수 있어요.',
   },
   {
     selector: '[data-tutorial="workspace-share"]',
@@ -166,6 +168,7 @@ const OnboardingTutorial = () => {
   useEffect(() => {
     if (!isOpen || !step.actionView) return;
     if (location.pathname.endsWith(`/${step.actionView}`)) {
+      setRect(null);
       setStepIndex((index) => index + 1);
     }
   }, [isOpen, location.pathname, step.actionView]);
@@ -252,6 +255,30 @@ const OnboardingTutorial = () => {
     }
   };
 
+  const moveToStep = (nextIndex: number) => {
+    const nextStep = steps[nextIndex];
+    if (!nextStep) return;
+
+    setRect(null);
+    setStepIndex(nextIndex);
+
+    if (
+      nextStep.view &&
+      workspaceId !== undefined &&
+      !location.pathname.endsWith(`/${nextStep.view}`)
+    ) {
+      navigate(`/workspace/${workspaceId}/${nextStep.view}`);
+    }
+  };
+
+  const moveToPreviousStep = () => {
+    let previousIndex = stepIndex - 1;
+    while (previousIndex > 0 && steps[previousIndex]?.actionView) {
+      previousIndex -= 1;
+    }
+    moveToStep(previousIndex);
+  };
+
   const overlayPanels = rect
     ? [
         { top: 0, left: 0, right: 0, height: rect.top },
@@ -285,9 +312,7 @@ const OnboardingTutorial = () => {
           style={rect}
         />
       )}
-      {!rect && (
-        <div className="pointer-events-auto absolute inset-0 bg-black/70" />
-      )}
+      {!rect && <div className="pointer-events-auto absolute inset-0 bg-black/70" />}
 
       {step.actionView && rect && (
         <div
@@ -354,7 +379,7 @@ const OnboardingTutorial = () => {
               <button
                 type="button"
                 disabled={stepIndex === 0}
-                onClick={() => setStepIndex((index) => index - 1)}
+                onClick={moveToPreviousStep}
                 className="rounded-l-md border border-border px-3 py-2 text-xs font-semibold text-text-2 enabled:hover:bg-surface-2 disabled:opacity-30"
               >
                 이전
@@ -362,9 +387,7 @@ const OnboardingTutorial = () => {
               <button
                 type="button"
                 onClick={() =>
-                  stepIndex === steps.length - 1
-                    ? finish(true)
-                    : setStepIndex((index) => index + 1)
+                  stepIndex === steps.length - 1 ? finish(true) : moveToStep(stepIndex + 1)
                 }
                 className="rounded-r-md bg-accent px-4 py-2 text-xs font-semibold text-white hover:bg-accent-hover"
               >

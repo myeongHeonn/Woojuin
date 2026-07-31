@@ -1,9 +1,9 @@
 .landing-logo-backdrop {
   position: absolute;
-  top: 31%;
+  top: clamp(320px, 28vh, 400px);
   left: 50%;
   z-index: 11;
-  width: min(472px, 58vw);
+  width: min(500px, 64vw);
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
 }
@@ -91,7 +91,29 @@
 
 @media (max-width: 639px) {
   .landing-logo-backdrop {
-    top: 18%;
-    width: min(472px, 92vw);
+    top: clamp(250px, 31vh, 310px);
+    width: min(430px, 92vw);
+  }
+}
+
+@media (max-height: 800px) and (min-width: 640px) {
+  .landing-logo-backdrop {
+    top: 285px;
+    width: 430px;
+  }
+
+  .landing-hero-content {
+    padding-top: 510px !important;
+  }
+}
+
+@media (max-height: 800px) and (max-width: 639px) {
+  .landing-logo-backdrop {
+    top: 250px;
+    width: min(360px, 90vw);
+  }
+
+  .landing-hero-content {
+    padding-top: 450px !important;
   }
 }
