@@ -5,6 +5,7 @@ import com.ssafy.woojuin.domain.auth.dto.UserProfileResponse;
 import com.ssafy.woojuin.domain.auth.entity.AuthProvider;
 import com.ssafy.woojuin.domain.auth.entity.AvatarColor;
 import com.ssafy.woojuin.domain.auth.entity.User;
+import com.ssafy.woojuin.domain.auth.entity.TutorialType;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,5 +90,31 @@ class UserProfileServiceTest {
         assertThatThrownBy(() -> userProfileService.updateProfile(1L,
                 new UpdateProfileRequest("새닉네임", null, AvatarColor.WHITE)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("개인 튜토리얼 완료 상태만 저장한다")
+    void completeTutorial_personal_updatesOnlyPersonalStatus() {
+        User user = existingUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserProfileResponse response =
+                userProfileService.completeTutorial(1L, TutorialType.PERSONAL);
+
+        assertThat(response.personalTutorialCompleted()).isTrue();
+        assertThat(response.sharedWorkspaceTutorialCompleted()).isFalse();
+    }
+
+    @Test
+    @DisplayName("공유 워크스페이스 튜토리얼 완료 상태를 개인 튜토리얼과 독립적으로 저장한다")
+    void completeTutorial_sharedWorkspace_updatesOnlySharedStatus() {
+        User user = existingUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserProfileResponse response =
+                userProfileService.completeTutorial(1L, TutorialType.SHARED_WORKSPACE);
+
+        assertThat(response.personalTutorialCompleted()).isFalse();
+        assertThat(response.sharedWorkspaceTutorialCompleted()).isTrue();
     }
 }

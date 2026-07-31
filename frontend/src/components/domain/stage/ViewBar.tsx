@@ -43,6 +43,7 @@ const ViewBar = () => {
         return (
           <Link
             key={segment}
+            data-tutorial-view={segment}
             to={to}
             title={label}
             aria-current={active ? 'page' : undefined}

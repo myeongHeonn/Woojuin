@@ -23,6 +23,8 @@ export interface UserProfile {
    * 클라이언트가 알 방법이 없어서 프로필에 실려 온다.
    */
   personalSpaceId: number;
+  personalTutorialCompleted: boolean;
+  sharedWorkspaceTutorialCompleted: boolean;
 }
 
 export interface UpdateProfilePayload {
@@ -96,5 +98,14 @@ export async function fetchMyAiUsage() {
 
 export async function updateMyProfile(payload: UpdateProfilePayload) {
   const res = await api.patch<ApiResponse<UserProfile>>('/users/me', payload);
+  return res.data.data;
+}
+
+export type TutorialType = 'PERSONAL' | 'SHARED_WORKSPACE';
+
+export async function completeTutorial(tutorialType: TutorialType) {
+  const res = await api.patch<ApiResponse<UserProfile>>(
+    `/users/me/tutorials/${tutorialType}/complete`,
+  );
   return res.data.data;
 }
