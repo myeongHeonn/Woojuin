@@ -81,6 +81,10 @@ export async function logout() {
   await api.post<ApiResponse<null>>('/auth/logout');
 }
 
+export async function withdraw() {
+  await api.delete<ApiResponse<null>>('/users/me');
+}
+
 export async function fetchMyProfile() {
   const res = await api.get<ApiResponse<UserProfile>>('/users/me');
   return res.data.data;
