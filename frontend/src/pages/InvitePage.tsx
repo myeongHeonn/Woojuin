@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import axios from 'axios';
-import { accessTokenAtom } from '@/stores/authAtoms';
+import { accessTokenAtom, postLoginRedirectAtom } from '@/stores/authAtoms';
 import type { ApiResponse } from '@/services/client';
 import { useInvitation, useAcceptInvitation } from '@/hooks/useInvitation';
 import Spinner from '@/components/ui/Spinner';
@@ -15,11 +15,15 @@ const InvitePage = () => {
   const { code = '' } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const token = useAtomValue(accessTokenAtom);
+  const setPostLoginRedirect = useSetAtom(postLoginRedirectAtom);
   const { data: invite, isLoading, isError } = useInvitation(code);
   const accept = useAcceptInvitation(code);
 
   const handleAccept = () => {
     if (!token) {
+      // /invite/:code는 AuthLayout 밖의 public 라우트라 그쪽의 리다이렉트 캡처를 안 탄다 —
+      // 여기서 직접 저장해야 로그인 후 이 초대 페이지로 돌아온다.
+      setPostLoginRedirect(`/invite/${code}`);
       navigate('/login');
       return;
     }
