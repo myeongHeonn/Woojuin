@@ -22,6 +22,7 @@ const LoginPage = lazy(() => import('@/pages/LoginPage'));
 const SignupPage = lazy(() => import('@/pages/SignupPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/OAuthCallbackPage'));
 const InvitePage = lazy(() => import('@/pages/InvitePage'));
+const PrivacyPolicyPage = lazy(() => import('@/pages/PrivacyPolicyPage'));
 
 /** lazy 페이지가 청크를 받아오는 동안 보여줄 로딩 자리 */
 const page = (node: ReactNode) => (
@@ -45,6 +46,8 @@ export const router = createBrowserRouter([
   { path: '/signup', element: page(<SignupPage />) },
   // 공유 링크 진입점 — 로그인 전에도 미리보기, 참여는 로그인 후(사이드바 없는 단독 화면)
   { path: '/invite/:code', element: page(<InvitePage />) },
+  // 개인정보처리방침 — 가입 전에도 읽을 수 있어야 하므로 로그인 없이 접근 가능
+  { path: '/privacy', element: page(<PrivacyPolicyPage />) },
   // 구글 OAuth 콜백 (백엔드 woojuin.oauth.redirect-base-url과 경로 일치 필요)
   { path: '/oauth/callback', element: page(<OAuthCallbackPage />) },
   // 로그인해야 들어갈 수 있는 앱 화면들 (사이드바 포함)

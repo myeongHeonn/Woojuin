@@ -4,6 +4,7 @@ import com.ssafy.woojuin.domain.auth.jwt.JwtAuthenticationFilter;
 import com.ssafy.woojuin.domain.auth.jwt.JwtTokenProvider;
 import com.ssafy.woojuin.domain.auth.oauth.CustomOidcUserService;
 import com.ssafy.woojuin.domain.auth.oauth.OAuth2LoginSuccessHandler;
+import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import com.ssafy.woojuin.domain.auth.security.CustomUserDetailsService;
 import com.ssafy.woojuin.global.security.RestAuthenticationEntryPoint;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,6 +39,7 @@ public class SecurityConfig {
     private final CustomOidcUserService customOidcUserService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+    private final UserRepository userRepository;
 
     // 기본값은 application.yml 한 곳에만 둔다(${CORS_ALLOWED_ORIGIN:...}).
     // 여기에도 기본값을 적으면 yml 쪽이 항상 이겨서 죽은 값이 되는데, 코드만 읽은 사람은
@@ -48,12 +50,14 @@ public class SecurityConfig {
     public SecurityConfig(JwtTokenProvider jwtTokenProvider, CustomUserDetailsService userDetailsService,
                            CustomOidcUserService customOidcUserService,
                            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
-                           RestAuthenticationEntryPoint restAuthenticationEntryPoint) {
+                           RestAuthenticationEntryPoint restAuthenticationEntryPoint,
+                           UserRepository userRepository) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userDetailsService = userDetailsService;
         this.customOidcUserService = customOidcUserService;
         this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
         this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
+        this.userRepository = userRepository;
     }
 
     @Bean
@@ -102,7 +106,8 @@ public class SecurityConfig {
                 // JWT 인증 자체는 세션이 필요 없지만, 필요한 쪽(oauth2Login)이 있으니 IF_REQUIRED로 둔다.
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, userRepository),
+                        UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(restAuthenticationEntryPoint))
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.oidcUserService(customOidcUserService))

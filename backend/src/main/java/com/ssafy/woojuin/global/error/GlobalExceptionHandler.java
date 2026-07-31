@@ -1,8 +1,12 @@
 package com.ssafy.woojuin.global.error;
 
+import com.ssafy.woojuin.domain.ai.usage.AiUsageLimitExceededException;
+import com.ssafy.woojuin.domain.ai.usage.AiUsageUnavailableException;
 import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
+import com.ssafy.woojuin.domain.auth.exception.UserNotFoundException;
 import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
+import com.ssafy.woojuin.domain.notification.exception.NotificationTokenNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotAllowedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;
@@ -40,6 +44,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ApiResponse.of(400, e.getMessage(), null);
     }
 
+    @ExceptionHandler(AiUsageLimitExceededException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public ApiResponse<Void> handleAiUsageLimitExceeded(AiUsageLimitExceededException e) {
+        return ApiResponse.of(429, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(AiUsageUnavailableException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiResponse<Void> handleAiUsageUnavailable(AiUsageUnavailableException e) {
+        return ApiResponse.of(503, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleUserNotFound(UserNotFoundException e) {
+        return ApiResponse.of(404, e.getMessage(), null);
+    }
+
     @ExceptionHandler(ItemNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiResponse<Void> handleItemNotFound(ItemNotFoundException e) {
@@ -49,6 +71,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(CategoryNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiResponse<Void> handleCategoryNotFound(CategoryNotFoundException e) {
+        return ApiResponse.of(404, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(NotificationTokenNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleNotificationTokenNotFound(NotificationTokenNotFoundException e) {
         return ApiResponse.of(404, e.getMessage(), null);
     }
 

@@ -65,8 +65,10 @@ export default defineConfig({
         lang: 'ko',
         start_url: '/',
         display: 'standalone',
-        background_color: '#0b0f1e',
-        theme_color: '#0b0f1e',
+        // theme.css 의 --color-space 와 같은 값. index.html 의 theme-color 와도 맞춰야
+        // 설치형 PWA 스플래시/상단바가 앱 배경과 이어져 보인다.
+        background_color: '#0e1017',
+        theme_color: '#0e1017',
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },

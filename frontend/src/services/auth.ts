@@ -33,6 +33,22 @@ export interface UpdateProfilePayload {
   avatarColor: string;
 }
 
+export interface UserStats {
+  totalSaved: number;
+  workspaceCount: number;
+  savedThisWeek: number;
+}
+
+export interface AiUsage {
+  period: string;
+  used: number;
+  limit: number;
+  remaining: number | null;
+  unlimited: boolean;
+  limitEnabled: boolean;
+  resetAt: string;
+}
+
 export interface SignupPayload {
   email: string;
   password: string;
@@ -67,6 +83,16 @@ export async function logout() {
 
 export async function fetchMyProfile() {
   const res = await api.get<ApiResponse<UserProfile>>('/users/me');
+  return res.data.data;
+}
+
+export async function fetchMyStats() {
+  const res = await api.get<ApiResponse<UserStats>>('/users/me/stats');
+  return res.data.data;
+}
+
+export async function fetchMyAiUsage() {
+  const res = await api.get<ApiResponse<AiUsage>>('/users/me/ai-usage');
   return res.data.data;
 }
 

@@ -1,5 +1,6 @@
 package com.ssafy.woojuin.domain.auth.jwt;
 
+import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,13 +24,16 @@ class JwtAuthenticationFilterTest {
     private JwtTokenProvider tokenProvider;
 
     @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private FilterChain filterChain;
 
     private JwtAuthenticationFilter filter;
 
     @BeforeEach
     void setUp() {
-        filter = new JwtAuthenticationFilter(tokenProvider);
+        filter = new JwtAuthenticationFilter(tokenProvider, userRepository);
         SecurityContextHolder.clearContext();
     }
 
@@ -47,11 +51,29 @@ class JwtAuthenticationFilterTest {
 
         when(tokenProvider.validateToken("valid-token")).thenReturn(true);
         when(tokenProvider.getUserId("valid-token")).thenReturn(1L);
+        when(userRepository.existsByIdAndDeletedAtIsNull(1L)).thenReturn(true);
 
         filter.doFilter(request, response, filterChain);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
         assertThat(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).isEqualTo(1L);
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("탈퇴 사용자의 유효한 토큰은 인증하지 않고 체인만 진행한다")
+    void withdrawnUserToken_doesNotAuthenticate_butContinuesChain() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer withdrawn-user-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(tokenProvider.validateToken("withdrawn-user-token")).thenReturn(true);
+        when(tokenProvider.getUserId("withdrawn-user-token")).thenReturn(1L);
+        when(userRepository.existsByIdAndDeletedAtIsNull(1L)).thenReturn(false);
+
+        filter.doFilter(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(filterChain).doFilter(request, response);
     }
 

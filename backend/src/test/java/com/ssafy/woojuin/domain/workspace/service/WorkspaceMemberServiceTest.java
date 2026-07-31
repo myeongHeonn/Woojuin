@@ -83,6 +83,29 @@ class WorkspaceMemberServiceTest {
     }
 
     @Test
+    @DisplayName("탈퇴한 멤버의 개인정보는 탈퇴 사용자 표시로 대체한다")
+    void list_withdrawnMember_masksPersonalInformation() {
+        User owner = user(1L);
+        User withdrawn = user(2L);
+        withdrawn.withdraw();
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember ownerMembership = member(ws, owner, WorkspaceRole.OWNER);
+        WorkspaceMember withdrawnMembership = member(ws, withdrawn, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L))
+                .thenReturn(Optional.of(ownerMembership));
+        when(workspaceMemberRepository.findByWorkspaceId(10L))
+                .thenReturn(List.of(ownerMembership, withdrawnMembership));
+
+        List<WorkspaceMemberResponse> result = workspaceMemberService.list(10L, 1L);
+
+        WorkspaceMemberResponse response = result.get(1);
+        assertThat(response.nickname()).isEqualTo("탈퇴한 사용자");
+        assertThat(response.email()).isNull();
+        assertThat(response.withdrawn()).isTrue();
+    }
+
+    @Test
     @DisplayName("멤버가 아니면 목록 조회 시 403 예외를 던진다")
     void list_notMember_throwsMemberRequired() {
         User owner = user(1L);

@@ -26,8 +26,8 @@ export interface StarNode {
   hub?: Hub;
   star?: Star;
   isHub: boolean;
-  /** 소속 별자리 이름 — 미분류면 null */
-  categoryName: string | null;
+  /** 소속 별자리 이름들 — 미분류면 빈 배열 */
+  categoryNames: string[];
   /** 툴팁 점 색 */
   cssColor: string;
 }
@@ -47,7 +47,8 @@ export interface LabelPosition extends ScreenPosition {
 export interface SceneCallbacks {
   onLabels: (labels: LabelPosition[]) => void;
   onHover: (node: StarNode | null, pos: ScreenPosition | null) => void;
-  onSelect: (node: StarNode) => void;
+  onSelect: (node: StarNode, pos: ScreenPosition) => void;
+  onDeselect: () => void;
 }
 
 export interface UniverseScene {
@@ -138,6 +139,17 @@ export function createUniverseScene(
   /* ── 카테고리 위치 계산 ──────────────────────────── */
   const hubs = deriveHubs(data.constellations);
   const hubById = new Map<number, StarObject>();
+  const categoryNamesByItem = new Map<number, string[]>();
+
+  data.constellations.forEach((constellation) => {
+    constellation.items.forEach((star) => {
+      const categoryNames = categoryNamesByItem.get(star.id) ?? [];
+      if (!categoryNames.includes(constellation.categoryName)) {
+        categoryNames.push(constellation.categoryName);
+      }
+      categoryNamesByItem.set(star.id, categoryNames);
+    });
+  });
 
   /* 성좌 전체를 원점에 맞춘다 (별자리 중심들의 평균) */
   const center = new THREE.Vector3();
@@ -213,7 +225,7 @@ export function createUniverseScene(
       addStar(hub.position, hub.radius, hub.color, {
         hub,
         isHub: true,
-        categoryName: hub.name,
+        categoryNames: [hub.name],
       }),
     );
   });
@@ -225,7 +237,7 @@ export function createUniverseScene(
       const node = addStar(star.position, STAR_RADIUS, colorHex, {
         star,
         isHub: false,
-        categoryName: constellation.categoryName,
+        categoryNames: categoryNamesByItem.get(star.id) ?? [],
       });
       /* 아이템 → 자기 별자리 연결선 */
       const hub = hubById.get(constellation.categoryId);
@@ -249,7 +261,7 @@ export function createUniverseScene(
     addStar(star.position, STAR_RADIUS, UNCLASSIFIED_COLOR, {
       star,
       isHub: false,
-      categoryName: null,
+      categoryNames: [],
     });
   });
 
@@ -314,6 +326,7 @@ export function createUniverseScene(
     if (e.pointerType === 'touch' && activeTouches >= 2) return;
     dragging = true;
     focused = null;
+    callbacks.onDeselect();
     moved = false;
     last = { x: e.clientX, y: e.clientY };
     canvas.style.cursor = 'grabbing';
@@ -364,7 +377,10 @@ export function createUniverseScene(
   const onClick = (e: MouseEvent) => {
     if (moved) return;
     const node = hovered ?? pickAt(e.clientX, e.clientY);
-    if (node) callbacks.onSelect(node);
+    if (node) {
+      focused = node;
+      callbacks.onSelect(node, project(node.position));
+    }
   };
 
   const onWheel = (e: WheelEvent) => {

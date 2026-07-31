@@ -7,6 +7,7 @@ import com.ssafy.woojuin.domain.ai.AiSourceType;
 import com.ssafy.woojuin.domain.ai.CategoryCandidate;
 import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.item.entity.Item;
+import com.ssafy.woojuin.domain.item.event.ItemDoneEvent;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
@@ -20,6 +21,7 @@ import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,12 +63,13 @@ public class UrlItemProcessor implements ItemProcessor {
     private final ContentExtractor contentExtractor;
     private final AiAnalyzer aiAnalyzer;
     private final CategoryAssignmentService categoryAssignmentService;
+    private final ApplicationEventPublisher eventPublisher;
     private final LocationResolver locationResolver;
 
     public UrlItemProcessor(ItemRepository itemRepository, UrlNormalizer urlNormalizer,
             OEmbedClient oEmbedClient, HtmlFetcher htmlFetcher, OpenGraphScraper openGraphScraper,
             ContentExtractor contentExtractor, AiAnalyzer aiAnalyzer,
-            CategoryAssignmentService categoryAssignmentService,
+            CategoryAssignmentService categoryAssignmentService, ApplicationEventPublisher eventPublisher,
             LocationResolver locationResolver) {
         this.itemRepository = itemRepository;
         this.urlNormalizer = urlNormalizer;
@@ -76,6 +79,7 @@ public class UrlItemProcessor implements ItemProcessor {
         this.contentExtractor = contentExtractor;
         this.aiAnalyzer = aiAnalyzer;
         this.categoryAssignmentService = categoryAssignmentService;
+        this.eventPublisher = eventPublisher;
         this.locationResolver = locationResolver;
     }
 
@@ -295,6 +299,7 @@ public class UrlItemProcessor implements ItemProcessor {
     private void finalizeStatus(Item item, UrlPreview preview, boolean contentAcquired) {
         if (contentAcquired) {
             item.markDone();
+            eventPublisher.publishEvent(new ItemDoneEvent(item.getId()));
         } else if (!preview.hasNothing()) {
             item.markPartial();
         } else {

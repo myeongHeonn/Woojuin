@@ -15,6 +15,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.OffsetDateTime;
+
 /**
  * LOCAL 유저는 passwordHash 필수 + providerId NULL, OAuth 유저는 반대.
  * (ERD 설계 노트 CHECK 제약 참고, 검증은 서비스 레이어에서 수행)
@@ -50,6 +52,9 @@ public class User extends BaseTimeEntity {
 
     @Column(name = "profile_image_url", columnDefinition = "TEXT")
     private String profileImageUrl;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
 
     /** 가입 시 자동 생성되는 PERSONAL 워크스페이스의 id. 생성 전에는 null. */
     @Column(name = "personal_workspace_id")
@@ -98,5 +103,15 @@ public class User extends BaseTimeEntity {
             return;
         }
         this.sharedWorkspaceTutorialCompleted = true;
+    }
+
+    public void withdraw() {
+        if (this.deletedAt == null) {
+            this.deletedAt = OffsetDateTime.now();
+        }
+    }
+
+    public boolean isWithdrawn() {
+        return this.deletedAt != null;
     }
 }

@@ -71,7 +71,8 @@ class WorkspaceMemberControllerTest {
     void 멤버_목록_조회_성공() throws Exception {
         authenticateAs(1L);
         when(workspaceMemberService.list(10L, 1L)).thenReturn(List.of(
-                new WorkspaceMemberResponse(1L, "우주인", "test@woojuin.com", WorkspaceRole.OWNER, OffsetDateTime.now())));
+                new WorkspaceMemberResponse(1L, "우주인", "test@woojuin.com", WorkspaceRole.OWNER,
+                        OffsetDateTime.now(), false)));
 
         mockMvc.perform(get("/api/workspaces/10/members"))
                 .andExpect(status().isOk())
@@ -121,7 +122,8 @@ class WorkspaceMemberControllerTest {
     void 역할변경_성공하면_200() throws Exception {
         authenticateAs(1L);
         when(workspaceMemberService.updateRole(eq(10L), eq(2L), eq(1L), any())).thenReturn(
-                new WorkspaceMemberResponse(2L, "닉네임", "a@woojuin.com", WorkspaceRole.OWNER, OffsetDateTime.now()));
+                new WorkspaceMemberResponse(2L, "닉네임", "a@woojuin.com", WorkspaceRole.OWNER,
+                        OffsetDateTime.now(), false));
 
         mockMvc.perform(patch("/api/workspaces/10/members/2")
                         .contentType(MediaType.APPLICATION_JSON)
