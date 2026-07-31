@@ -10,9 +10,11 @@ import AddModal from '@/components/domain/header/AddModal';
  * 저장이 끝나면 close 로 팝오버를 닫는다.
  */
 const AddBtn = () => (
-  <HeaderPopover trigger={<GlassButton icon={<PlusIcon />} aria-label="새로 만들기" />}>
-    {(close) => <AddModal onDone={close} />}
-  </HeaderPopover>
+  <div data-tutorial="save">
+    <HeaderPopover trigger={<GlassButton icon={<PlusIcon />} aria-label="새로 만들기" />}>
+      {(close) => <AddModal onDone={close} />}
+    </HeaderPopover>
+  </div>
 );
 
 export default AddBtn;

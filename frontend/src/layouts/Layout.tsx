@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import SideBar from '@/components/domain/nav/SideBar';
 import TabBar from '@/components/domain/nav/TabBar';
+import OnboardingTutorial from '@/components/domain/tutorial/OnboardingTutorial';
 
 /**
  * 앱 공통 셸 — 내비게이션이 폭에 따라 교체된다 (경계는 theme.css 의 --breakpoint-desktop).
@@ -24,6 +25,8 @@ const Layout = () => {
         {/* 노출 분기는 TabBar 가 스스로 한다 — 여기서는 위치만 정한다 */}
         <TabBar className="absolute inset-x-0 bottom-0 z-30" />
       </div>
+
+      <OnboardingTutorial />
     </div>
   );
 };

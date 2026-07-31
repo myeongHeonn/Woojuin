@@ -15,6 +15,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.OffsetDateTime;
+
 /**
  * LOCAL 유저는 passwordHash 필수 + providerId NULL, OAuth 유저는 반대.
  * (ERD 설계 노트 CHECK 제약 참고, 검증은 서비스 레이어에서 수행)
@@ -51,9 +53,22 @@ public class User extends BaseTimeEntity {
     @Column(name = "profile_image_url", columnDefinition = "TEXT")
     private String profileImageUrl;
 
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
     /** 가입 시 자동 생성되는 PERSONAL 워크스페이스의 id. 생성 전에는 null. */
     @Column(name = "personal_workspace_id")
     private Long personalWorkspaceId;
+
+    /** 개인 스페이스 최초 이용 안내 완료 여부. 기존 사용자 행은 false로 안전하게 채운다. */
+    @Column(name = "personal_tutorial_completed", nullable = false,
+            columnDefinition = "boolean default false")
+    private boolean personalTutorialCompleted;
+
+    /** 공유 워크스페이스 최초 이용 안내 완료 여부. 개인 안내와 독립적으로 관리한다. */
+    @Column(name = "shared_workspace_tutorial_completed", nullable = false,
+            columnDefinition = "boolean default false")
+    private boolean sharedWorkspaceTutorialCompleted;
 
     /** 프로필 아바타 색상. 가입 시 기본값은 WHITE, 나중에 프로필 설정에서 바꿀 수 있게 할 예정. */
     @Enumerated(EnumType.STRING)
@@ -80,5 +95,23 @@ public class User extends BaseTimeEntity {
 
     public void assignPersonalWorkspace(Long workspaceId) {
         this.personalWorkspaceId = workspaceId;
+    }
+
+    public void completeTutorial(TutorialType tutorialType) {
+        if (tutorialType == TutorialType.PERSONAL) {
+            this.personalTutorialCompleted = true;
+            return;
+        }
+        this.sharedWorkspaceTutorialCompleted = true;
+    }
+
+    public void withdraw() {
+        if (this.deletedAt == null) {
+            this.deletedAt = OffsetDateTime.now();
+        }
+    }
+
+    public boolean isWithdrawn() {
+        return this.deletedAt != null;
     }
 }

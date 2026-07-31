@@ -55,12 +55,14 @@ describe('ConstellationSearch', () => {
     await expect.poll(() => panelText(container)).toContain('검색 결과가 없어요');
   });
 
-  it('AI 모드를 켜면 권유 문구가 사라진다', async () => {
+  // AiModeHint 는 토글 상태와 무관하게 항상 보인다 — 자리가 없어지면 검색창이
+  // 위로 움직여 거슬리기 때문(AiModeHint.tsx 주석 참고)
+  it('AI 모드를 켜도 권유 문구가 그대로 남는다', async () => {
     const { container } = await renderSearch();
     expect(panelText(container)).toContain('AI 모드로 바꿔보세요');
 
     await userEvent.click(container.querySelector('button[aria-label="AI 모드"]')!);
-    await expect.poll(() => panelText(container)).not.toContain('AI 모드로 바꿔보세요');
+    await expect.poll(() => panelText(container)).toContain('AI 모드로 바꿔보세요');
   });
 
   it('입력을 다 지우면 결과 패널이 닫힌다', async () => {

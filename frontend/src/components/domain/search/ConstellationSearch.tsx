@@ -22,7 +22,12 @@ const ConstellationSearch = () => {
 
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
+  // aiMode 는 "제출로 확정된" 값 — useSearch(실제 요청)는 이것만 본다.
+  // localAi 는 토글 버튼이 지금 켜져 있는지(다음 제출에 반영될 값)만 나타낸다.
+  // 이 둘을 분리하지 않으면 AI 버튼을 누르는 순간 aiMode 가 바뀌어 queryKey 가 바뀌고,
+  // q 는 이미 채워져 있어 제출(Enter) 없이 즉시 재검색이 나간다.
   const [aiMode, setAiMode] = useState(false);
+  const [localAi, setLocalAi] = useState(false);
   const [openItemId, setOpenItemId] = useState<number | null>(null);
 
   const { items, isLoading, partialMatch, interpretedQuery, aiPlanned } = useSearch(
@@ -34,6 +39,7 @@ const ConstellationSearch = () => {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setQ(text.trim());
+    setAiMode(localAi);
   };
 
   // X — 결과 패널을 닫고(q 비움 → enabled:false 로 정지) 진행 중 요청도 취소한다
@@ -91,9 +97,10 @@ const ConstellationSearch = () => {
         )}
 
         {/* 입력 바 바로 위 우측. 바가 하단 고정이라 검색해도 바는 안 움직이고 패널이 위로 쌓인다 */}
-        <AiModeHint aiMode={aiMode} className="mb-1.5 pr-1.5 text-right" />
+        <AiModeHint className="mb-1.5 pr-1.5 text-right" />
 
         <form
+          data-tutorial="search"
           onSubmit={submit}
           className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface/90 px-4 py-3 shadow-float backdrop-blur-xl"
         >
@@ -105,7 +112,7 @@ const ConstellationSearch = () => {
             aria-label="검색어"
             className="min-w-0 flex-1 bg-transparent text-[15px] text-text-1 outline-none placeholder:text-text-3"
           />
-          <SearchModeToggle aiMode={aiMode} onToggle={() => setAiMode((v) => !v)} />
+          <SearchModeToggle aiMode={localAi} onToggle={() => setLocalAi((v) => !v)} />
         </form>
       </div>
 

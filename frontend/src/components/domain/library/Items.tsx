@@ -80,7 +80,6 @@ const Items = ({ favorite, categoryIds, onOpenItem, onCount }: ItemsProps) => {
       {/* 바닥 감지용 요소 + 로딩/끝 표시 */}
       <div ref={ref} className="grid place-items-center py-6">
         {isFetchingNextPage && <Spinner className="h-6 w-6" />}
-        {!hasNextPage && <span className="text-sm text-text-3">모두 불러왔어요</span>}
       </div>
     </div>
   );

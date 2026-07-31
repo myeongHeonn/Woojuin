@@ -70,7 +70,7 @@ cd backend && ./gradlew bootRun   # 로컬 실행 (:8080)
 3. **트랙 A / 트랙 B**: 모든 콘텐츠 처리는 두 독립 트랙으로 나뉨 — A는 미리보기 카드 생성(oEmbed/OG, 거의 항상 성공), B는 AI가 요약·분류할 실제 콘텐츠 확보(실패 가능). 하나의 실패가 다른 쪽에 영향을 주면 안 됨
 4. **삭제는 soft delete 우선**: 사용자/AI 서포터의 삭제 액션은 항상 휴지통 이동(`items.deleted_at`)이 먼저. 영구 삭제는 휴지통에서만 가능
 5. **워크스페이스 권한**: 모든 아이템은 워크스페이스에 속하며, 접근 시 `WorkspaceMember`(OWNER/MEMBER) 검증 필요
-6. **알림 정책**: AI 처리 DONE일 때만 푸시 발송, FAILED는 발송 생략. 알림 거부 유저를 위해 상태 조회 API(`GET /items/{id}/status`)가 폴백
+6. **알림 정책**: AI 처리 DONE 또는 PARTIAL이면 푸시 발송, FAILED만 발송 생략. 알림 거부 유저를 위해 상태 조회 API(`GET /items/{id}/status`)가 폴백
 
 ## 문서
 

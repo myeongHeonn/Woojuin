@@ -40,13 +40,14 @@ describe('LibrarySearch', () => {
     expect(params(container).get('ai')).toBe('1');
   });
 
-  // 문구는 토글의 현재 상태(localAi)를 따라야 한다 — URL 의 ai 를 보면 켜도 문구가 남는다
-  it('AI 모드를 켜면 권유 문구가 사라진다', async () => {
+  // AiModeHint 는 토글 상태와 무관하게 항상 보인다 — 자리가 없어지면 검색창이
+  // 위로 움직여 거슬리기 때문(AiModeHint.tsx 주석 참고)
+  it('AI 모드를 켜도 권유 문구가 그대로 남는다', async () => {
     const { container } = await renderAt('/');
     expect(container.textContent).toContain('AI 모드로 바꿔보세요');
 
     await userEvent.click(container.querySelector('button[aria-label="AI 모드"]')!);
-    await expect.poll(() => container.textContent).not.toContain('AI 모드로 바꿔보세요');
+    await expect.poll(() => container.textContent).toContain('AI 모드로 바꿔보세요');
   });
 
   it('검색 상태에선 입력창에 검색어가 채워지고, 다 지우면 전체로 돌아간다', async () => {

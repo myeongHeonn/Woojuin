@@ -10,7 +10,8 @@ interface MapPlacePanelProps {
   places: MapPlace[];
   /** 필터 결과가 아니라 지도 장소 데이터 자체가 비어 있는지 */
   isEmpty: boolean;
-  activeCategories: Set<MapCategoryId>;
+  /** 선택된 카테고리 ID. 비어 있으면 대시보드와 동일하게 '전체'만 선택 상태다. */
+  selectedCategories: ReadonlySet<MapCategoryId>;
   favoriteActive: boolean;
   collapsed: boolean;
   selectedPlaceId: number | null;
@@ -25,7 +26,7 @@ const MapPlacePanel = ({
   categories,
   places,
   isEmpty,
-  activeCategories,
+  selectedCategories,
   favoriteActive,
   collapsed,
   selectedPlaceId,
@@ -44,7 +45,7 @@ const MapPlacePanel = ({
     () => new Map(categories.map((category) => [category.categoryId, category])),
     [categories],
   );
-  const allSelected = categories.length > 0 && activeCategories.size === categories.length;
+  const allSelected = selectedCategories.size === 0;
 
   useEffect(() => {
     const element = categoryScrollRef.current;
@@ -237,7 +238,7 @@ const MapPlacePanel = ({
               </button>
 
               {categories.map((category) => {
-                const active = activeCategories.has(category.categoryId);
+                const active = selectedCategories.has(category.categoryId);
 
                 return (
                   <button

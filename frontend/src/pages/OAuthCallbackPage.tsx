@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { useSetAtom } from 'jotai';
+import { useAtom, useSetAtom } from 'jotai';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
+import { accessTokenAtom, postLoginRedirectAtom, refreshTokenAtom } from '@/stores/authAtoms';
 
 /**
  * 구글 로그인 성공 시 백엔드(OAuth2LoginSuccessHandler)가
@@ -12,6 +12,7 @@ export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
   const setAccessToken = useSetAtom(accessTokenAtom);
   const setRefreshToken = useSetAtom(refreshTokenAtom);
+  const [postLoginRedirect, setPostLoginRedirect] = useAtom(postLoginRedirectAtom);
 
   useEffect(() => {
     const accessToken = searchParams.get('accessToken');
@@ -20,7 +21,9 @@ export default function OAuthCallbackPage() {
     if (accessToken && refreshToken) {
       setAccessToken(accessToken);
       setRefreshToken(refreshToken);
-      navigate('/home', { replace: true });
+      // 로그인 전 가려던 경로가 있으면 그리로, 없으면 기본 도착지(/home)로.
+      setPostLoginRedirect(null);
+      navigate(postLoginRedirect ?? '/home', { replace: true });
     } else {
       navigate('/login', { replace: true });
     }

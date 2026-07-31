@@ -79,7 +79,10 @@ const LibraryPage = () => {
       {(!workspaceEmpty || q) && <LibrarySearch />}
 
       {/* 칩 바 아래만 스크롤 — flex-1 로 남은 높이를 채우고 min-h-0 이라야 넘칠 때 줄어든다 */}
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none">
+      <div
+        data-tutorial-page-content="library"
+        className="min-h-0 flex-1 overflow-y-auto scrollbar-none"
+      >
         {q ? (
           <SearchItems q={q} aiMode={aiMode} onOpenItem={setOpenItemId} />
         ) : (
