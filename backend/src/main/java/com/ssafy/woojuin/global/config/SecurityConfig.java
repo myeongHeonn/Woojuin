@@ -3,6 +3,7 @@ package com.ssafy.woojuin.global.config;
 import com.ssafy.woojuin.domain.auth.jwt.JwtAuthenticationFilter;
 import com.ssafy.woojuin.domain.auth.jwt.JwtTokenProvider;
 import com.ssafy.woojuin.domain.auth.oauth.CustomOidcUserService;
+import com.ssafy.woojuin.domain.auth.oauth.OAuth2LoginFailureHandler;
 import com.ssafy.woojuin.domain.auth.oauth.OAuth2LoginSuccessHandler;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import com.ssafy.woojuin.domain.auth.security.CustomUserDetailsService;
@@ -38,6 +39,7 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final CustomOidcUserService customOidcUserService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final UserRepository userRepository;
 
@@ -50,12 +52,14 @@ public class SecurityConfig {
     public SecurityConfig(JwtTokenProvider jwtTokenProvider, CustomUserDetailsService userDetailsService,
                            CustomOidcUserService customOidcUserService,
                            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
+                           OAuth2LoginFailureHandler oAuth2LoginFailureHandler,
                            RestAuthenticationEntryPoint restAuthenticationEntryPoint,
                            UserRepository userRepository) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userDetailsService = userDetailsService;
         this.customOidcUserService = customOidcUserService;
         this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
+        this.oAuth2LoginFailureHandler = oAuth2LoginFailureHandler;
         this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
         this.userRepository = userRepository;
     }
@@ -111,7 +115,8 @@ public class SecurityConfig {
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(restAuthenticationEntryPoint))
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.oidcUserService(customOidcUserService))
-                        .successHandler(oAuth2LoginSuccessHandler))
+                        .successHandler(oAuth2LoginSuccessHandler)
+                        .failureHandler(oAuth2LoginFailureHandler))
                 .build();
     }
 }
