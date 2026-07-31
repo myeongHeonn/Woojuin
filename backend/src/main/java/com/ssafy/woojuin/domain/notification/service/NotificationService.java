@@ -40,7 +40,7 @@ public class NotificationService {
                 .toList();
     }
 
-    /** AGENTS.md 규칙 6: DONE일 때만 호출된다 — FAILED/PARTIAL은 애초에 이 이벤트가 발행되지 않는다. */
+    /** AGENTS.md 규칙 6: DONE 또는 PARTIAL일 때 호출된다 — FAILED는 애초에 이 이벤트가 발행되지 않는다. */
     @EventListener
     @Transactional
     public void onItemDone(ItemDoneEvent event) {

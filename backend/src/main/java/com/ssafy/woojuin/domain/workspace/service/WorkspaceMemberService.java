@@ -11,6 +11,9 @@ import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceEventType;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,11 +28,14 @@ public class WorkspaceMemberService {
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public WorkspaceMemberService(WorkspaceRepository workspaceRepository,
-                                   WorkspaceMemberRepository workspaceMemberRepository) {
+                                   WorkspaceMemberRepository workspaceMemberRepository,
+                                   ApplicationEventPublisher eventPublisher) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -54,6 +60,7 @@ public class WorkspaceMemberService {
         }
 
         target.updateRole(request.role());
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.MEMBER));
         return WorkspaceMemberResponse.of(target);
     }
 
@@ -70,6 +77,7 @@ public class WorkspaceMemberService {
         }
 
         workspaceMemberRepository.delete(target);
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.MEMBER));
     }
 
     private void findWorkspace(Long workspaceId) {

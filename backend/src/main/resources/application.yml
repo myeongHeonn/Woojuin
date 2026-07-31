@@ -23,6 +23,13 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+  task:
+    scheduling:
+      pool:
+        # @Scheduled 기본 풀이 1이라 큐 회수기(PendingMessageReclaimer)가 도는 동안
+        # SSE 하트비트가 밀린다 — 밀린 사이 nginx 유휴 타임아웃(60초)이 지나면 연결이
+        # 끊긴다. 주기 작업이 셋(회수기·재발행기·하트비트)이라 겹쳐도 안 밀리게 잡았다.
+        size: 3
   security:
     oauth2:
       client:
@@ -156,12 +163,14 @@ aws:
     access-key: ${AWS_S3_ACCESS_KEY:woojuin}
     secret-key: ${AWS_S3_SECRET_KEY:woojuin-local}
 
-# 컨테이너 헬스체크·무중단 배포 전환 게이트용. health 외에는 노출하지 않는다.
+# health = 컨테이너 헬스체크·배포 전환 게이트 / prometheus = 모니터링 스택의 메트릭 스크레이프.
+# 둘 다 내부 전용이다 — nginx 가 /actuator 전체를 외부에서 deny 하므로(서버 설정 참고)
+# 노출을 늘려도 공격 표면은 그대로다. 그 외 엔드포인트(env, beans 등)는 계속 닫아 둔다.
 management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
   endpoint:
     health:
       show-details: never   # UP/DOWN만 노출 (DB·Redis 상세는 감춤)

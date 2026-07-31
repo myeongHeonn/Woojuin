@@ -18,7 +18,10 @@ import com.ssafy.woojuin.domain.category.service.CategoryAssignmentService;
 import com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceEventType;
 import java.util.List;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -42,12 +45,13 @@ public class ItemService {
     private final CategoryAssignmentService categoryAssignmentService;
     private final ItemSummaryAssembler itemSummaryAssembler;
     private final AiUsageService aiUsageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ItemService(ItemRepository itemRepository, S3Uploader s3Uploader,
             ItemQueueProducer itemQueueProducer, WorkspaceMemberRepository workspaceMemberRepository,
             ItemCategoryQueryService itemCategoryQueryService,
             CategoryAssignmentService categoryAssignmentService, ItemSummaryAssembler itemSummaryAssembler,
-            AiUsageService aiUsageService) {
+            AiUsageService aiUsageService, ApplicationEventPublisher eventPublisher) {
         this.itemRepository = itemRepository;
         this.s3Uploader = s3Uploader;
         this.itemQueueProducer = itemQueueProducer;
@@ -56,6 +60,7 @@ public class ItemService {
         this.categoryAssignmentService = categoryAssignmentService;
         this.itemSummaryAssembler = itemSummaryAssembler;
         this.aiUsageService = aiUsageService;
+        this.eventPublisher = eventPublisher;
     }
 
     public ItemCreateResponse createFromRequest(Long workspaceId, Long userId, ItemCreateRequest request) {
@@ -147,6 +152,7 @@ public class ItemService {
         // StuckItemRepublisher가 나중에 다시 발행하며 큐 재시도는 추가 차감하지 않는다.
         aiUsageService.commit(usageReservation);
         itemQueueProducer.publish(saved.getId(), workspaceId, saved.getType());
+        publishItemChanged(workspaceId);
         return ItemCreateResponse.from(saved);
     }
 
@@ -216,6 +222,7 @@ public class ItemService {
         if (request.categoryIds() != null) {
             categoryAssignmentService.replace(item.getId(), item.getWorkspaceId(), request.categoryIds());
         }
+        publishItemChanged(item.getWorkspaceId());
         return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
@@ -230,13 +237,16 @@ public class ItemService {
     public ItemFavoriteResponse changeFavorite(Long itemId, Long userId, boolean favorite) {
         Item item = findActiveItem(itemId, userId);
         item.changeFavorite(favorite);
+        publishItemChanged(item.getWorkspaceId());
         return ItemFavoriteResponse.from(item);
     }
 
     /** 삭제는 항상 휴지통 이동이 먼저다 (AGENTS.md 도메인 규칙). */
     @Transactional
     public void moveToTrash(Long itemId, Long userId) {
-        findActiveItem(itemId, userId).moveToTrash();
+        Item item = findActiveItem(itemId, userId);
+        item.moveToTrash();
+        publishItemChanged(item.getWorkspaceId());
     }
 
     @Transactional(readOnly = true)
@@ -256,6 +266,7 @@ public class ItemService {
     public ItemDetailResponse restore(Long itemId, Long userId) {
         Item item = findTrashedItem(itemId, userId);
         item.restore();
+        publishItemChanged(item.getWorkspaceId());
         return ItemDetailResponse.from(item, itemCategoryQueryService.categoriesOf(item.getId()), imageUrlOf(item));
     }
 
@@ -286,6 +297,7 @@ public class ItemService {
         String thumbnailS3Key = item.getThumbnailS3Key();
 
         itemRepository.delete(item);
+        publishItemChanged(item.getWorkspaceId());
 
         // 원본과 썸네일 둘 다 정리한다(썸네일은 IMAGE가 생성됐을 때만 존재).
         if (s3Key != null) {
@@ -303,6 +315,10 @@ public class ItemService {
                 .orElseThrow(() -> new ItemNotFoundException(itemId));
         verifyMembership(item.getWorkspaceId(), userId);
         return item;
+    }
+
+    private void publishItemChanged(Long workspaceId) {
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.ITEM));
     }
 
     private Item findTrashedItem(Long itemId, Long userId) {

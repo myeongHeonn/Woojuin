@@ -11,6 +11,7 @@ import {
   fetchMyStats,
   logout,
   updateMyProfile,
+  withdraw,
   type UpdateProfilePayload,
 } from '@/services/auth';
 import { deleteNotificationToken } from '@/services/notifications';
@@ -53,6 +54,24 @@ const MyPage = () => {
     },
     onError: () => {
       setToast({ message: '프로필을 변경하지 못했습니다. 다시 시도해 주세요.', tone: 'error' });
+    },
+  });
+
+  const withdrawMutation = useMutation({
+    mutationFn: withdraw,
+    onSuccess: () => {
+      setConfirmKind(null);
+      setAccessToken(null);
+      setRefreshToken(null);
+      setFcmToken(null);
+      queryClient.clear();
+      navigate('/');
+    },
+    onError: () => {
+      setToast({
+        message: '회원 탈퇴에 실패했습니다. 다시 시도해 주세요.',
+        tone: 'error',
+      });
     },
   });
 
@@ -150,13 +169,10 @@ const MyPage = () => {
       <ConfirmModal
         open={confirmKind === 'withdraw'}
         title="회원 탈퇴"
-        description="회원 탈퇴 기능은 아직 준비 중입니다. 실제 계정과 저장된 콘텐츠는 삭제되지 않습니다."
-        confirmLabel="확인"
+        description="정말 회원 탈퇴하시겠어요? 탈퇴하면 계정 이용이 중단되며, 저장된 데이터는 개인정보 처리방침에 따라 처리됩니다."
+        confirmLabel={withdrawMutation.isPending ? '처리 중...' : '확인'}
         onCancel={() => setConfirmKind(null)}
-        onConfirm={() => {
-          setConfirmKind(null);
-          setToast({ message: '회원 탈퇴 기능은 준비 중입니다.', tone: 'info' });
-        }}
+        onConfirm={() => withdrawMutation.mutate()}
       />
       <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>

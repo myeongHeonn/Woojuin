@@ -18,6 +18,7 @@ backend/bin/
 .env
 .env.*
 !.env.example
+!.env.monitoring.example
 *.pem
 firebase-adminsdk*.json
 

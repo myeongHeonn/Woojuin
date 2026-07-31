@@ -17,6 +17,8 @@ import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredExcept
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceInvitationRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceEventType;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -85,6 +87,7 @@ public class WorkspaceService {
         WorkspaceMember member = requireOwner(workspaceId, userId);
 
         workspace.updateName(request.name());
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.WORKSPACE));
         return WorkspaceResponse.of(workspace, member.getRole());
     }
 
@@ -96,6 +99,7 @@ public class WorkspaceService {
         workspaceMemberRepository.deleteAll(workspaceMemberRepository.findByWorkspaceId(workspaceId));
         workspaceInvitationRepository.deleteAll(workspaceInvitationRepository.findByWorkspaceId(workspaceId));
         workspaceRepository.delete(workspace);
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.WORKSPACE));
     }
 
     /** 회원가입 이벤트에 반응해 PERSONAL 워크스페이스 생성을 시도한다. */

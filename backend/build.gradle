@@ -22,6 +22,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // /actuator/prometheus 로 JVM·HTTP·커넥션 풀 메트릭 노출 (모니터링 스택이 스크레이프).
+    // actuator 가 클래스패스에서 발견하면 자동 배선되므로 의존성 추가 + 엔드포인트 노출이 전부다.
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 
     // 루트의 .env를 자동으로 읽어 환경변수로 주입 (별도 export 없이 bootRun 가능).
     // spring-dotenv(코어)는 수동 등록이 필요해 Boot 3 auto-registration이 되는
