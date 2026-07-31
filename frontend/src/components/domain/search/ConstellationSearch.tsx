@@ -100,6 +100,7 @@ const ConstellationSearch = () => {
         <AiModeHint className="mb-1.5 pr-1.5 text-right" />
 
         <form
+          data-tutorial="search"
           onSubmit={submit}
           className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface/90 px-4 py-3 shadow-float backdrop-blur-xl"
         >

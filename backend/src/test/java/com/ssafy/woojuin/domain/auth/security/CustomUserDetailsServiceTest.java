@@ -38,7 +38,7 @@ class CustomUserDetailsServiceTest {
                 .nickname("우주인")
                 .build();
         ReflectionTestUtils.setField(user, "id", 1L);
-        when(userRepository.findByEmailAndProvider("test@woojuin.com", AuthProvider.LOCAL))
+        when(userRepository.findByEmailAndProviderAndDeletedAtIsNull("test@woojuin.com", AuthProvider.LOCAL))
                 .thenReturn(Optional.of(user));
 
         CustomUserPrincipal principal =
@@ -52,10 +52,21 @@ class CustomUserDetailsServiceTest {
     @Test
     @DisplayName("존재하지 않는 이메일이면 UsernameNotFoundException을 던진다")
     void loadUserByUsername_unknownEmail_throwsUsernameNotFoundException() {
-        when(userRepository.findByEmailAndProvider("unknown@woojuin.com", AuthProvider.LOCAL))
+        when(userRepository.findByEmailAndProviderAndDeletedAtIsNull("unknown@woojuin.com", AuthProvider.LOCAL))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userDetailsService.loadUserByUsername("unknown@woojuin.com"))
+                .isInstanceOf(UsernameNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("탈퇴한 LOCAL 계정은 조회되지 않아 로그인할 수 없다")
+    void loadUserByUsername_withdrawnUser_throwsUsernameNotFoundException() {
+        when(userRepository.findByEmailAndProviderAndDeletedAtIsNull(
+                "withdrawn@woojuin.com", AuthProvider.LOCAL))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userDetailsService.loadUserByUsername("withdrawn@woojuin.com"))
                 .isInstanceOf(UsernameNotFoundException.class);
     }
 }

@@ -13,11 +13,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -53,6 +55,27 @@ class OAuthAccountServiceTest {
         assertThat(result).isSameAs(existing);
         verify(userRepository, never()).save(any(User.class));
         verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("탈퇴한 OAuth 계정은 다시 로그인할 수 없다")
+    void findOrCreateUser_withdrawnAccount_throwsAuthenticationException() {
+        User withdrawn = User.builder()
+                .email("withdrawn@google.com")
+                .provider(AuthProvider.GOOGLE)
+                .providerId("google-withdrawn")
+                .emailVerified(true)
+                .nickname("탈퇴 전 닉네임")
+                .build();
+        withdrawn.withdraw();
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-withdrawn"))
+                .thenReturn(Optional.of(withdrawn));
+
+        assertThatThrownBy(() -> oAuthAccountService.findOrCreateUser(
+                AuthProvider.GOOGLE, "google-withdrawn", "withdrawn@google.com", "닉네임"))
+                .isInstanceOf(OAuth2AuthenticationException.class);
+
+        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test

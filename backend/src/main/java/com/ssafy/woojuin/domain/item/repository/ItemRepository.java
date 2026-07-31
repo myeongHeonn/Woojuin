@@ -12,6 +12,11 @@ import org.springframework.data.repository.query.Param;
 
 public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificationExecutor<Item> {
 
+    long countByCreatedByAndDeletedAtIsNull(Long createdBy);
+
+    long countByCreatedByAndDeletedAtIsNullAndCreatedAtGreaterThanEqual(
+            Long createdBy, OffsetDateTime createdAt);
+
     /**
      * 오래 PROCESSING에 머문 아이템 조회 — 재발행 안전망({@code StuckItemRepublisher})용.
      * 오래된 것부터 처리하도록 createdAt 오름차순. 휴지통 여부는 거르지 않는다 —

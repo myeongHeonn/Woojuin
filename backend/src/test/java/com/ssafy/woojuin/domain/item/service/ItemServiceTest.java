@@ -11,6 +11,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ssafy.woojuin.domain.ai.usage.AiUsageLimitExceededException;
+import com.ssafy.woojuin.domain.ai.usage.AiUsageReservation;
+import com.ssafy.woojuin.domain.ai.usage.AiUsageService;
 import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
@@ -65,6 +68,9 @@ class ItemServiceTest {
     private com.ssafy.woojuin.domain.category.service.CategoryAssignmentService categoryAssignmentService;
 
     @Mock
+    private AiUsageService aiUsageService;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     private ItemService itemService;
@@ -80,10 +86,13 @@ class ItemServiceTest {
     void setUpMembership() {
         itemService = new ItemService(itemRepository, s3Uploader, itemQueueProducer,
                 workspaceMemberRepository, itemCategoryQueryService, categoryAssignmentService,
-                new ItemSummaryAssembler(itemCategoryQueryService, s3Uploader), eventPublisher);
+                new ItemSummaryAssembler(itemCategoryQueryService, s3Uploader), aiUsageService,
+                eventPublisher);
 
         lenient().when(workspaceMemberRepository.findByWorkspaceIdAndUserId(any(), any()))
                 .thenReturn(Optional.of(mock(WorkspaceMember.class)));
+        lenient().when(aiUsageService.reserveForItemCreation(any()))
+                .thenReturn(AiUsageReservation.disabled());
         // 읽기 경로가 카테고리를 조회하지만 이 테스트들의 관심사는 아니라 기본 빈 결과로 둔다.
         lenient().when(itemCategoryQueryService.categoriesByItemIds(any())).thenReturn(java.util.Map.of());
         lenient().when(itemCategoryQueryService.categoriesOf(any())).thenReturn(List.of());
@@ -627,6 +636,34 @@ class ItemServiceTest {
 
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).favorite()).isTrue();
+    }
+
+    @Test
+    void monthlyLimitExceeded_doesNotSaveItem() {
+        ItemCreateRequest request = new ItemCreateRequest(
+                ItemType.URL, "https://example.com", null);
+        when(aiUsageService.reserveForItemCreation(10L))
+                .thenThrow(new AiUsageLimitExceededException(50));
+
+        assertThatThrownBy(() -> itemService.createFromRequest(10L, 1L, request))
+                .isInstanceOf(AiUsageLimitExceededException.class);
+
+        verify(itemRepository, never()).save(any());
+        verify(itemQueueProducer, never()).publish(any(), any(), any());
+    }
+
+    @Test
+    void imageLimitExceeded_doesNotUploadToS3() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "photo.png", "image/png", new byte[] {1});
+        when(aiUsageService.reserveForItemCreation(10L))
+                .thenThrow(new AiUsageLimitExceededException(50));
+
+        assertThatThrownBy(() -> itemService.createFromImage(10L, 1L, file))
+                .isInstanceOf(AiUsageLimitExceededException.class);
+
+        verifyNoInteractions(s3Uploader);
+        verify(itemRepository, never()).save(any());
     }
 
     private Item trashedItem() {

@@ -23,12 +23,30 @@ export interface UserProfile {
    * 클라이언트가 알 방법이 없어서 프로필에 실려 온다.
    */
   personalSpaceId: number;
+  personalTutorialCompleted: boolean;
+  sharedWorkspaceTutorialCompleted: boolean;
 }
 
 export interface UpdateProfilePayload {
   nickname: string;
   profileImageUrl: string | null;
   avatarColor: string;
+}
+
+export interface UserStats {
+  totalSaved: number;
+  workspaceCount: number;
+  savedThisWeek: number;
+}
+
+export interface AiUsage {
+  period: string;
+  used: number;
+  limit: number;
+  remaining: number | null;
+  unlimited: boolean;
+  limitEnabled: boolean;
+  resetAt: string;
 }
 
 export interface SignupPayload {
@@ -68,7 +86,26 @@ export async function fetchMyProfile() {
   return res.data.data;
 }
 
+export async function fetchMyStats() {
+  const res = await api.get<ApiResponse<UserStats>>('/users/me/stats');
+  return res.data.data;
+}
+
+export async function fetchMyAiUsage() {
+  const res = await api.get<ApiResponse<AiUsage>>('/users/me/ai-usage');
+  return res.data.data;
+}
+
 export async function updateMyProfile(payload: UpdateProfilePayload) {
   const res = await api.patch<ApiResponse<UserProfile>>('/users/me', payload);
+  return res.data.data;
+}
+
+export type TutorialType = 'PERSONAL' | 'SHARED_WORKSPACE';
+
+export async function completeTutorial(tutorialType: TutorialType) {
+  const res = await api.patch<ApiResponse<UserProfile>>(
+    `/users/me/tutorials/${tutorialType}/complete`,
+  );
   return res.data.data;
 }
