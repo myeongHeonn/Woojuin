@@ -4,6 +4,7 @@ import com.ssafy.woojuin.domain.ai.usage.AiUsageLimitExceededException;
 import com.ssafy.woojuin.domain.ai.usage.AiUsageUnavailableException;
 import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
 import com.ssafy.woojuin.domain.auth.exception.UserNotFoundException;
+import com.ssafy.woojuin.domain.auth.exception.WithdrawnUserException;
 import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
 import com.ssafy.woojuin.domain.notification.exception.NotificationTokenNotFoundException;
@@ -60,6 +61,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiResponse<Void> handleUserNotFound(UserNotFoundException e) {
         return ApiResponse.of(404, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(WithdrawnUserException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Void> handleWithdrawnUser(WithdrawnUserException e) {
+        return ApiResponse.of(401, e.getMessage(), null);
     }
 
     @ExceptionHandler(ItemNotFoundException.class)
