@@ -39,6 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
@@ -69,6 +70,9 @@ class ItemServiceTest {
     @Mock
     private AiUsageService aiUsageService;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private ItemService itemService;
 
     /**
@@ -82,7 +86,8 @@ class ItemServiceTest {
     void setUpMembership() {
         itemService = new ItemService(itemRepository, s3Uploader, itemQueueProducer,
                 workspaceMemberRepository, itemCategoryQueryService, categoryAssignmentService,
-                new ItemSummaryAssembler(itemCategoryQueryService, s3Uploader), aiUsageService);
+                new ItemSummaryAssembler(itemCategoryQueryService, s3Uploader), aiUsageService,
+                eventPublisher);
 
         lenient().when(workspaceMemberRepository.findByWorkspaceIdAndUserId(any(), any()))
                 .thenReturn(Optional.of(mock(WorkspaceMember.class)));
