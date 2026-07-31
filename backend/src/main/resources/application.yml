@@ -156,12 +156,14 @@ aws:
     access-key: ${AWS_S3_ACCESS_KEY:woojuin}
     secret-key: ${AWS_S3_SECRET_KEY:woojuin-local}
 
-# 컨테이너 헬스체크·무중단 배포 전환 게이트용. health 외에는 노출하지 않는다.
+# health = 컨테이너 헬스체크·배포 전환 게이트 / prometheus = 모니터링 스택의 메트릭 스크레이프.
+# 둘 다 내부 전용이다 — nginx 가 /actuator 전체를 외부에서 deny 하므로(서버 설정 참고)
+# 노출을 늘려도 공격 표면은 그대로다. 그 외 엔드포인트(env, beans 등)는 계속 닫아 둔다.
 management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
   endpoint:
     health:
       show-details: never   # UP/DOWN만 노출 (DB·Redis 상세는 감춤)
