@@ -88,13 +88,21 @@ public class SecurityConfig {
      * 안 열면 axios가 baseURL을 절대경로로 쓰는 순간(=Vite 프록시를 안 타는 순간)
      * 모든 요청이 브라우저 단에서 CORS로 막힌다 — 응답 자체를 못 받아서 네트워크
      * 탭에 상태코드도 안 찍히고 콘솔에도 별다른 에러가 안 남는 게 특징.
+     *
+     * <p>허용 목록은 {@code woojuin.cors.allowed-origins} 하나만 본다. 여기에 localhost를
+     * 무조건 더하지 않는 이유: 그러면 운영에서도 개발 주소가 항상 허용된다(사용자 PC의 5173에서
+     * 도는 아무 프로세스가 운영 API를 인증된 상태로 호출할 수 있고 allowCredentials도 켜져 있다).
+     * 로컬 개발은 application.yml의 기본값이 이미 5173을 넣어 주므로 손실이 없다 — 단, 확장
+     * 테스트처럼 변수를 직접 줄 때는 5173도 **함께** 적어야 한다(.env.example 참고).
+     *
+     * <p>참고: 목록에 없는 Origin은 브라우저가 막기 전에 Spring이 403 "Invalid CORS request"로
+     * 먼저 자른다. 크롬 확장은 GET엔 Origin을 안 보내고 POST엔 보내므로, 등록이 빠져 있으면
+     * "조회는 되는데 저장만 403"이라는 헷갈리는 증상이 된다(2026-08-02 실측).
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         LinkedHashSet<String> allowedOrigins = new LinkedHashSet<>();
-        // 로컬 웹앱은 개발 중 항상 백엔드(8080)를 직접 호출한다.
-        allowedOrigins.add("http://localhost:5173");
         Arrays.stream(allowedOriginsValue.split(","))
                 .map(String::trim)
                 .filter(origin -> !origin.isEmpty())
