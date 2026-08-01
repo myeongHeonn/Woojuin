@@ -170,7 +170,7 @@ export default function Popup() {
         {/* 구글은 첫 로그인이 곧 가입이다(웹앱 LoginForm 과 같은 고지) */}
         <p style={styles.hint}>
           {loginOpened
-            ? '새 탭에서 로그인을 마친 뒤 아래를 눌러 주세요.'
+            ? '로그인 창은 끝나면 자동으로 닫혀요. 닫힌 뒤 이 아이콘을 다시 눌러 주세요.'
             : '계정이 없어도 구글 로그인으로 바로 시작할 수 있어요.'}
         </p>
         {loginOpened && (

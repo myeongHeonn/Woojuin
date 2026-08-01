@@ -28,9 +28,70 @@ function parseStoredToken(raw: string | null | undefined): string | null {
   }
 }
 
-/** 웹앱 로그인 화면을 새 탭으로 연다. 계정이 없어도 구글 로그인이 곧 가입이다. */
+/** 로그인 창의 windowId. 서비스워커는 언제든 죽을 수 있어 메모리 대신 storage 에 둔다. */
+const LOGIN_WINDOW_KEY = 'loginWindowId';
+
+/** 백엔드가 토큰을 실어 보내는 콜백 경로 (OAuthCallbackPage 가 받는 그 주소) */
+export const OAUTH_CALLBACK_PREFIX = `${WEB_ORIGIN}/oauth/callback`;
+
+/**
+ * 웹앱 로그인 화면을 **작은 팝업 창**으로 연다. 계정이 없어도 구글 로그인이 곧 가입이다.
+ *
+ * 탭이 아니라 팝업 창인 이유: 로그인만 받고 사라지는 흐름이라 사용자의 탭 목록을 어지럽히지
+ * 않는 편이 낫다. 크기는 모바일 뷰에 가깝게 잡아 웹앱의 좁은 화면 레이아웃이 뜨게 한다.
+ * 구글 로그인은 iframe 을 거부하지만 이건 진짜 브라우저 창이라 정상 동작한다.
+ */
 export async function openWebLogin(): Promise<void> {
-  await chrome.tabs.create({ url: `${WEB_ORIGIN}/login` });
+  const window = await chrome.windows.create({
+    url: `${WEB_ORIGIN}/login`,
+    type: 'popup',
+    width: 460,
+    height: 760,
+    focused: true,
+  });
+  if (window.id !== undefined) {
+    await chrome.storage.local.set({ [LOGIN_WINDOW_KEY]: window.id });
+  }
+}
+
+/**
+ * OAuth 콜백 URL 에서 토큰을 채 간다.
+ *
+ * 웹앱이 localStorage 에 쓰기를 기다리지 않고 URL 에서 바로 읽는 이유: 콜백 주소에 토큰이
+ * 그대로 들어 있어(백엔드가 그렇게 리다이렉트한다) 더 빠르고, 스크립트 주입도 필요 없다.
+ * localStorage 수확(harvestWebSession)은 이미 로그인된 탭에서 이어받을 때 쓴다.
+ *
+ * @returns 토큰을 얻었는지
+ */
+export async function captureTokensFromCallback(url: string): Promise<boolean> {
+  if (!url.startsWith(OAUTH_CALLBACK_PREFIX)) return false;
+  const params = new URL(url).searchParams;
+  const accessToken = params.get('accessToken');
+  const refreshToken = params.get('refreshToken');
+  if (!accessToken || !refreshToken) return false;
+  await saveTokens(accessToken, refreshToken);
+  return true;
+}
+
+/**
+ * 로그인용으로 띄운 팝업 창을 닫는다. 사용자가 직접 열어 둔 우주인 창은 건드리지 않는다
+ * (우리가 만든 windowId 만 닫는다).
+ *
+ * @param delayMs 닫기 전 여유. 웹앱이 자기 세션(localStorage)을 저장하고 다음 화면으로
+ *   넘어갈 시간을 준다 — 즉시 닫으면 확장만 로그인되고 브라우저의 우주인 탭은 로그아웃
+ *   상태로 남는다.
+ */
+export async function closeLoginWindow(delayMs = 700): Promise<void> {
+  const stored = await chrome.storage.local.get(LOGIN_WINDOW_KEY);
+  const windowId = stored[LOGIN_WINDOW_KEY] as number | undefined;
+  if (windowId === undefined) return;
+  await chrome.storage.local.remove(LOGIN_WINDOW_KEY);
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+  try {
+    await chrome.windows.remove(windowId);
+  } catch {
+    // 사용자가 이미 닫은 경우 — 무해하다
+  }
 }
 
 /**
