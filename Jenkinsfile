@@ -207,7 +207,8 @@ pipeline {
                             // 백엔드만 바뀐 경우에도 ai-mix 이미지를 그 SHA 로 만들어 둬야 한다.
                             // 그래서 둘을 하나의 플래그로 묶는다. 캐시가 있으면 재빌드는 몇 초다.
                             env.CHANGED_BE = lines.any {
-                                it.startsWith('backend/') || it.startsWith('ai/ai-mix/')
+                                it.startsWith('backend/') || it.startsWith('ai/ai-mix/') ||
+                                    it.startsWith('crawler/')
                             } ? 'true' : 'false'
                             env.CHANGED_FE = lines.any { it.startsWith('frontend/') } ? 'true' : 'false'
 
@@ -296,6 +297,28 @@ pipeline {
             }
         }
 
+        stage('Crawler Build Image') {
+            // crawler = Scrapling(브라우저 렌더) 기반 본문 추출 폴백 사이드카.
+            // Jsoup 으로 본문이 안 나오는 SPA·봇차단 페이지에서만 호출된다.
+            //
+            // ⚠️ **이미지가 2.29GB** 다(로컬 실측). camoufox 브라우저 바이너리 + GTK 계열
+            //    시스템 라이브러리가 들어가서 ai-mix(922MB)의 2.5배다. 서버 디스크는 264G
+            //    여유가 있어 문제없지만, SHA 태그가 쌓이는 건 레이어 공유라 커밋당 증가는 작다.
+            //    첫 빌드는 apt + pip + `scrapling install`(브라우저 다운로드)로 수 분 걸린다.
+            //
+            // 📌 캐시된 재빌드가 느리면(2.29GB 재export) 태그 전략을 `:${TARGET_ENV}` 로 바꿔
+            //    crawler/ 가 바뀔 때만 빌드하는 쪽을 검토할 것. 지금은 backend/aimix 와
+            //    **같은 규칙(SHA 고정)** 을 유지해 "지금 뜬 게 어느 커밋인가"를 잃지 않는다.
+            when { expression { env.CHANGED_BE == 'true' } }
+            steps {
+                sh """
+                    docker build \
+                        -t woojuin-crawler:${env.SHORT_SHA} \
+                        -f crawler/Dockerfile crawler
+                """
+            }
+        }
+
         stage('Frontend Test') {
             // 🔴 브라우저 테스트가 **끝났는데도 종료되지 않는** 사례를 겪었다(13분+ 매달림).
             //    전체 timeout(30분)에 맡기면 그만큼 잡이 점유된다. 여기서 빨리 실패하게 못 박는다.
@@ -380,20 +403,34 @@ pipeline {
                     // 변수를 개별 Credential 로 10여 개 등록하는 대신 **파일 통째로 Secret file** 로 올린다.
                     // withCredentials 가 임시 파일에 풀어 주고, 빌드가 끝나면 삭제된다(로그에도 안 찍힘).
                     withCredentials([file(credentialsId: "${env.ENV_CREDENTIAL}", variable: 'ENV_FILE')]) {
-                        // BACKEND_IMAGE 를 쉘 환경변수로 준다. compose 치환에서 쉘 환경변수가
-                        // --env-file 보다 우선하므로 .env.dev 의 값을 이번 커밋 SHA 로 덮어쓴다.
-                        // --profile aimix: compose 에서 ai-mix 는 profile 뒤에 있어 기본 up 으로는
-                        //   뜨지 않는다(크롤러와 같은 방식). 여기서 명시해야 스택에 포함된다.
-                        //   ⚠️ 배포마다 항상 붙인다 — 빠뜨리면 다음 배포에서 desired state 에
-                        //      ai-mix 가 없어져 AI 기능이 조용히 사라진다.
-                        //   crawler 는 여전히 profile 밖이다(이미지 빌드·자원 판단이 별건 — 문서 참고).
+                        // 이미지 태그를 쉘 환경변수로 준다. compose 치환에서 쉘 환경변수가
+                        // --env-file 보다 우선하므로 .env 의 값을 이번 커밋 SHA 로 덮어쓴다.
+                        //
+                        // ── 어떤 사이드카를 띄우는가는 **.env 가 정한다** ──────────────────
+                        // aimix·crawler 는 compose 에서 profile 뒤에 있어 기본 up 으로는 뜨지 않는다.
+                        // 예전에는 여기 `--profile aimix` 를 박아 뒀는데, 그러면 환경별로 다르게
+                        // 켤 수 없고 켜고 끄려면 파이프라인을 고쳐야 했다.
+                        // `COMPOSE_PROFILES` 는 compose 예약 변수라 **--env-file 로도 먹는다**(실측).
+                        //   .env.dev  : COMPOSE_PROFILES=aimix,crawler
+                        //   .env.prod : COMPOSE_PROFILES=aimix       ← 이렇게 환경별로 다르게 가능
+                        //
+                        // ⚠️ 그 줄이 없으면 사이드카가 **하나도** 안 뜬다(그리고 이미 떠 있던 것은
+                        //    desired state 에서 빠져 조용히 사라진다). 그래서 up 전에 실제 대상
+                        //    서비스 목록을 로그로 남긴다 — 빠졌을 때 로그만 보고 알 수 있게.
                         sh """
-                            BACKEND_IMAGE=woojuin-backend:${env.SHORT_SHA} \
-                            AIMIX_IMAGE=woojuin-aimix:${env.SHORT_SHA} \
+                            echo "이번 배포 대상 서비스:"
                             docker compose -p ${STACK} \
                                 --env-file "\$ENV_FILE" \
                                 -f ${DEPLOY_FILE} \
-                                --profile aimix \
+                                config --services | sort | sed 's/^/  /'
+                        """
+                        sh """
+                            BACKEND_IMAGE=woojuin-backend:${env.SHORT_SHA} \
+                            AIMIX_IMAGE=woojuin-aimix:${env.SHORT_SHA} \
+                            CRAWLER_IMAGE=woojuin-crawler:${env.SHORT_SHA} \
+                            docker compose -p ${STACK} \
+                                --env-file "\$ENV_FILE" \
+                                -f ${DEPLOY_FILE} \
                                 up -d
                         """
                     }
@@ -437,13 +474,19 @@ pipeline {
             }
         }
 
-        stage('AI Mix Health Check') {
-            // 백엔드와 달리 **빌드를 실패시키지 않고 UNSTABLE 로만 표시**한다.
-            //   - ai-mix 는 compose 의 depends_on 에 없고(profile 서비스는 넣을 수 없다),
-            //     백엔드는 사이드카가 없으면 요약·분류·임베딩을 NoOp 으로 폴백해 저장·검색은 정상이다.
+        stage('Sidecar Health Check') {
+            // 사이드카(aimix·crawler)는 백엔드와 달리 **빌드를 실패시키지 않고 UNSTABLE 로만
+            // 표시**한다.
+            //   - 둘 다 compose 의 depends_on 에 없다(profile 서비스는 넣을 수 없다 — 넣으면
+            //     compose 가 `depends on undefined service` 로 프로젝트 자체를 거부한다).
+            //   - 백엔드가 사이드카 부재를 견딘다: aimix 없으면 요약·분류·임베딩이 NoOp,
+            //     crawler 없으면 Jsoup 결과만 쓴다. 저장·검색·지도는 정상 동작한다.
             //     즉 이게 안 떠도 서비스는 살아 있으므로 배포를 막을 근거가 없다.
-            //   - 그렇다고 조용히 넘기면 "AI 기능만 안 되는" 상태를 아무도 모른다(우리가 반복해서
+            //   - 그렇다고 조용히 넘기면 "그 기능만 안 되는" 상태를 아무도 모른다(우리가 반복해서
             //     겪은 실패 유형). 노란 빌드 + 로그로 드러나게 한다.
+            //
+            // 📌 켜지 않은 사이드카는 **컨테이너가 아예 없다**(.env 의 COMPOSE_PROFILES 가 결정).
+            //    그건 정상 상태이므로 건너뛴다 — "안 켰다"와 "켰는데 죽었다"를 구분한다.
             when {
                 allOf {
                     anyOf { branch 'develop'; branch 'main' }
@@ -452,39 +495,54 @@ pipeline {
             }
             steps {
                 script {
-                    def container = "${env.STACK}-aimix-1"
-                    // healthcheck 의 start_period 가 30s → 최대 90초까지 기다린다.
-                    def status = sh(returnStdout: true, script: """
-                        for i in \$(seq 1 18); do
-                            s=\$(docker inspect --format '{{.State.Health.Status}}' ${container} 2>/dev/null || echo missing)
-                            if [ "\$s" != "starting" ]; then echo "\$s"; exit 0; fi
-                            sleep 5
-                        done
-                        docker inspect --format '{{.State.Health.Status}}' ${container} 2>/dev/null || echo missing
-                    """).trim()
+                    // ⚠️ `.each { }` 대신 for 루프를 쓴다 — Jenkins 는 파이프라인 코드를 CPS 로
+                    //    변환하는데, 클로저 안의 `continue` 성격의 `return` 이 직관과 다르게
+                    //    동작하는 사례가 알려져 있다. for 루프는 그 위험이 없다.
+                    def sidecars = [
+                        [name: 'aimix',   port: 8002, feature: '요약·분류·임베딩·우주 뷰'],
+                        [name: 'crawler', port: 8001, feature: 'SPA·봇차단 페이지 본문 추출 폴백'],
+                    ]
+                    for (s in sidecars) {
+                        def container = "${env.STACK}-${s.name}-1"
 
-                    if (status != 'healthy') {
-                        sh "docker logs --tail=50 ${container} 2>&1 || true"
-                        unstable("ai-mix 가 healthy 가 아니다(${status}) — 요약·분류·임베딩·우주 뷰가 " +
-                                 '동작하지 않는다. 저장·검색·지도는 정상 동작한다.')
-                        return
-                    }
+                        // healthcheck 의 start_period 가 30s → 최대 90초까지 기다린다.
+                        def status = sh(returnStdout: true, script: """
+                            for i in \$(seq 1 18); do
+                                st=\$(docker inspect --format '{{.State.Health.Status}}' ${container} 2>/dev/null || echo missing)
+                                if [ "\$st" != "starting" ]; then echo "\$st"; exit 0; fi
+                                sleep 5
+                            done
+                            docker inspect --format '{{.State.Health.Status}}' ${container} 2>/dev/null || echo missing
+                        """).trim()
 
-                    // ⚠️ healthy 가 "동작함"을 뜻하지 않는다. `/health` 는 **API 키가 없어도
-                    //    200 UP** 을 돌려준다(로컬 실측). 그래서 컨테이너 상태만 보면 키가 빠진
-                    //    상태를 절대 못 잡는다 — 우리가 반복해서 겪은 "조용한 실패" 그대로다.
-                    //    다행히 응답에 apiKeyConfigured 가 있어 그걸 근거로 판단한다.
-                    def body = sh(returnStdout: true, script: """
-                        docker exec ${container} python -c "import urllib.request;print(urllib.request.urlopen('http://localhost:8002/health').read().decode())" 2>/dev/null || echo '{}'
-                    """).trim()
-                    echo "ai-mix /health: ${body}"
+                        if (status == 'missing') {
+                            echo "${s.name}: 켜지 않음 (.env 의 COMPOSE_PROFILES 에 없다) — 건너뜀"
+                            continue
+                        }
+                        if (status != 'healthy') {
+                            sh "docker logs --tail=50 ${container} 2>&1 || true"
+                            unstable("${s.name} 이 healthy 가 아니다(${status}) — ${s.feature} 가 " +
+                                     '동작하지 않는다. 저장·검색·지도는 정상 동작한다.')
+                            continue
+                        }
 
-                    if (body.contains('"apiKeyConfigured":true')) {
-                        echo 'ai-mix 정상 (healthy + API 키 있음)'
-                    } else {
-                        unstable('ai-mix 는 떴지만 OPENROUTER_API_KEY 가 비어 있다 — 요약·분류·임베딩이 ' +
-                                 '전부 실패한다(컨테이너는 healthy 로 보인다). 서버 .env 와 Jenkins ' +
-                                 "credential(${env.ENV_CREDENTIAL}) 양쪽에 키를 넣을 것.")
+                        // ⚠️ healthy 가 "동작함"을 뜻하지 않는다. ai-mix 의 `/health` 는 **API 키가
+                        //    없어도 200 UP** 을 돌려준다(로컬 실측). 컨테이너 상태만 보면 키가 빠진
+                        //    상태를 절대 못 잡는다 — "조용한 실패" 그대로다. 응답 본문까지 본다.
+                        def body = sh(returnStdout: true, script: """
+                            docker exec ${container} python -c "import urllib.request;print(urllib.request.urlopen('http://localhost:${s.port}/health').read().decode())" 2>/dev/null || echo '{}'
+                        """).trim()
+                        echo "${s.name} /health: ${body}"
+
+                        // apiKeyConfigured 를 노출하는 사이드카(ai-mix)만 키 검사를 한다.
+                        // crawler 는 외부 API 키가 필요 없어 healthy 면 그게 준비 완료다.
+                        if (body.contains('"apiKeyConfigured":false')) {
+                            unstable("${s.name} 은 떴지만 OPENROUTER_API_KEY 가 비어 있다 — ${s.feature} 가 " +
+                                     '전부 실패한다(컨테이너는 healthy 로 보인다). 서버 .env 와 Jenkins ' +
+                                     "credential(${env.ENV_CREDENTIAL}) 양쪽에 키를 넣을 것.")
+                        } else {
+                            echo "${s.name} 정상 (healthy)"
+                        }
                     }
                 }
             }
@@ -504,18 +562,30 @@ pipeline {
                 //    `docker run -v` 의 경로는 **호스트 데몬이 해석**하므로 호스트 경로가 유효하다.
                 //    → 산출물이 담긴 이미지를 호스트 웹루트를 마운트한 채로 실행해 복사한다.
                 //
-                // ⚠️ 지우고 복사하는 사이 몇 초간 404 가 날 수 있다. 정적 파일의 무중단 교체는
-                //    nginx root 를 심볼릭 링크로 두고 새 디렉토리를 만든 뒤 링크만 바꾸는 방식이다.
-                //    dev 에는 과하다고 보고 지금은 단순하게 간다(개선 항목으로 문서화됨).
+                // 🔴 옛 빌드의 해시 애셋을 **지우지 않는다** (2026-07-31, rm -rf 제거).
+                //    배포를 가로질러 열려 있던 탭은 자기(옛) index.html 이 가리키는 옛 해시
+                //    청크를 요청하는데, 지워 버리면 lazy 페이지로 이동하는 순간
+                //    "Failed to fetch dynamically imported module" 로 크래시한다(dev 실측).
+                //    해시 파일명은 내용 기반이라 옛 파일을 남겨 둬도 충돌·버전 섞임이 없고,
+                //    새 방문은 매번 덮어써지는 index.html 이 새 청크로 이끈다.
+                //    대신 7일간 어떤 배포에도 포함되지 않은 파일만 정리한다(cp 가 mtime 을
+                //    갱신하므로 mtime 7일 초과 = 최근 7일의 모든 빌드에서 빠진 파일).
+                //    7일 넘긴 탭은 프론트의 vite:preloadError 핸들러가 새로고침으로 복구한다.
+                //
+                // 부수 효과: 예전의 "지우고 복사하는 사이 몇 초간 404" 창도 없어졌다.
+                //    (남는 건 index.html 덮어쓰기 순간뿐 — 심볼릭 링크 교체는 백로그 유지)
                 //
                 // `cp -r /dist/. /out/` 의 `.` 이 중요하다 — `/dist` 로 쓰면 /out/dist 가 되어
-                // nginx 가 404 를 낸다.
+                // nginx 가 404 를 낸다. 빈 디렉토리 정리의 rmdir 는 비어 있지 않으면 실패하는
+                // 성질을 그대로 이용한다(|| true 로 무시).
                 lock("${env.DEPLOY_LOCK}") {
                     sh """
                         docker run --rm \
                             -v ${FRONTEND_WEBROOT}:/out \
                             woojuin-frontend:${env.SHORT_SHA}-${env.TARGET_ENV} \
-                            sh -c 'rm -rf /out/* && cp -r /dist/. /out/ && ls -1 /out | head'
+                            sh -c 'find /out -type f -mtime +7 -delete && \
+                                   find /out -mindepth 1 -depth -type d -exec rmdir {} + 2>/dev/null; \
+                                   cp -r /dist/. /out/ && ls -1 /out | head'
                     """
                     // nginx 가 실제로 새 파일을 내주는지 확인한다 — 복사만 성공하고 nginx 설정이
                     // 어긋나 있으면 404 인데, 그건 배포 성공이 아니다.

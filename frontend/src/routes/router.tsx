@@ -5,6 +5,7 @@ import Spinner from '@/components/ui/Spinner';
 import AuthLayout from '@/layouts/AuthLayout';
 import Layout from '@/layouts/Layout';
 import StageLayout from '@/layouts/StageLayout';
+import WorkspaceLayout from '@/layouts/WorkspaceLayout';
 import DesktopOnly from '@/layouts/DesktopOnly';
 
 // 페이지는 lazy 로 분할한다 — 특히 성좌(three)·지도(maplibre)가 무거워서,
@@ -19,9 +20,10 @@ const TrashPage = lazy(() => import('@/pages/TrashPage'));
 const MapPage = lazy(() => import('@/pages/MapPage'));
 const CanvasPage = lazy(() => import('@/pages/CanvasPage'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
-const SignupPage = lazy(() => import('@/pages/SignupPage'));
+// const SignupPage = lazy(() => import('@/pages/SignupPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/OAuthCallbackPage'));
 const InvitePage = lazy(() => import('@/pages/InvitePage'));
+const PrivacyPolicyPage = lazy(() => import('@/pages/PrivacyPolicyPage'));
 
 /** lazy 페이지가 청크를 받아오는 동안 보여줄 로딩 자리 */
 const page = (node: ReactNode) => (
@@ -42,9 +44,12 @@ export const router = createBrowserRouter([
     element: page(<LandingPage />),
   },
   { path: '/login', element: page(<LoginPage />) },
-  { path: '/signup', element: page(<SignupPage />) },
+  // 회원가입 임시 보류
+  // { path: '/signup', element: page(<SignupPage />) },
   // 공유 링크 진입점 — 로그인 전에도 미리보기, 참여는 로그인 후(사이드바 없는 단독 화면)
   { path: '/invite/:code', element: page(<InvitePage />) },
+  // 개인정보처리방침 — 가입 전에도 읽을 수 있어야 하므로 로그인 없이 접근 가능
+  { path: '/privacy', element: page(<PrivacyPolicyPage />) },
   // 구글 OAuth 콜백 (백엔드 woojuin.oauth.redirect-base-url과 경로 일치 필요)
   { path: '/oauth/callback', element: page(<OAuthCallbackPage />) },
   // 로그인해야 들어갈 수 있는 앱 화면들 (사이드바 포함)
@@ -60,6 +65,8 @@ export const router = createBrowserRouter([
           { path: '/my', element: page(<MyPage />) },
           {
             path: '/workspace/:workspaceId',
+            // 화면은 안 그리고 변경 신호(SSE) 구독만 한다 — 휴지통까지 한 연결로 덮는다
+            element: <WorkspaceLayout />,
             children: [
               // 뷰 없이 들어오면 성좌가 기본
               { index: true, element: <Navigate to="universe" replace /> },

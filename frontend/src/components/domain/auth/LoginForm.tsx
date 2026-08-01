@@ -1,14 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
-import { useSetAtom } from 'jotai';
-import { Link, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import axios from 'axios';
-import { login } from '@/services/auth';
-import { loginSchema, type LoginFormValues } from '@/schemas/authSchemas';
-import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
-import FormTextField from '@/components/ui/form/FormTextField';
-import SubmitButton from '@/components/ui/button/SubmitButton';
+import { Link } from 'react-router-dom';
 import GoogleAuthButton from './GoogleAuthButton';
 
 /**
@@ -19,52 +9,35 @@ import GoogleAuthButton from './GoogleAuthButton';
  * CSS 로만 감춰지므로, 자동 포커스가 엉뚱한 곳으로 튈 수 있다.
  */
 const LoginForm = () => {
-  const navigate = useNavigate();
-  const setAccessToken = useSetAtom(accessTokenAtom);
-  const setRefreshToken = useSetAtom(refreshTokenAtom);
-  const formMethods = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
-  const { handleSubmit } = formMethods;
-
-  const loginMutation = useMutation({
-    mutationFn: login,
-    onSuccess: (tokens) => {
-      setAccessToken(tokens.accessToken);
-      setRefreshToken(tokens.refreshToken);
-      navigate('/home');
-    },
-  });
-
-  const errorMessage = axios.isAxiosError(loginMutation.error)
-    ? (loginMutation.error.response?.data?.message ?? '로그인에 실패했습니다')
-    : null;
-
   return (
     <div className="flex w-full flex-col gap-4">
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={handleSubmit((values) => loginMutation.mutate(values))}
-      >
-        <FormTextField type="email" placeholder="이메일" name="email" formMethods={formMethods} />
-        <FormTextField
-          type="password"
-          placeholder="비밀번호"
-          name="password"
-          formMethods={formMethods}
-        />
-        {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
-        <SubmitButton pending={loginMutation.isPending} pendingLabel="로그인 중...">
-          로그인
-        </SubmitButton>
+      {/* 이메일·비밀번호 로그인은 현재 사용하지 않는다.
+      <form className="flex flex-col gap-3">
+        <FormTextField type="email" placeholder="이메일" name="email" />
+        <FormTextField type="password" placeholder="비밀번호" name="password" />
+        <SubmitButton>로그인</SubmitButton>
       </form>
+      */}
 
       <GoogleAuthButton />
 
+      {/* 구글은 첫 로그인이 곧 가입이라(OAuthAccountService.findOrCreateUser) 여기에도 고지한다 */}
+      <p className="text-center text-xs text-text-3">
+        로그인하면{' '}
+        <Link to="/privacy" className="underline underline-offset-2 hover:text-text-2">
+          개인정보처리방침
+        </Link>
+        에 동의하는 것으로 봅니다.
+      </p>
+
+      {/* 이메일 회원가입은 현재 사용하지 않는다.
       <p className="text-center text-sm text-text-3">
         계정이 없으신가요?{' '}
         <Link to="/signup" className="font-semibold text-accent hover:text-accent-hover">
           회원가입
         </Link>
       </p>
+      */}
     </div>
   );
 };

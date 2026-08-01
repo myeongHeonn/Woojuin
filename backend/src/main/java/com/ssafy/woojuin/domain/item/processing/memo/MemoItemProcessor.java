@@ -13,6 +13,8 @@ import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceEventType;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -67,6 +69,7 @@ public class MemoItemProcessor implements ItemProcessor {
         enrichWithAi(item);
         item.markDone();
         eventPublisher.publishEvent(new ItemDoneEvent(item.getId()));
+        eventPublisher.publishEvent(WorkspaceChangedEvent.of(item.getWorkspaceId(), WorkspaceEventType.ITEM));
         log.info("메모 가공 완료: itemId={}, status={}", item.getId(), item.getStatus());
     }
 

@@ -42,7 +42,7 @@ const LibrarySearch = () => {
     // 우측 정렬·폭 제한은 래퍼가 갖는다 — 안내 문구가 검색창과 같은 폭 기준으로 오른쪽에 맞아야 하고,
     // ml-auto 는 부모(LibraryPage 의 flex-col)의 flex auto margin 으로 동작한다
     <div className="mb-2 ml-auto max-w-100">
-      <AiModeHint aiMode={localAi} className="mb-1 pr-1 text-right" />
+      <AiModeHint className="mb-1 pr-1 text-right" />
 
       <form
         onSubmit={submit}
@@ -54,7 +54,8 @@ const LibrarySearch = () => {
           onChange={(e) => onChange(e.target.value)}
           placeholder="검색"
           aria-label="검색어"
-          className="min-w-0 flex-1 bg-transparent text-[13px] text-text-1 outline-none placeholder:text-text-3"
+          // pointer-coarse:text-base — iOS 입력 포커스 시 확대 방지(fieldStyles 주석 참고)
+          className="min-w-0 flex-1 bg-transparent text-[13px] text-text-1 outline-none pointer-coarse:text-base placeholder:text-text-3"
         />
         <SearchModeToggle aiMode={localAi} onToggle={() => setLocalAi((v) => !v)} />
       </form>

@@ -20,6 +20,7 @@ const MemberStack = ({ workspaceId }: { workspaceId: number }) => {
 
   return (
     <div
+      data-tutorial="workspace-members"
       className="relative"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
@@ -33,8 +34,8 @@ const MemberStack = ({ workspaceId }: { workspaceId: number }) => {
         {shown.map((m) => (
           <Avatar
             key={m.userId}
-            userId={m.userId}
             name={m.nickname}
+            color={m.avatarColor}
             className="ring-2 ring-space"
           />
         ))}

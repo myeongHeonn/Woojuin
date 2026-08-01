@@ -80,6 +80,15 @@ const SignupForm = () => {
         </SubmitButton>
       </form>
 
+      {/* 가입 = 방침 동의 — 문서는 로그인 없이 볼 수 있어야 하므로 /privacy 는 공개 라우트다 */}
+      <p className="text-center text-xs text-text-3">
+        가입하면{' '}
+        <Link to="/privacy" className="underline underline-offset-2 hover:text-text-2">
+          개인정보처리방침
+        </Link>
+        에 동의하는 것으로 봅니다.
+      </p>
+
       <p className="text-center text-sm text-text-3">
         이미 계정이 있으신가요?{' '}
         <Link to="/login" className="font-semibold text-accent hover:text-accent-hover">

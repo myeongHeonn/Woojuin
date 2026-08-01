@@ -1,12 +1,19 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useNavigate } from 'react-router-dom';
 import ProfileCard from '@/components/domain/mypage/ProfileCard';
 import SettingsCard from '@/components/domain/mypage/SettingsCard';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import Toast, { type ToastMessage } from '@/components/ui/Toast';
-import { logout, updateMyProfile, type UpdateProfilePayload } from '@/services/auth';
+import {
+  fetchMyAiUsage,
+  fetchMyStats,
+  logout,
+  updateMyProfile,
+  withdraw,
+  type UpdateProfilePayload,
+} from '@/services/auth';
 import { deleteNotificationToken } from '@/services/notifications';
 import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
 import { fcmTokenAtom } from '@/stores/pushAtoms';
@@ -26,6 +33,19 @@ const MyPage = () => {
   const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
+  const { data: stats } = useQuery({
+    queryKey: ['user', 'me', 'stats'],
+    queryFn: fetchMyStats,
+  });
+  const {
+    data: aiUsage,
+    isPending: isAiUsagePending,
+    isError: isAiUsageError,
+  } = useQuery({
+    queryKey: ['user', 'me', 'ai-usage'],
+    queryFn: fetchMyAiUsage,
+  });
+
   const profileMutation = useMutation({
     mutationFn: (payload: UpdateProfilePayload) => updateMyProfile(payload),
     onSuccess: (profile) => {
@@ -34,6 +54,24 @@ const MyPage = () => {
     },
     onError: () => {
       setToast({ message: '프로필을 변경하지 못했습니다. 다시 시도해 주세요.', tone: 'error' });
+    },
+  });
+
+  const withdrawMutation = useMutation({
+    mutationFn: withdraw,
+    onSuccess: () => {
+      setConfirmKind(null);
+      setAccessToken(null);
+      setRefreshToken(null);
+      setFcmToken(null);
+      queryClient.clear();
+      navigate('/');
+    },
+    onError: () => {
+      setToast({
+        message: '회원 탈퇴에 실패했습니다. 다시 시도해 주세요.',
+        tone: 'error',
+      });
     },
   });
 
@@ -85,15 +123,17 @@ const MyPage = () => {
 
         <section aria-label="활동 통계" className="mb-4 grid grid-cols-3 gap-3">
           {[
-            ['—', '전체 저장'],
-            ['—', '워크스페이스'],
-            ['—', '이번 주 저장'],
+            [stats?.totalSaved, '전체 저장'],
+            [stats?.workspaceCount, '워크스페이스'],
+            [stats?.savedThisWeek, '이번 주 저장'],
           ].map(([value, label]) => (
             <div
-              key={label}
+              key={String(label)}
               className="rounded-lg border border-border-soft bg-surface px-3 py-4 desktop:px-[18px]"
             >
-              <div className="text-[22px] font-extrabold text-text-1">{value}</div>
+              <div className="text-[22px] font-extrabold text-text-1">
+                {typeof value === 'number' ? value.toLocaleString('ko-KR') : '—'}
+              </div>
               <div className="mt-0.5 text-xs text-text-3">{label}</div>
             </div>
           ))}
@@ -102,8 +142,9 @@ const MyPage = () => {
         <SettingsCard
           notificationEnabled={notificationEnabled}
           onNotificationToggle={handleNotificationToggle}
-          onUpgrade={() => setToast({ message: 'Pro 플랜은 준비 중입니다.', tone: 'info' })}
-          onHelp={() => setToast({ message: '고객센터는 준비 중입니다.', tone: 'info' })}
+          aiUsage={aiUsage}
+          aiUsageLoading={isAiUsagePending}
+          aiUsageError={isAiUsageError}
         />
 
         <div className="mt-[34px] text-center">
@@ -128,13 +169,10 @@ const MyPage = () => {
       <ConfirmModal
         open={confirmKind === 'withdraw'}
         title="회원 탈퇴"
-        description="회원 탈퇴 기능은 아직 준비 중입니다. 실제 계정과 저장된 콘텐츠는 삭제되지 않습니다."
-        confirmLabel="확인"
+        description="정말 회원 탈퇴하시겠어요? 탈퇴하면 계정 이용이 중단되며, 저장된 데이터는 개인정보 처리방침에 따라 처리됩니다."
+        confirmLabel={withdrawMutation.isPending ? '처리 중...' : '확인'}
         onCancel={() => setConfirmKind(null)}
-        onConfirm={() => {
-          setConfirmKind(null);
-          setToast({ message: '회원 탈퇴 기능은 준비 중입니다.', tone: 'info' });
-        }}
+        onConfirm={() => withdrawMutation.mutate()}
       />
       <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>

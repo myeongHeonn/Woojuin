@@ -12,6 +12,11 @@ import org.springframework.data.repository.query.Param;
 
 public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificationExecutor<Item> {
 
+    long countByCreatedByAndDeletedAtIsNull(Long createdBy);
+
+    long countByCreatedByAndDeletedAtIsNullAndCreatedAtGreaterThanEqual(
+            Long createdBy, OffsetDateTime createdAt);
+
     /**
      * 오래 PROCESSING에 머문 아이템 조회 — 재발행 안전망({@code StuckItemRepublisher})용.
      * 오래된 것부터 처리하도록 createdAt 오름차순. 휴지통 여부는 거르지 않는다 —
@@ -32,7 +37,7 @@ public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificat
      * (목록 조회와 달리 필터가 없다).
      *
      * <p>WHERE 조건은 {@code idx_items_ws_geo} 부분 인덱스의 조건과 정확히 일치시켰다
-     * (ItemIndexInitializer 참고). 조건이 갈리면 인덱스를 못 탄다.
+     * ({@code db/migration/V1__init.sql} 참고). 조건이 갈리면 인덱스를 못 탄다.
      *
      * <p>정렬하지 않는다 — 지도는 핀을 좌표로 배치하므로 순서에 의미가 없다.
      */

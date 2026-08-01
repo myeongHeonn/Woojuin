@@ -3,13 +3,81 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b0f1e" />
+    <!-- 브라우저 UI 바 색. theme.css 의 --color-space 와 같은 값이어야 앱 배경과 이어져 보인다 -->
+    <meta name="theme-color" content="#0e1017" />
+
     <title>우주인 — 올인원 AI 스크랩북</title>
+    <meta
+      name="description"
+      content="저장은 1초, 정리는 AI가, 찾을 땐 검색 한 번. 링크·사진·메모를 던져두면 우주인이 알아서 별자리로 정리합니다."
+    />
+
+    <!-- ── 아이콘 ─────────────────────────────────────────────────
+         전부 src/assets/mainIcon.svg 에서 생성한다 (scripts/generate-icons.mjs).
+         - favicon.svg: 크롬·파이어폭스·엣지 탭 아이콘. 벡터라 배율 무관하게 선명하다
+         - favicon.ico: SVG 파비콘을 안 읽는 브라우저 폴백(16·32·48). 루트 /favicon.ico 는
+           링크가 없어도 브라우저가 알아서 찾으므로, 파일이 없으면 404 로그만 쌓인다
+         - apple-touch-icon: iOS 홈 화면. 정사각·불투명이어야 한다(iOS 가 직접 깎는다)
+         - PWA 아이콘(icons/*)은 manifest 쪽 — vite.config.ts 의 VitePWA manifest 참고 -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- iOS 홈 화면에서 앱처럼 뜰 때의 이름·상태바. manifest 를 안 읽는 사파리 몫이다 -->
+    <meta name="apple-mobile-web-app-title" content="우주인" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- ── 공유 미리보기(카톡·슬랙·디스코드·X) ────────────────────
+         og:image·og:url 은 상대경로를 못 읽는 크롤러가 있어 절대 URL 이어야 한다.
+         값은 **공개 프로덕션 주소로 고정**한다 — dev 배포(dev.woojuin.store)에서도 같은
+         값이 나가지만, 개발 주소를 크롤러에 흘릴 이유가 없으니 그게 의도한 동작이다. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="우주인" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:url" content="https://woojuin.store/" />
+    <meta property="og:title" content="우주인 — 올인원 AI 스크랩북" />
+    <meta property="og:description" content="저장은 1초, 정리는 AI가, 찾을 땐 검색 한 번" />
+    <meta property="og:image" content="https://woojuin.store/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="우주인 — 올인원 AI 스크랩북" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="우주인 — 올인원 AI 스크랩북" />
+    <meta name="twitter:description" content="저장은 1초, 정리는 AI가, 찾을 땐 검색 한 번" />
+    <meta name="twitter:image" content="https://woojuin.store/og-image.png" />
+
     <!-- 디자인 토큰(--font-sans)이 Pretendard 를 첫 후보로 쓰므로 목업과 동일하게 로드 -->
     <link
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
       rel="stylesheet"
     />
+    <!-- Clarity 분석을 위한 script -->
+    <script type="text/javascript">
+      (function (c, l, a, r, i, t, y) {
+        c[a] =
+          c[a] ||
+          function () {
+            (c[a].q = c[a].q || []).push(arguments);
+          };
+        t = l.createElement(r);
+        t.async = 1;
+        t.src = 'https://www.clarity.ms/tag/' + i;
+        y = l.getElementsByTagName(r)[0];
+        y.parentNode.insertBefore(t, y);
+      })(window, document, 'clarity', 'script', 'xusmy39zk8');
+    </script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-EGS7HHSXPY"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag('js', new Date());
+
+      gtag('config', 'G-EGS7HHSXPY');
+    </script>
   </head>
   <body>
     <div id="root"></div>

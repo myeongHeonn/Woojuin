@@ -64,12 +64,13 @@ const MapPage = () => {
     setOpenItemId(null);
   }, [categories, categoriesLoaded, workspaceId]);
 
+  const selectedCategorySet = useMemo(() => new Set(selectedCategories), [selectedCategories]);
   const activeCategories = useMemo(
     () =>
-      selectedCategories.length === 0
+      selectedCategorySet.size === 0
         ? new Set(categories.map((category) => category.categoryId))
-        : new Set(selectedCategories),
-    [categories, selectedCategories],
+        : selectedCategorySet,
+    [categories, selectedCategorySet],
   );
   const visiblePlaces = useMemo(
     () => selectVisibleMapPlaces(places, activeCategories, favoriteOnly),
@@ -134,7 +135,8 @@ const MapPage = () => {
       <MapPlacePanel
         categories={sortedFilterCategories}
         places={visiblePlaces}
-        activeCategories={activeCategories}
+        isEmpty={places.length === 0}
+        selectedCategories={selectedCategorySet}
         favoriteActive={favoriteOnly}
         collapsed={isMapPanelCollapsed}
         selectedPlaceId={selectedPlaceId}

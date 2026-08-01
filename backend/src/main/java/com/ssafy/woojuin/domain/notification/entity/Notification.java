@@ -12,7 +12,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** 인앱 알림함 항목. 아이템이 DONE으로 전이될 때만 생성된다(AGENTS.md 규칙 6, FAILED는 생략). */
+/** 인앱 알림함 항목. 아이템이 DONE 또는 PARTIAL로 전이될 때 생성된다(AGENTS.md 규칙 6, FAILED는 생략). */
 @Getter
 @Entity
 @Table(name = "notifications")

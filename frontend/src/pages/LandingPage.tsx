@@ -1,44 +1,68 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import AnimatedLogoBackdrop from '@/components/domain/landing/AnimatedLogoBackdrop';
+import LandingFeatureSections from '@/components/domain/landing/LandingFeatureSections';
 import LandingHeader from '@/components/domain/landing/LandingHeader';
-import LoginForm from '@/components/domain/auth/LoginForm';
-import BrandMark from '@/components/ui/BrandMark';
 
-/**
- * 진입 화면 — sm(640px)을 기준으로 성격이 갈린다.
- *
- *   < sm  폰 세로. 소개를 읽을 자리가 없어 로그인/회원가입을 바로 띄운다
- *   >= sm 헤더 + 서비스 소개. 로그인은 우측 상단 버튼으로
- *
- * 분기는 CSS 로만 한다(JS 미디어쿼리 X). 둘 다 DOM 에 있고 한쪽만 보인다 —
- * 창 폭을 바꾸면 새로고침 없이 즉시 전환된다.
- */
-const LandingPage = () => (
-  <div className="min-h-dvh bg-space text-text-1">
-    {/* ── 모바일: 로고 + 로그인 폼 ───────────────────────── */}
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-8 px-6 desktop:hidden">
-      <BrandMark size={40} className="justify-center" />
-      <LoginForm />
-    </main>
+const LandingPage = () => {
+  const heroRef = useRef<HTMLElement>(null);
+  const [countdownRun, setCountdownRun] = useState(0);
 
-    {/* ── 데스크톱: 헤더 + 소개 ──────────────────────────── */}
-    <div className="hidden desktop:block">
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setCountdownRun((run) => run + 1);
+      },
+      { threshold: 0.45 },
+    );
+
+    observer.observe(hero);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div className="min-h-dvh overflow-x-hidden bg-space text-text-1">
       <LandingHeader />
 
-      {/* TODO: 목업 v3.5/landing.html 본문(히어로·기능·둘러보기) 이식 */}
-      <main className="mx-auto flex min-h-dvh max-w-3xl flex-col items-center justify-center gap-6 px-8 text-center">
-        <h1 className="text-hero font-extrabold tracking-[-0.02em]">저장은 1초, 정리는 AI가</h1>
-        <p className="text-lg text-text-2">
-          링크·사진·메모를 던져두면 우주인이 알아서 별자리로 정리합니다.
-        </p>
-        <Link
-          to="/login"
-          className="rounded-md bg-accent px-6 py-3 font-semibold text-white transition-colors hover:bg-accent-hover"
-        >
-          시작하기
-        </Link>
-      </main>
+      <section ref={heroRef} className="relative min-h-dvh overflow-hidden px-6">
+        <AnimatedLogoBackdrop />
+
+        <main className="landing-hero-content pointer-events-none relative z-[12] mx-auto flex min-h-dvh max-w-3xl flex-col items-center pb-32 pt-[max(66vh,470px)] text-center desktop:pt-[max(64vh,580px)]">
+          <h1 className="text-hero font-extrabold tracking-[-0.02em]">
+            저장은{' '}
+            <span key={countdownRun} className="landing-countdown" aria-label="1">
+              <span className="landing-countdown-seven">7</span>
+              <span className="landing-countdown-six">6</span>
+              <span className="landing-countdown-five">5</span>
+              <span className="landing-countdown-four">4</span>
+              <span className="landing-countdown-three">3</span>
+              <span className="landing-countdown-two">2</span>
+              <span className="landing-countdown-one">1</span>
+            </span>
+            초, 정리는 AI가
+          </h1>
+          <p className="mt-4 max-w-2xl text-[16px] leading-7 text-text-2 desktop:text-lg">
+            흩어진 링크·사진·메모를 하나의 우주에 모아보세요.
+          </p>
+        </main>
+      </section>
+
+      <LandingFeatureSections />
+
+      <Link
+        to="/login"
+        className="fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 whitespace-nowrap rounded-full border border-white/10 bg-accent px-6 py-3.5 text-sm font-extrabold tracking-[0.08em] text-white shadow-modal transition hover:-translate-y-1 hover:bg-accent-hover desktop:bottom-7 desktop:px-8"
+      >
+        WOULD YOU IN?
+        <span aria-hidden="true" className="text-lg leading-none">
+          →
+        </span>
+      </Link>
     </div>
-  </div>
-);
+  );
+};
 
 export default LandingPage;

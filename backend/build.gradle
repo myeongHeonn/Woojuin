@@ -22,6 +22,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // /actuator/prometheus 로 JVM·HTTP·커넥션 풀 메트릭 노출 (모니터링 스택이 스크레이프).
+    // actuator 가 클래스패스에서 발견하면 자동 배선되므로 의존성 추가 + 엔드포인트 노출이 전부다.
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 
     // 루트의 .env를 자동으로 읽어 환경변수로 주입 (별도 export 없이 bootRun 가능).
     // spring-dotenv(코어)는 수동 등록이 필요해 Boot 3 auto-registration이 되는
@@ -54,6 +57,13 @@ dependencies {
 
     // Swagger UI (springdoc-openapi)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+
+    // DB 스키마 마이그레이션 (결정 #21). 기동 시 db/migration/V*.sql 을 순서대로 적용하고
+    // flyway_schema_history 테이블에 이력을 남긴다 → "이 환경은 어디까지 적용됐나"를 조회 가능.
+    // Flyway 10 부터 DB별 지원이 별도 모듈로 분리돼 postgresql 모듈을 함께 넣어야 한다
+    // (없으면 "Unsupported Database: PostgreSQL" 로 기동 실패).
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 
     // 웹 푸시 발송 (FCM). 서비스 계정 키가 없으면 NoOpPushSender로 폴백한다(PushSenderConfig).
     implementation 'com.google.firebase:firebase-admin:9.4.3'

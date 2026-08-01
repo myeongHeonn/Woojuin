@@ -26,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.OffsetDateTime;
@@ -52,6 +53,9 @@ class WorkspaceInvitationServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private WorkspaceInvitationService workspaceInvitationService;

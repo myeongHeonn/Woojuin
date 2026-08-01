@@ -22,7 +22,12 @@ const ConstellationSearch = () => {
 
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
+  // aiMode 는 "제출로 확정된" 값 — useSearch(실제 요청)는 이것만 본다.
+  // localAi 는 토글 버튼이 지금 켜져 있는지(다음 제출에 반영될 값)만 나타낸다.
+  // 이 둘을 분리하지 않으면 AI 버튼을 누르는 순간 aiMode 가 바뀌어 queryKey 가 바뀌고,
+  // q 는 이미 채워져 있어 제출(Enter) 없이 즉시 재검색이 나간다.
   const [aiMode, setAiMode] = useState(false);
+  const [localAi, setLocalAi] = useState(false);
   const [openItemId, setOpenItemId] = useState<number | null>(null);
 
   const { items, isLoading, partialMatch, interpretedQuery, aiPlanned } = useSearch(
@@ -34,6 +39,7 @@ const ConstellationSearch = () => {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setQ(text.trim());
+    setAiMode(localAi);
   };
 
   // X — 결과 패널을 닫고(q 비움 → enabled:false 로 정지) 진행 중 요청도 취소한다
@@ -75,7 +81,12 @@ const ConstellationSearch = () => {
                 {items.length === 0 ? (
                   <p className="py-6 text-center text-sm text-text-3">검색 결과가 없어요</p>
                 ) : (
-                  <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-none">
+                  // 결과는 가로로 늘어선다 — 좌우 버튼 대신 하단에 얇은 스크롤바로 넘긴다.
+                  <div
+                    role="group"
+                    aria-label="검색 결과"
+                    className="mt-2 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar]:h-1.5"
+                  >
                     {items.map((item) => (
                       <ItemCard
                         key={item.itemId}
@@ -91,9 +102,10 @@ const ConstellationSearch = () => {
         )}
 
         {/* 입력 바 바로 위 우측. 바가 하단 고정이라 검색해도 바는 안 움직이고 패널이 위로 쌓인다 */}
-        <AiModeHint aiMode={aiMode} className="mb-1.5 pr-1.5 text-right" />
+        <AiModeHint className="mb-1.5 pr-1.5 text-right" />
 
         <form
+          data-tutorial="search"
           onSubmit={submit}
           className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface/90 px-4 py-3 shadow-float backdrop-blur-xl"
         >
@@ -103,9 +115,11 @@ const ConstellationSearch = () => {
             onChange={(e) => onChange(e.target.value)}
             placeholder="무엇이든 검색"
             aria-label="검색어"
-            className="min-w-0 flex-1 bg-transparent text-[15px] text-text-1 outline-none placeholder:text-text-3"
+            // pointer-coarse:text-base — 터치 기기에서 16px 미만이면 iOS 가 포커스 시
+            // 화면을 확대하고 키보드가 닫혀도 배율을 되돌리지 않는다(fieldStyles 주석 참고)
+            className="min-w-0 flex-1 bg-transparent text-[15px] text-text-1 outline-none pointer-coarse:text-base placeholder:text-text-3"
           />
-          <SearchModeToggle aiMode={aiMode} onToggle={() => setAiMode((v) => !v)} />
+          <SearchModeToggle aiMode={localAi} onToggle={() => setLocalAi((v) => !v)} />
         </form>
       </div>
 

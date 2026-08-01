@@ -13,8 +13,18 @@ spring:
     password: ${DB_PASSWORD:woojuin-local}
   jpa:
     hibernate:
-      ddl-auto: update   # 개발용. 운영 전환 시 validate + 마이그레이션 도구 검토
+      # 스키마는 Flyway(db/migration/*.sql)가 만든다. Hibernate 는 만들지 않고
+      # **엔티티와 실제 스키마가 맞는지 검사만** 한다 — 어긋나면 기동이 실패한다.
+      # (이전 값 `update` 는 조용히 스키마를 바꾸고 실패해도 WARN 만 남겨서,
+      #  2026-07-27 avatar_color DDL 실패가 아무도 모르게 지나간 적이 있다.)
+      ddl-auto: validate
     open-in-view: false
+  flyway:
+    # 이미 테이블이 있는 DB(dev/prod/팀원 로컬)는 "V1 이 적용된 상태"로 간주하고
+    # V2 부터 실행한다. 도입 시점에 데이터를 버리지 않기 위한 표준 설정.
+    # 빈 DB 에서는 baseline 이 작동하지 않고 V1 부터 정상 실행된다.
+    baseline-on-migrate: true
+    baseline-version: 1
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -23,6 +33,13 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+  task:
+    scheduling:
+      pool:
+        # @Scheduled 기본 풀이 1이라 큐 회수기(PendingMessageReclaimer)가 도는 동안
+        # SSE 하트비트가 밀린다 — 밀린 사이 nginx 유휴 타임아웃(60초)이 지나면 연결이
+        # 끊긴다. 주기 작업이 셋(회수기·재발행기·하트비트)이라 겹쳐도 안 밀리게 잡았다.
+        size: 3
   security:
     oauth2:
       client:
@@ -93,6 +110,13 @@ woojuin:
     # 변별력이 없어서("초밥"vs"스시"조차 0.72) 임계값을 올려 잡으려 하면 오탐이 더 늘어난다.
     # 검색이 엉뚱한 걸 물어오면 낮추고 너무 안 잡으면 올리면 된다(백엔드 로그에 거리가 찍힌다).
     search-max-distance: ${AIMIX_SEARCH_MAX_DISTANCE:0.7}
+  ai-usage:
+    # 1차 배포 비용 보호 장치. false로 바꾸면 Redis 카운터를 건드리지 않고 모든 아이템 AI 처리를 허용한다.
+    enabled: ${AI_USAGE_LIMIT_ENABLED:true}
+    # 아이템 생성자는 MEMBER일 수 있으므로 워크스페이스의 대표 활성 OWNER 사용량으로 계산한다.
+    monthly-item-limit: ${AI_USAGE_MONTHLY_ITEM_LIMIT:50}
+    # 저장 실패 시 카운터를 되돌리기 위한 짧은 예약 키의 수명.
+    reservation-ttl-minutes: ${AI_USAGE_RESERVATION_TTL_MINUTES:60}
   # 지도 좌표 변환(FR-023). 카카오 로컬 API — 주소↔좌표 REST 호출이지 지도 SDK가 아니다.
   # REST 키(KAKAO_REST_API_KEY)는 여기가 아니라 GeocoderConfig에서 직접 읽는다 — 이유는
   # 위 ai 블록 주석과 동일(빈 줄을 "키 있음"으로 오해하는 문제).
@@ -104,6 +128,8 @@ woojuin:
     timeout-ms: ${GEO_TIMEOUT_MS:3000}
   queue:
     stream-key: woojuin:item-processing
+    # ACK는 Pending 목록에서만 제거하므로 Stream 원본이 무한히 쌓이지 않게 최근 메시지만 유지한다.
+    max-length: ${QUEUE_MAX_LENGTH:10000}
     consumer-group: ai-workers
     # 병렬 컨슈머 수. 3인 근거: 프로세서가 @Transactional이라 컨슈머 하나가 크롤·LLM 호출
     # 내내 DB 커넥션 하나를 점유한다 — Hikari 기본 풀 10에서 컨슈머 3 + 회수기 1이면 장기
@@ -149,12 +175,14 @@ aws:
     access-key: ${AWS_S3_ACCESS_KEY:woojuin}
     secret-key: ${AWS_S3_SECRET_KEY:woojuin-local}
 
-# 컨테이너 헬스체크·무중단 배포 전환 게이트용. health 외에는 노출하지 않는다.
+# health = 컨테이너 헬스체크·배포 전환 게이트 / prometheus = 모니터링 스택의 메트릭 스크레이프.
+# 둘 다 내부 전용이다 — nginx 가 /actuator 전체를 외부에서 deny 하므로(서버 설정 참고)
+# 노출을 늘려도 공격 표면은 그대로다. 그 외 엔드포인트(env, beans 등)는 계속 닫아 둔다.
 management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
   endpoint:
     health:
       show-details: never   # UP/DOWN만 노출 (DB·Redis 상세는 감춤)
