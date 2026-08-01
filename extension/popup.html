@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <title>우주인에 저장</title>
-    <style>body { min-width: 320px; margin: 0; }</style>
+    <!-- 배경색을 여기에도 두는 이유: 팝업이 뜨는 순간 React 가 그리기 전까지 흰 화면이
+         한 프레임 번쩍인다(다크 테마라 특히 눈에 띈다). 값은 웹앱의 --color-space. -->
+    <style>body { min-width: 320px; margin: 0; background: #0e1017; }</style>
   </head>
   <body>
     <div id="root"></div>

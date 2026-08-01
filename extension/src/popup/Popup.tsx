@@ -1,8 +1,9 @@
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { login, logout } from '@/api/auth';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { logout } from '@/api/auth';
 import { ApiError } from '@/api/client';
 import { saveUrl } from '@/api/items';
 import { getWorkspaces, Workspace } from '@/api/workspaces';
+import { harvestWebSession, openWebLogin } from '@/auth/webSession';
 import { getAccessToken, getRefreshToken } from '@/storage/authStorage';
 import { clearSelectedWorkspaceId, getSelectedWorkspaceId, setSelectedWorkspaceId } from '@/storage/workspaceStorage';
 
@@ -16,22 +17,31 @@ interface ContextSaveFeedback {
 const CONTEXT_FEEDBACK_KEY = 'contextSaveFeedback';
 const messageFrom = (error: unknown) =>
   error instanceof ApiError && error.status === 401
-    ? '로그인이 만료되었습니다. 다시 로그인해 주세요.'
+    ? '로그인이 만료되었습니다. 우주인에서 다시 로그인해 주세요.'
     : error instanceof Error ? error.message : '요청을 처리하지 못했습니다.';
 
 function isSavableUrl(value: string): boolean {
   try { return ['http:', 'https:'].includes(new URL(value).protocol); } catch { return false; }
 }
 
+/** 구글 4색 "G" 마크 — 공식 자산이라 색·형태를 바꾸지 않는다 (웹앱 GoogleAuthButton 과 동일) */
+const GoogleMark = () => (
+  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" style={{ flexShrink: 0 }}>
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+  </svg>
+);
+
 export default function Popup() {
   const [url, setUrl] = useState('');
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState<number | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState('');
+  const [loginOpened, setLoginOpened] = useState(false);
   const [urlExpanded, setUrlExpanded] = useState(false);
   const [urlOverflowing, setUrlOverflowing] = useState(false);
   const [contextFeedback, setContextFeedback] = useState<ContextSaveFeedback | null>(null);
@@ -55,15 +65,19 @@ export default function Popup() {
   }, []);
 
   useEffect(() => {
-    Promise.all([
-      chrome.tabs.query({ active: true, currentWindow: true }),
-      getAccessToken(),
-      getRefreshToken(),
-    ]).then(async ([[tab], accessToken, refreshToken]) => {
-        setUrl(tab?.url ?? '');
-        setAuthenticated(Boolean(accessToken || refreshToken));
-        if (accessToken || refreshToken) await loadWorkspaces();
-      });
+    void (async () => {
+      const [[tab], accessToken, refreshToken] = await Promise.all([
+        chrome.tabs.query({ active: true, currentWindow: true }),
+        getAccessToken(),
+        getRefreshToken(),
+      ]);
+      setUrl(tab?.url ?? '');
+      // 확장에 토큰이 없어도 우주인 탭이 열려 있으면 그 세션을 물려받는다 —
+      // 웹에서 로그인하고 돌아온 사용자가 아무 조작 없이 바로 저장할 수 있다.
+      const hasSession = Boolean(accessToken || refreshToken) || await harvestWebSession();
+      setAuthenticated(hasSession);
+      if (hasSession) await loadWorkspaces();
+    })();
   }, [loadWorkspaces]);
 
   useEffect(() => {
@@ -88,18 +102,24 @@ export default function Popup() {
     return () => cancelAnimationFrame(frame);
   }, [url]);
 
-  async function handleLogin(event: FormEvent) {
-    event.preventDefault();
+  async function handleWebLogin() {
+    setStatus('idle');
+    setMessage('');
+    await openWebLogin();
+    setLoginOpened(true);
+  }
+
+  /** 웹에서 로그인한 뒤 팝업으로 돌아왔을 때 — 새 탭의 세션을 다시 확인한다. */
+  async function handleRecheck() {
     setStatus('loading');
     setMessage('');
-    try {
-      await login(email.trim(), password);
+    if (await harvestWebSession()) {
       setAuthenticated(true);
       await loadWorkspaces();
-    } catch (error) {
-      setStatus('error');
-      setMessage(messageFrom(error));
+      return;
     }
+    setStatus('error');
+    setMessage('아직 로그인이 확인되지 않았어요. 우주인 탭에서 로그인을 마친 뒤 다시 눌러 주세요.');
   }
 
   async function handleSave() {
@@ -127,24 +147,37 @@ export default function Popup() {
     setAuthenticated(false);
     setWorkspaces([]);
     setWorkspaceId(null);
+    setLoginOpened(false);
     setStatus('idle');
     setMessage('');
   }
 
-  if (authenticated === null) return <main style={styles.main}>불러오는 중…</main>;
+  if (authenticated === null) {
+    return <main style={styles.main}><p style={styles.muted}>불러오는 중…</p></main>;
+  }
+
   if (!authenticated) {
     return (
       <main style={styles.main}>
-        <h1 style={styles.title}>우주인 로그인</h1>
-        <form onSubmit={handleLogin} style={styles.form}>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-            placeholder="이메일" required style={styles.input} />
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-            placeholder="비밀번호" required style={styles.input} />
-          <button disabled={status === 'loading'} style={styles.primary}>
-            {status === 'loading' ? '로그인 중…' : '로그인'}
+        <h1 style={styles.title}>우주인에 저장</h1>
+        <p style={styles.muted}>
+          우주인 계정으로 로그인하면 지금 보는 페이지를 바로 담을 수 있어요.
+        </p>
+        <button onClick={handleWebLogin} style={styles.google}>
+          <GoogleMark />
+          Google 계정으로 로그인
+        </button>
+        {/* 구글은 첫 로그인이 곧 가입이다(웹앱 LoginForm 과 같은 고지) */}
+        <p style={styles.hint}>
+          {loginOpened
+            ? '새 탭에서 로그인을 마친 뒤 아래를 눌러 주세요.'
+            : '계정이 없어도 구글 로그인으로 바로 시작할 수 있어요.'}
+        </p>
+        {loginOpened && (
+          <button onClick={handleRecheck} disabled={status === 'loading'} style={styles.secondary}>
+            {status === 'loading' ? '확인 중…' : '로그인 확인'}
           </button>
-        </form>
+        )}
         {message && <p style={styles.error}>{message}</p>}
       </main>
     );
@@ -194,21 +227,68 @@ export default function Popup() {
   );
 }
 
+// 색은 웹앱 테마 토큰(frontend/src/styles/theme.css 다크 값)을 그대로 옮긴 것이다 —
+// 확장은 Tailwind 를 쓰지 않으므로 변수 대신 값으로 박는다.
+const SPACE = '#0e1017';
+const SURFACE = '#20242f';
+const SURFACE_2 = '#2a2e3a';
+const SURFACE_3 = '#343947';
+const BORDER = '#313543';
+const TEXT_1 = '#f0f2f6';
+const TEXT_2 = '#b0b6c3';
+const TEXT_3 = '#7b8290';
+const ACCENT = '#7c6cf0';
+const DANGER = '#ef7a72';
+const SUCCESS = '#b8e6a3';
+
+const buttonBase: React.CSSProperties = {
+  boxSizing: 'border-box',
+  width: '100%',
+  height: 40,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 12,
+  border: 0,
+  borderRadius: 6,
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
 const styles: Record<string, React.CSSProperties> = {
-  main: { width: 320, padding: 18, fontFamily: 'system-ui, sans-serif', color: '#18212f' },
+  main: {
+    width: 320, padding: 18, background: SPACE, color: TEXT_1,
+    fontFamily: 'system-ui, sans-serif',
+    display: 'flex', flexDirection: 'column', gap: 10,
+  },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { margin: '0 0 14px', fontSize: 18 },
-  form: { display: 'grid', gap: 10 },
-  label: { display: 'grid', gap: 6, fontSize: 12, fontWeight: 600 },
-  input: { boxSizing: 'border-box', width: '100%', padding: '9px 10px', border: '1px solid #cad2df', borderRadius: 8 },
-  primary: { width: '100%', padding: '10px 12px', border: 0, borderRadius: 8, background: '#5b55e7', color: 'white', fontWeight: 700, cursor: 'pointer' },
-  link: { border: 0, background: 'transparent', color: '#5b55e7', cursor: 'pointer' },
-  urlBox: { margin: '14px 0', padding: 10, borderRadius: 8, background: '#f4f6fa' },
-  url: { margin: 0, fontSize: 12, lineHeight: 1.5, wordBreak: 'break-all' },
-  urlCollapsed: { margin: 0, fontSize: 12, lineHeight: 1.5, wordBreak: 'break-all', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' },
-  more: { display: 'block', margin: '8px 0 0 auto', padding: 0, border: 0, background: 'transparent', color: '#5b55e7', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
-  completed: { width: '100%', padding: '10px 12px', border: 0, borderRadius: 8, background: '#16784b', color: 'white', fontWeight: 700 },
-  error: { marginBottom: 0, color: '#c33030', fontSize: 12 },
-  success: { marginBottom: 0, color: '#16784b', fontSize: 12 },
-  pageSuccess: { marginBottom: 0, color: '#16784b', fontSize: 12, textAlign: 'center' as const },
+  title: { margin: 0, fontSize: 16, fontWeight: 700 },
+  muted: { margin: 0, fontSize: 12, lineHeight: 1.6, color: TEXT_2 },
+  hint: { margin: 0, fontSize: 11, lineHeight: 1.6, color: TEXT_3, textAlign: 'center' },
+  label: { display: 'grid', gap: 6, fontSize: 12, fontWeight: 600, color: TEXT_2 },
+  input: {
+    boxSizing: 'border-box', width: '100%', height: 36, padding: '0 10px',
+    border: `1px solid ${BORDER}`, borderRadius: 6,
+    background: SURFACE_2, color: TEXT_1, fontSize: 13,
+  },
+  // 웹앱 GoogleAuthButton 과 같은 껍데기 — 흰 버튼은 다크 테마에서 혼자 튄다
+  google: { ...buttonBase, border: `1px solid ${BORDER}`, background: SURFACE_2, color: TEXT_1 },
+  secondary: { ...buttonBase, border: `1px solid ${BORDER}`, background: SURFACE_3, color: TEXT_1 },
+  primary: { ...buttonBase, background: ACCENT, color: '#ffffff', fontWeight: 700 },
+  completed: { ...buttonBase, background: '#2f6b4f', color: '#ffffff', fontWeight: 700 },
+  link: { border: 0, background: 'transparent', color: TEXT_3, fontSize: 12, cursor: 'pointer' },
+  urlBox: { padding: 10, borderRadius: 6, background: SURFACE, border: `1px solid ${BORDER}` },
+  url: { margin: 0, fontSize: 12, lineHeight: 1.5, color: TEXT_2, wordBreak: 'break-all' },
+  urlCollapsed: {
+    margin: 0, fontSize: 12, lineHeight: 1.5, color: TEXT_2, wordBreak: 'break-all',
+    display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden',
+  },
+  more: {
+    display: 'block', margin: '8px 0 0 auto', padding: 0, border: 0,
+    background: 'transparent', color: ACCENT, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+  },
+  error: { margin: 0, color: DANGER, fontSize: 12, lineHeight: 1.5 },
+  success: { margin: 0, color: SUCCESS, fontSize: 12 },
+  pageSuccess: { margin: 0, color: SUCCESS, fontSize: 12, textAlign: 'center' },
 };
