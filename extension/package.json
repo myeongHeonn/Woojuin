@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite build --watch",
+    "dev": "vite build --watch --mode development",
+    "build:local": "tsc -b && vite build --mode development",
+    "build:demo": "tsc -b && vite build --mode demo",
     "build": "tsc -b && vite build"
   },
   "dependencies": {

@@ -25,6 +25,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
@@ -46,8 +48,8 @@ public class SecurityConfig {
     // 기본값은 application.yml 한 곳에만 둔다(${CORS_ALLOWED_ORIGIN:...}).
     // 여기에도 기본값을 적으면 yml 쪽이 항상 이겨서 죽은 값이 되는데, 코드만 읽은 사람은
     // 그게 유효하다고 믿게 된다. 선언이 사라지면 기동 시점에 바로 실패하는 편이 낫다.
-    @Value("${woojuin.cors.allowed-origin}")
-    private String allowedOrigin;
+    @Value("${woojuin.cors.allowed-origins}")
+    private String allowedOriginsValue;
 
     public SecurityConfig(JwtTokenProvider jwtTokenProvider, CustomUserDetailsService userDetailsService,
                            CustomOidcUserService customOidcUserService,
@@ -86,11 +88,26 @@ public class SecurityConfig {
      * 안 열면 axios가 baseURL을 절대경로로 쓰는 순간(=Vite 프록시를 안 타는 순간)
      * 모든 요청이 브라우저 단에서 CORS로 막힌다 — 응답 자체를 못 받아서 네트워크
      * 탭에 상태코드도 안 찍히고 콘솔에도 별다른 에러가 안 남는 게 특징.
+     *
+     * <p>허용 목록은 {@code woojuin.cors.allowed-origins} 하나만 본다. 여기에 localhost를
+     * 무조건 더하지 않는 이유: 그러면 운영에서도 개발 주소가 항상 허용된다(사용자 PC의 5173에서
+     * 도는 아무 프로세스가 운영 API를 인증된 상태로 호출할 수 있고 allowCredentials도 켜져 있다).
+     * 로컬 개발은 application.yml의 기본값이 이미 5173을 넣어 주므로 손실이 없다 — 단, 확장
+     * 테스트처럼 변수를 직접 줄 때는 5173도 **함께** 적어야 한다(.env.example 참고).
+     *
+     * <p>참고: 목록에 없는 Origin은 브라우저가 막기 전에 Spring이 403 "Invalid CORS request"로
+     * 먼저 자른다. 크롬 확장은 GET엔 Origin을 안 보내고 POST엔 보내므로, 등록이 빠져 있으면
+     * "조회는 되는데 저장만 403"이라는 헷갈리는 증상이 된다(2026-08-02 실측).
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(allowedOrigin));
+        LinkedHashSet<String> allowedOrigins = new LinkedHashSet<>();
+        Arrays.stream(allowedOriginsValue.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .forEach(allowedOrigins::add);
+        config.setAllowedOrigins(List.copyOf(allowedOrigins));
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
