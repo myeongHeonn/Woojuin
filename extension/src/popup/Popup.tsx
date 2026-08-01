@@ -4,6 +4,7 @@ import { ApiError } from '@/api/client';
 import { saveUrl } from '@/api/items';
 import { getWorkspaces, Workspace } from '@/api/workspaces';
 import { harvestWebSession, openWebLogin } from '@/auth/webSession';
+import SpacePicker from '@/popup/SpacePicker';
 import { AUTH_STORAGE, getAccessToken, getRefreshToken } from '@/storage/authStorage';
 import { clearSelectedWorkspaceId, getSelectedWorkspaceId, setSelectedWorkspaceId } from '@/storage/workspaceStorage';
 
@@ -137,7 +138,7 @@ export default function Popup() {
   }
 
   /**
-   * 로그인을 다시 확인한다 — 위 storage 감지가 어떤 이유로 놓쳤을 때의 수동 경로.
+   * 로그인을 다시 확인한다 — 아래 storage 감지가 어떤 이유로 놓쳤을 때의 수동 경로.
    *
    * **저장된 토큰을 먼저 본다.** 백그라운드가 OAuth 콜백에서 이미 채워 넣었을 수 있고, 그때는
    * 로그인 창이 닫혀 있어 harvestWebSession(열린 탭에서 읽는 함수)은 실패한다.
@@ -222,17 +223,20 @@ export default function Popup() {
         <h1 style={styles.title}>우주인에 저장</h1>
         <button onClick={handleLogout} style={styles.link}>로그아웃</button>
       </div>
-      <label style={styles.label}>워크스페이스
-        <select value={workspaceId ?? ''} disabled={status === 'loading' || !workspaces.length}
-          onChange={(e) => {
-            const id = Number(e.target.value);
+      {/* label 이 아니라 div 인 이유: 감싸는 대상이 form 컨트롤이 아니라 버튼+패널 조합이라
+          label 로 두면 연결된 컨트롤이 없는 빈 라벨이 된다(접근성 경고). 선택기 쪽에
+          aria-label 을 붙여 이름을 준다. */}
+      <div style={styles.label}>저장할 곳
+        <SpacePicker
+          workspaces={workspaces}
+          selectedId={workspaceId}
+          disabled={status === 'loading'}
+          onSelect={(id) => {
             setWorkspaceId(id);
             void setSelectedWorkspaceId(id);
-          }} style={styles.input}>
-          {workspaces.map((workspace) =>
-            <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
-        </select>
-      </label>
+          }}
+        />
+      </div>
       <div style={styles.urlBox}>
         <p ref={urlRef} style={urlExpanded ? styles.url : styles.urlCollapsed}>
           {url || '현재 탭의 주소를 읽지 못했습니다.'}
@@ -306,6 +310,9 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: 'border-box', width: '100%', height: 36, padding: '0 10px',
     border: `1px solid ${BORDER}`, borderRadius: 12,
     background: SURFACE_2, color: TEXT_1, fontSize: 14,
+    // 네이티브 select 의 펼침 목록(optgroup 헤더 포함)은 OS 가 그린다 — 이걸 안 주면
+    // 다크 팝업인데 목록만 흰 배경으로 떠서 튄다.
+    colorScheme: 'dark',
   },
   // 웹앱 GoogleAuthButton 과 같은 껍데기 — 흰 버튼은 다크 테마에서 혼자 튄다
   google: { ...buttonBase, border: `1px solid ${BORDER}`, background: SURFACE_2, color: TEXT_1 },
