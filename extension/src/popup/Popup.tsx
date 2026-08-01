@@ -4,7 +4,7 @@ import { ApiError } from '@/api/client';
 import { saveUrl } from '@/api/items';
 import { getWorkspaces, Workspace } from '@/api/workspaces';
 import { harvestWebSession, openWebLogin } from '@/auth/webSession';
-import { getAccessToken, getRefreshToken } from '@/storage/authStorage';
+import { AUTH_STORAGE, getAccessToken, getRefreshToken } from '@/storage/authStorage';
 import { clearSelectedWorkspaceId, getSelectedWorkspaceId, setSelectedWorkspaceId } from '@/storage/workspaceStorage';
 
 type Status = 'idle' | 'loading' | 'saving' | 'success' | 'error';
@@ -93,6 +93,25 @@ export default function Popup() {
     return () => chrome.storage.onChanged.removeListener(handleStorageChange);
   }, []);
 
+  // 백그라운드가 로그인 토큰을 저장하는 순간 화면을 바꾼다 — 팝업을 열어 둔 채로 로그인하면
+  // 창이 닫히면서 그대로 로그인 상태가 된다(닫았다 다시 열 필요가 없다).
+  useEffect(() => {
+    const handleTokenArrival = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      areaName: string,
+    ) => {
+      const arrived = (Object.values(AUTH_STORAGE) as { area: string; key: string }[])
+        .some(({ area, key }) => areaName === area && changes[key]?.newValue);
+      if (!arrived) return;
+      setAuthenticated(true);
+      setStatus('idle');
+      setMessage('');
+      void loadWorkspaces();
+    };
+    chrome.storage.onChanged.addListener(handleTokenArrival);
+    return () => chrome.storage.onChanged.removeListener(handleTokenArrival);
+  }, [loadWorkspaces]);
+
   useEffect(() => {
     setUrlExpanded(false);
     const frame = requestAnimationFrame(() => {
@@ -103,17 +122,31 @@ export default function Popup() {
   }, [url]);
 
   async function handleWebLogin() {
-    setStatus('idle');
+    setStatus('loading');
     setMessage('');
+    // 브라우저에 이미 우주인 세션이 있으면 로그인 창을 띄우지 않는다 — 열어 둔 우주인 탭에서
+    // 그대로 이어받으면 되고, 이 경우 창을 띄우면 아무 조작도 필요 없는 창이 떴다 사라진다.
+    if (await harvestWebSession()) {
+      setAuthenticated(true);
+      await loadWorkspaces();
+      return;
+    }
+    setStatus('idle');
     await openWebLogin();
     setLoginOpened(true);
   }
 
-  /** 웹에서 로그인한 뒤 팝업으로 돌아왔을 때 — 새 탭의 세션을 다시 확인한다. */
+  /**
+   * 로그인을 다시 확인한다 — 위 storage 감지가 어떤 이유로 놓쳤을 때의 수동 경로.
+   *
+   * **저장된 토큰을 먼저 본다.** 백그라운드가 OAuth 콜백에서 이미 채워 넣었을 수 있고, 그때는
+   * 로그인 창이 닫혀 있어 harvestWebSession(열린 탭에서 읽는 함수)은 실패한다.
+   */
   async function handleRecheck() {
     setStatus('loading');
     setMessage('');
-    if (await harvestWebSession()) {
+    const [accessToken, refreshToken] = await Promise.all([getAccessToken(), getRefreshToken()]);
+    if (accessToken || refreshToken || await harvestWebSession()) {
       setAuthenticated(true);
       await loadWorkspaces();
       return;

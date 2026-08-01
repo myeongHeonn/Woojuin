@@ -28,44 +28,35 @@ chrome.runtime.onStartup.addListener(registerMenus);
 // 웹앱에서 로그인하면 그 세션을 자동으로 물려받는다 — 사용자가 팝업에서 따로 확인을 누르지
 // 않아도 우클릭 저장이 바로 된다. 이미 토큰이 있으면 같은 값으로 덮어써도 무해하다.
 //
-// 콜백은 status 를 기다리지 않는다: URL 이 바뀌는 순간 토큰이 이미 주소에 들어 있어서
-// 페이지가 다 뜨기 전에 채 갈 수 있다(그만큼 창이 빨리 닫힌다).
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  const url = changeInfo.url ?? tab.url;
-  if (!url?.startsWith(WEB_ORIGIN)) return;
+// 콜백 분기는 **changeInfo.url 이 있는 이벤트만** 본다. onUpdated 는 한 번의 이동에도 여러 번
+// 발생하는데(loading·제목·favicon·complete), tab.url 로 매칭하면 그 횟수만큼 중복 처리된다.
+// changeInfo.url 은 주소가 실제로 바뀔 때만 채워지므로 이동당 한 번이다.
+// status 를 기다리지 않는 이유: URL 이 바뀌는 순간 토큰이 이미 주소에 있어서 페이지가 다 뜨기
+// 전에 채 갈 수 있다(그만큼 창이 빨리 닫힌다).
+let handledCallbackUrl: string | null = null;
 
-  if (url.startsWith(OAUTH_CALLBACK_PREFIX)) {
-    void captureTokensFromCallback(url).then(async (captured) => {
-      if (!captured) return;
-      await notifyLoginDone();
-      await closeLoginWindow();
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url?.startsWith(OAUTH_CALLBACK_PREFIX)) {
+    const url = changeInfo.url;
+    if (url === handledCallbackUrl) return;
+    handledCallbackUrl = url;
+    void captureTokensFromCallback(url).then((captured) => {
+      // 알림·배지를 띄우지 않는다 — 팝업이 storage 변화를 듣고 스스로 로그인 상태로 바뀌므로
+      // 따로 알릴 게 없다.
+      if (captured) return closeLoginWindow();
     });
     return;
   }
 
-  if (changeInfo.status === 'complete') void harvestWebSession(tabId);
+  if (changeInfo.status === 'complete' && tab.url?.startsWith(WEB_ORIGIN)) {
+    void harvestWebSession(tabId).then((harvested) => {
+      // 이미 웹에 로그인돼 있었다는 뜻 — OAuth 를 거칠 필요가 없었으므로 로그인 창이 떠 있으면
+      // 바로 닫는다. 우리가 만든 windowId 만 닫으니 사용자가 열어 둔 탭은 그대로다.
+      // 콜백 경로와 달리 여유를 두지 않는다: 웹 세션은 이미 저장돼 있다.
+      if (harvested) return closeLoginWindow(0);
+    });
+  }
 });
-
-/**
- * 로그인 완료를 알린다. 로그인 창이 곧 닫히므로 무언가 표시가 없으면 사용자가 성공했는지
- * 모른다. 저장 결과 피드백(showFeedback)과 섞지 않는 이유: 그쪽 메시지는 팝업이
- * "우클릭 저장: …" 으로 렌더하므로 로그인 문구가 들어가면 말이 안 맞는다.
- */
-async function notifyLoginDone(): Promise<void> {
-  await Promise.all([
-    chrome.action.setBadgeBackgroundColor({ color: '#16784b' }),
-    chrome.action.setBadgeText({ text: 'OK' }),
-    chrome.action.setTitle({ title: '우주인에 로그인했어요. 아이콘을 눌러 저장하세요.' }),
-    chrome.notifications.create(`login-${Date.now()}`, {
-      type: 'basic',
-      iconUrl: NOTIFICATION_ICON,
-      title: '우주인 로그인 완료',
-      message: '확장 프로그램 아이콘을 눌러 지금 보는 페이지를 저장하세요.',
-      priority: 1,
-    }),
-  ]);
-  setTimeout(() => void chrome.action.setBadgeText({ text: '' }), 8000);
-}
 
 async function showFeedback(success: boolean, message: string): Promise<void> {
   await Promise.all([
