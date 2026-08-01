@@ -1,5 +1,6 @@
-import { ApiError } from '@/api/client';
+import { ApiError, WEB_ORIGIN } from '@/api/client';
 import { saveImage, saveMemo } from '@/api/items';
+import { harvestWebSession } from '@/auth/webSession';
 import { getAccessToken, getRefreshToken } from '@/storage/authStorage';
 import { getSelectedWorkspaceId } from '@/storage/workspaceStorage';
 
@@ -18,6 +19,13 @@ function registerMenus(): void {
 
 chrome.runtime.onInstalled.addListener(registerMenus);
 chrome.runtime.onStartup.addListener(registerMenus);
+
+// 웹앱에서 로그인하면 그 세션을 자동으로 물려받는다 — 사용자가 팝업에서 따로 확인을 누르지
+// 않아도 우클릭 저장이 바로 된다. 이미 토큰이 있으면 같은 값으로 덮어써도 무해하다.
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete' || !tab.url?.startsWith(WEB_ORIGIN)) return;
+  void harvestWebSession(tabId);
+});
 
 async function showFeedback(success: boolean, message: string): Promise<void> {
   await Promise.all([
