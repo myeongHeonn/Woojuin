@@ -3,9 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <title>우주인에 저장</title>
-    <!-- 배경색을 여기에도 두는 이유: 팝업이 뜨는 순간 React 가 그리기 전까지 흰 화면이
-         한 프레임 번쩍인다(다크 테마라 특히 눈에 띈다). 값은 웹앱의 --color-space. -->
-    <style>body { min-width: 320px; margin: 0; background: #0e1017; }</style>
+    <!--
+      Pretendard — 웹앱 디자인 토큰(--font-sans)의 첫 후보. 웹앱은 CDN 에서 불러 쓰지만
+      @font-face 는 문서 단위라 확장이 그걸 재사용할 수 없어 직접 실었다.
+      CDN 을 참조하지 않는 이유: 팝업을 열 때마다 외부 요청이 나가면 첫 렌더가 깜빡이고,
+      웹스토어 심사에서도 원격 의존은 불리하다. 한글 서브셋 2 굵기(각 ~260KB)만 담았다.
+      경로가 /fonts/... 인 이유: Vite 가 public/ 을 확장 루트로 복사하므로
+      chrome-extension://<id>/fonts/... 로 풀린다.
+      라이선스: fonts/Pretendard-OFL-LICENSE.txt (SIL OFL 1.1)
+    -->
+    <style>
+      @font-face {
+        font-family: 'Pretendard';
+        font-weight: 400;
+        font-display: block;
+        src: url('/fonts/Pretendard-Regular.subset.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Pretendard';
+        font-weight: 600;
+        font-display: block;
+        src: url('/fonts/Pretendard-SemiBold.subset.woff2') format('woff2');
+      }
+      /* 배경색을 여기에도 두는 이유: 팝업이 뜨는 순간 React 가 그리기 전까지 흰 화면이
+         한 프레임 번쩍인다(다크 테마라 특히 눈에 띈다). 값은 웹앱의 --color-space. */
+      body { min-width: 320px; margin: 0; background: #0e1017; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

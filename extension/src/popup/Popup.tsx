@@ -283,8 +283,8 @@ const buttonBase: React.CSSProperties = {
   justifyContent: 'center',
   gap: 12,
   border: 0,
-  borderRadius: 6,
-  fontSize: 13,
+  borderRadius: 12,
+  fontSize: 14,
   fontWeight: 600,
   cursor: 'pointer',
 };
@@ -292,26 +292,28 @@ const buttonBase: React.CSSProperties = {
 const styles: Record<string, React.CSSProperties> = {
   main: {
     width: 320, padding: 18, background: SPACE, color: TEXT_1,
-    fontFamily: 'system-ui, sans-serif',
+    // 웹앱 --font-sans 와 같은 스택. Pretendard 는 popup.html 의 @font-face 로 실려 있고,
+    // 뒤쪽 후보는 폰트 로드 실패 시 웹앱과 같은 모습으로 떨어지게 하려고 그대로 옮겼다.
+    fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', sans-serif",
     display: 'flex', flexDirection: 'column', gap: 10,
   },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { margin: 0, fontSize: 16, fontWeight: 700 },
-  muted: { margin: 0, fontSize: 12, lineHeight: 1.6, color: TEXT_2 },
+  title: { margin: 0, fontSize: 16, fontWeight: 600 },
+  muted: { margin: 0, fontSize: 14.5, lineHeight: 1.6, color: TEXT_2 },
   hint: { margin: 0, fontSize: 11, lineHeight: 1.6, color: TEXT_3, textAlign: 'center' },
   label: { display: 'grid', gap: 6, fontSize: 12, fontWeight: 600, color: TEXT_2 },
   input: {
     boxSizing: 'border-box', width: '100%', height: 36, padding: '0 10px',
-    border: `1px solid ${BORDER}`, borderRadius: 6,
-    background: SURFACE_2, color: TEXT_1, fontSize: 13,
+    border: `1px solid ${BORDER}`, borderRadius: 12,
+    background: SURFACE_2, color: TEXT_1, fontSize: 14,
   },
   // 웹앱 GoogleAuthButton 과 같은 껍데기 — 흰 버튼은 다크 테마에서 혼자 튄다
   google: { ...buttonBase, border: `1px solid ${BORDER}`, background: SURFACE_2, color: TEXT_1 },
   secondary: { ...buttonBase, border: `1px solid ${BORDER}`, background: SURFACE_3, color: TEXT_1 },
-  primary: { ...buttonBase, background: ACCENT, color: '#ffffff', fontWeight: 700 },
-  completed: { ...buttonBase, background: '#2f6b4f', color: '#ffffff', fontWeight: 700 },
+  primary: { ...buttonBase, background: ACCENT, color: '#ffffff' },
+  completed: { ...buttonBase, background: '#2f6b4f', color: '#ffffff' },
   link: { border: 0, background: 'transparent', color: TEXT_3, fontSize: 12, cursor: 'pointer' },
-  urlBox: { padding: 10, borderRadius: 6, background: SURFACE, border: `1px solid ${BORDER}` },
+  urlBox: { padding: 10, borderRadius: 12, background: SURFACE, border: `1px solid ${BORDER}` },
   url: { margin: 0, fontSize: 12, lineHeight: 1.5, color: TEXT_2, wordBreak: 'break-all' },
   urlCollapsed: {
     margin: 0, fontSize: 12, lineHeight: 1.5, color: TEXT_2, wordBreak: 'break-all',
@@ -319,7 +321,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   more: {
     display: 'block', margin: '8px 0 0 auto', padding: 0, border: 0,
-    background: 'transparent', color: ACCENT, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+    background: 'transparent', color: ACCENT, fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
   error: { margin: 0, color: DANGER, fontSize: 12, lineHeight: 1.5 },
   success: { margin: 0, color: SUCCESS, fontSize: 12 },
