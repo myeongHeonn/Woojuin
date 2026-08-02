@@ -25,6 +25,23 @@ scrape_configs:
       - host: unix:///var/run/docker.sock
         # 배포 직후 새 컨테이너를 빨리 잡도록 짧게 둔다
         refresh_interval: 10s
+        # ── prod 스택만 수집한다 ──────────────────────────────────────────────
+        # dev·Jenkins·모니터링 자기 로그는 Dozzle 로 실시간으로만 본다. 이유:
+        #  - 사후 조사가 필요한 건 운영 장애다. dev 는 고치는 중이라 대체로 실시간으로 본다
+        #  - Jenkins 는 빌드별 콘솔 로그를 자체 UI 에 이미 보관한다
+        #  - 모니터링 스택 자기 로그를 Loki 에 넣으면, Loki 가 못 받는 상황의 원인을 Loki 에서
+        #    찾아야 하는 순환이 된다
+        #
+        # relabel 의 action: keep 을 쓰지 않는 이유(실측): 그렇게 하면 대상은 걸러지는데
+        # Promtail 이 라벨 없는 스트림을 계속 밀어 넣어 Loki 가 400 을 뱉는다
+        # ("at least one label pair is required per stream"). 도커 API 단계에서 거르면
+        # 애초에 대상이 만들어지지 않아 그 문제가 없다.
+        #
+        # dev 도 보존하려면 이 필터를 지우고 relabel 로 스택을 나누는 대신,
+        # docker_sd_configs 를 두 개(dev·prod) 두는 편이 안전하다.
+        filters:
+          - name: label
+            values: ['com.docker.compose.project=woojuin-prod']
     relabel_configs:
       # 도커 컨테이너 이름은 앞에 /가 붙어 온다
       - source_labels: ['__meta_docker_container_name']
