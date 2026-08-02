@@ -20,6 +20,13 @@
 
 주의 1: Loki 설정의 reject_old_samples_max_age 가 168h(7일)라 그보다 오래된 줄은 서버가 거부한다.
         기본 --days 6 은 그 한계 안쪽으로 잡은 값이다.
+라벨에 source="backfill" 을 하나 더 붙인다. Loki 는 **스트림 단위로** '그 스트림의 최근 시각보다
+너무 뒤처진 항목'을 거부하는데(unordered writes 허용 폭 = max_chunk_age/2), Promtail 이 이미
+실시간 로그를 넣고 있는 스트림에 며칠 전 로그를 넣으려면 그 한계에 걸린다(실측:
+"entry too far behind"). 라벨이 하나라도 다르면 **빈 새 스트림**이 되어 그 제약이 사라지고,
+{stack="woojuin-prod"} 같은 선택자에는 여전히 함께 잡힌다(라벨 매처는 부분집합 매칭).
+덤으로 Grafana 에서 백필분과 실시간분을 구분할 수도 있다.
+
 주의 2: 푸시는 204 로 받아들여지지만 **바로 조회되지 않는다.** 쿼리어는 3시간보다 오래된 구간을
         인제스터에 묻지 않고 스토리지만 보는데, 방금 넣은 줄은 아직 메모리에 있기 때문이다.
         그래서 전송이 끝나면 이 스크립트가 POST /flush 로 강제 플러시한다(실측으로 확인한 동작).
@@ -56,7 +63,8 @@ def compose_labels(container: str) -> dict[str, str]:
     fmt = ('{{index .Config.Labels "com.docker.compose.project"}}|'
            '{{index .Config.Labels "com.docker.compose.service"}}')
     project, _, service = run(['docker', 'inspect', '--format', fmt, container]).strip().partition('|')
-    labels = {'container': container}
+    # source 를 붙이는 이유는 파일 상단 설명 참고 — 없으면 실시간 스트림과 충돌해 거부된다
+    labels = {'container': container, 'source': 'backfill'}
     # compose 로 띄우지 않은 컨테이너(jenkins 등)는 이 라벨이 없다 — Promtail 도 마찬가지라 맞다
     if project and project != '<no value>':
         labels['stack'] = project
@@ -137,8 +145,9 @@ def main() -> int:
                     sent += len(chunk)
                 else:
                     failed += 1
-                    print(f'  {container:<34} 실패 — {detail}')
-                    break
+                    if failed <= 3:  # 같은 원인으로 수십 줄이 쏟아지는 것을 막는다
+                        print(f'  {container:<34} 실패 — {detail}')
+                    continue
                 time.sleep(0.05)  # 인제스트 레이트 제한(8MB/s)에 여유를 둔다
         oldest = min(int(v[0]) for vs in by_stream.values() for v in vs)
         print(f'  {container:<34} {sent}/{count}줄  '
