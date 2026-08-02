@@ -7,6 +7,7 @@ import {
   OAUTH_CALLBACK_PREFIX,
 } from '@/auth/webSession';
 import { getAccessToken, getRefreshToken } from '@/storage/authStorage';
+import { openFromNotification, resumeWatchOnAlarm, watchItem } from '@/background/watchItem';
 import { getSelectedWorkspaceId } from '@/storage/workspaceStorage';
 
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
@@ -24,6 +25,21 @@ function registerMenus(): void {
 
 chrome.runtime.onInstalled.addListener(registerMenus);
 chrome.runtime.onStartup.addListener(registerMenus);
+
+// 아이템 처리 완료 감시 — 팝업은 닫히면 끝나므로 감시는 여기서 한다(watchItem.ts 참고).
+chrome.alarms.onAlarm.addListener(resumeWatchOnAlarm);
+chrome.notifications.onClicked.addListener(openFromNotification);
+chrome.runtime.onMessage.addListener((message: unknown) => {
+  const request = message as {
+    type?: string;
+    itemId?: number;
+    workspaceId?: number;
+    status?: 'PROCESSING' | 'DONE' | 'PARTIAL' | 'FAILED';
+  };
+  if (request?.type !== 'watchItem' || typeof request.itemId !== 'number'
+      || typeof request.workspaceId !== 'number' || !request.status) return;
+  void watchItem(request.itemId, request.status, request.workspaceId);
+});
 
 // 웹앱에서 로그인하면 그 세션을 자동으로 물려받는다 — 사용자가 팝업에서 따로 확인을 누르지
 // 않아도 우클릭 저장이 바로 된다. 이미 토큰이 있으면 같은 값으로 덮어써도 무해하다.
@@ -58,6 +74,14 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
+/**
+ * 우클릭 저장의 **접수** 결과를 알린다.
+ *
+ * 성공은 배지·툴팁으로만 알린다 — 완료 알림은 실제 처리가 끝난 뒤 watchItem 이 띄우므로,
+ * 여기서도 알림을 띄우면 한 번의 저장에 알림이 두 번 뜬다.
+ * 실패는 알림으로 띄운다: 사용자가 조치해야 하고(권한 거부·미로그인 등) 배지만으로는 못 알아챈다.
+ * 그래서 실패 알림은 '완료 알림 받기' 설정과 무관하게 항상 띄운다.
+ */
 async function showFeedback(success: boolean, message: string): Promise<void> {
   await Promise.all([
     chrome.storage.local.set({
@@ -66,13 +90,15 @@ async function showFeedback(success: boolean, message: string): Promise<void> {
     chrome.action.setBadgeBackgroundColor({ color: success ? '#16784b' : '#c33030' }),
     chrome.action.setBadgeText({ text: success ? 'OK' : '!' }),
     chrome.action.setTitle({ title: message }),
-    chrome.notifications.create(`context-save-${Date.now()}`, {
-      type: 'basic',
-      iconUrl: NOTIFICATION_ICON,
-      title: success ? '우주인 저장 완료' : '우주인 저장 실패',
-      message,
-      priority: 1,
-    }),
+    ...(success ? [] : [
+      chrome.notifications.create(`context-save-failed-${Date.now()}`, {
+        type: 'basic',
+        iconUrl: NOTIFICATION_ICON,
+        title: '우주인 저장 실패',
+        message,
+        priority: 1,
+      }),
+    ]),
   ]);
   setTimeout(() => void chrome.action.setBadgeText({ text: '' }), 8000);
 }
@@ -114,13 +140,16 @@ async function handleContextSave(
   imagePermission?: Promise<boolean>,
 ): Promise<void> {
   const workspaceId = await requireSaveContext();
+  // 저장은 접수까지만이고 완료 알림은 watchItem 이 실제 처리가 끝난 뒤에 띄운다.
   if (info.menuItemId === 'save-selection') {
     const content = info.selectionText?.trim();
     if (!content) throw new Error('빈 텍스트는 저장할 수 없습니다.');
-    await saveMemo(workspaceId, content);
+    const created = await saveMemo(workspaceId, content);
+    await watchItem(created.itemId, created.status, workspaceId);
   } else if (info.menuItemId === 'save-image' && info.srcUrl) {
     if (!imagePermission) throw new Error('이미지 출처 권한을 요청하지 못했습니다.');
-    await saveImage(workspaceId, await downloadImage(info.srcUrl, imagePermission));
+    const created = await saveImage(workspaceId, await downloadImage(info.srcUrl, imagePermission));
+    await watchItem(created.itemId, created.status, workspaceId);
   }
 }
 
@@ -138,7 +167,7 @@ chrome.contextMenus.onClicked.addListener((info) => {
   if (activeSaves.has(requestKey)) return;
   activeSaves.add(requestKey);
   void handleContextSave(info, imagePermission)
-    .then(() => showFeedback(true, '우주인으로 보냈습니다.'))
+    .then(() => showFeedback(true, '우주인으로 보냈어요. 정리가 끝나면 알려드릴게요.'))
     .catch((error: unknown) => {
       console.error('우주인 저장 실패:', error);
       const message = error instanceof Error ? error.message : '우클릭 저장에 실패했습니다.';
