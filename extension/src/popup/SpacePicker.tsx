@@ -172,7 +172,8 @@ const rowBase: React.CSSProperties = {
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  root: { position: 'relative' },
+  // minWidth: 0 — 부모 안에서 내용 폭만큼 부푸는 것을 막는다(Popup 의 label 주석 참고)
+  root: { position: 'relative', minWidth: 0 },
   trigger: {
     ...rowBase,
     height: 40,
