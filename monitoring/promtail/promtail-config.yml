@@ -1,0 +1,38 @@
+# Promtail — 도커 컨테이너 로그를 실시간으로 Loki 에 보낸다.
+#
+# 파일(/var/lib/docker/containers/*.log)을 직접 읽지 않고 **도커 API 로 발견·수집**한다:
+#  - 배포 때마다 컨테이너가 새로 만들어지는데(백엔드·aimix·크롤러), API 발견이면 새 컨테이너를
+#    자동으로 따라잡는다. 파일 경로 방식은 컨테이너 id 가 바뀔 때마다 놓친다
+#  - 로그 로테이션에 영향을 받지 않는다
+#
+# 라벨은 compose 가 붙여 주는 것을 그대로 쓴다 — Grafana 에서 {stack="woojuin-prod"} 처럼
+# 환경별로, {service="backend"} 처럼 서비스별로 바로 걸러 볼 수 있다.
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        # 배포 직후 새 컨테이너를 빨리 잡도록 짧게 둔다
+        refresh_interval: 10s
+    relabel_configs:
+      # 도커 컨테이너 이름은 앞에 /가 붙어 온다
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: container
+      - source_labels: ['__meta_docker_container_log_stream']
+        target_label: stream
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: stack
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: service

@@ -7,3 +7,9 @@ datasources:
     access: proxy
     url: http://prometheus:9090
     isDefault: true
+
+  # 로그. Prometheus 와 같은 화면에서 메트릭 ↔ 로그를 왕복할 수 있다.
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
