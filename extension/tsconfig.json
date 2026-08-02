@@ -7,9 +7,13 @@
     ],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "types": [
       "chrome",
-      "node"
+      "node",
+      "vite/client"
     ],
     "jsx": "react-jsx",
     "strict": true,

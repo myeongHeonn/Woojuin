@@ -21,6 +21,21 @@
 # 그냥 ${VAR} 로 두면 compose 는 경고만 찍고 빈 문자열을 넣어버려서, .env 의 오타·누락이
 # 60초 뒤 앱 로그에서야 드러난다. 그래서 필수 값에는 전부 :? 를 붙였다.
 
+# 로그 크기 상한. json-file 드라이버 기본값은 **무제한**이라 두면 디스크를 계속 먹는다
+# (운영 백엔드가 하루 ~16MB, 실측). 20MB × 3파일 = 컨테이너당 60MB 상한.
+#
+# 이 정도로 짧게 잡아도 손실이 없는 이유: Loki 가 14일을 보존하고(monitoring/), Promtail 은
+# 파일이 아니라 도커 API 로 스트리밍해 로테이션에 영향받지 않는다. 여기 남는 60MB 는
+# Promtail 이 잠시 멈췄을 때의 완충(운영 백엔드 기준 약 4일치)이다.
+#
+# **로그가 거의 없는 postgres·redis·minio 에는 붙이지 않는다** — 수백 줄 수준인데 설정을 바꾸면
+# 다음 배포에서 재생성되기 때문이다. 아래 세 서비스는 배포마다 어차피 재생성되므로 추가 비용이 없다.
+x-log-rotation: &log-rotation
+  driver: json-file
+  options:
+    max-size: 20m
+    max-file: "3"
+
 services:
   postgres:
     # pgvector 번들 이미지. 같은 PG16이라 기존 postgres-data 볼륨 그대로 호환된다.
@@ -124,6 +139,7 @@ services:
       CRAWLER_MAX_CONCURRENCY: ${CRAWLER_MAX_CONCURRENCY:-2}
     shm_size: "1gb"   # 브라우저 렌더 중 /dev/shm 부족 크래시 방지
     networks: [internal]
+    logging: *log-rotation
     restart: always
     mem_limit: ${CRAWLER_MEM_LIMIT:-2g}
     healthcheck:
@@ -146,6 +162,7 @@ services:
       OPENROUTER_CHAT_MODEL: ${OPENROUTER_CHAT_MODEL:-qwen/qwen3-8b}
       OPENROUTER_EMBEDDING_MODEL: ${OPENROUTER_EMBEDDING_MODEL:-openai/text-embedding-3-small}
     networks: [internal]
+    logging: *log-rotation
     restart: always
     mem_limit: ${AIMIX_MEM_LIMIT:-1g}
     healthcheck:
@@ -200,7 +217,9 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:?}      # 기동 자체가 실패(ClientRegistration 검증)
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:?}
-      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:?}            # localhost 로 회귀 → 브라우저 API 전부 차단
+      # 쉼표로 여러 출처를 넣는다(웹앱 + 크롬 익스텐션). 단수 CORS_ALLOWED_ORIGIN 은 폐기했다 —
+      # application.yml 이 복수 키를 우선 보므로, 단수만 넘기면 익스텐션 출처를 넣을 방법이 없다.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?}           # 누락 시 localhost 로 회귀 → 브라우저 API 전부 차단
       OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:?}    # localhost 로 회귀 → 로그인 후 엉뚱한 곳으로
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:?}                        # 기본 버킷으로 회귀 → dev/prod 데이터 섞임
       AWS_S3_PUBLIC_ENDPOINT: ${AWS_S3_PUBLIC_ENDPOINT:?}      # 내부 주소로 서명 → 브라우저에서 이미지 깨짐
@@ -226,6 +245,7 @@ services:
       #     않는다(크롤러 healthcheck 의 start_period 가 30s). 폴백 전용이라 백엔드는
       #     어차피 런타임에 "크롤러 없음"을 견뎌야 하므로, 이 의존은 얻는 게 없었다.
     networks: [internal]
+    logging: *log-rotation
     restart: always
     mem_limit: ${BACKEND_MEM_LIMIT:?}
     # actuator 의 health 는 DataSource·Redis 를 실제로 확인해 하나라도 끊기면 DOWN(503)을
