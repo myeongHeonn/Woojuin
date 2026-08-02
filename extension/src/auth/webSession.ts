@@ -1,5 +1,5 @@
 import { WEB_ORIGIN } from '@/api/client';
-import { saveTokens } from '@/storage/authStorage';
+import { isAutoLoginSuppressed, saveTokens } from '@/storage/authStorage';
 
 /**
  * 웹앱 로그인 세션 물려받기.
@@ -65,6 +65,8 @@ export async function openWebLogin(): Promise<void> {
  */
 export async function captureTokensFromCallback(url: string): Promise<boolean> {
   if (!url.startsWith(OAUTH_CALLBACK_PREFIX)) return false;
+  // 확장에서 로그아웃한 뒤라면 웹에서 로그인해도 따라 붙지 않는다 — 로그아웃을 존중한다.
+  if (await isAutoLoginSuppressed()) return false;
   const params = new URL(url).searchParams;
   const accessToken = params.get('accessToken');
   const refreshToken = params.get('refreshToken');
@@ -101,6 +103,9 @@ export async function closeLoginWindow(delayMs = 700): Promise<void> {
  * @returns 세션을 얻었는지
  */
 export async function harvestWebSession(tabId?: number): Promise<boolean> {
+  // 자동 수확이 곧 자동 로그인이므로 여기서 막는다 — 호출하는 쪽(팝업 마운트·백그라운드 탭 감지)
+  // 어디서도 가드를 빼먹지 않게 함수 안에 둔다. 사용자가 로그인 버튼을 누르면 플래그가 내려간다.
+  if (await isAutoLoginSuppressed()) return false;
   const targets = tabId === undefined
     ? (await chrome.tabs.query({ url: `${WEB_ORIGIN}/*` }))
         .map((tab) => tab.id)

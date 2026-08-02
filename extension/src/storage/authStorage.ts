@@ -28,6 +28,29 @@ export async function saveTokens(accessToken: string, refreshToken: string): Pro
   ]);
 }
 
+/**
+ * 자동 로그인 차단 플래그.
+ *
+ * 확장은 우주인 탭에 살아 있는 세션을 자동으로 물려받는다(webSession.ts). 편하지만 그대로면
+ * **로그아웃이 무의미해진다** — 확장 토큰만 지워도 팝업을 다시 열 때 곧바로 재수확되기 때문이다.
+ * 그래서 로그아웃은 이 플래그를 세우고, 사용자가 로그인 버튼을 누를 때만 내린다.
+ * 브라우저를 닫아도 유지되도록 local 에 둔다(session 이면 재시작으로 풀려 버린다).
+ */
+const AUTO_LOGIN_SUPPRESSED_KEY = 'autoLoginSuppressed';
+
+export async function isAutoLoginSuppressed(): Promise<boolean> {
+  const result = await chrome.storage.local.get(AUTO_LOGIN_SUPPRESSED_KEY);
+  return result[AUTO_LOGIN_SUPPRESSED_KEY] === true;
+}
+
+export async function setAutoLoginSuppressed(suppressed: boolean): Promise<void> {
+  if (suppressed) {
+    await chrome.storage.local.set({ [AUTO_LOGIN_SUPPRESSED_KEY]: true });
+    return;
+  }
+  await chrome.storage.local.remove(AUTO_LOGIN_SUPPRESSED_KEY);
+}
+
 export async function clearTokens(): Promise<void> {
   await Promise.all([
     chrome.storage.session.remove(ACCESS_TOKEN_KEY),
