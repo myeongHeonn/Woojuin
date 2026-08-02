@@ -11,14 +11,19 @@
 #
 # 접근은 전부 127.0.0.1 바인딩 + SSH 터널이다 (MinIO 콘솔과 같은 패턴):
 #   ssh -L 3000:localhost:3000 -L 9999:localhost:9999 ubuntu@<서버>
-#   Grafana → http://localhost:3000  /  Dozzle(로그) → http://localhost:9999
+#   Grafana → http://localhost:3000  /  Dozzle(실시간 로그) → http://localhost:9999
+#
+# 로그를 보는 창구가 둘인 이유:
+#   Dozzle  = 지금 흐르는 로그를 빠르게 훑을 때(설정 없이 바로 보임, 보존 없음)
+#   Grafana = 지난 로그를 검색할 때(Loki 에 14일 보존, 메트릭과 같은 화면에서 왕복)
+#   배포로 컨테이너가 교체되면 Dozzle 에서는 옛 로그가 사라지지만 Loki 에는 남는다
 # 팀이 자주 보게 되면 grafana.woojuin.store 서브도메인으로 승격(nginx+cert, minio 절차 참고).
 #
 # ⚠️ Prometheus 가 dev/prod 스택의 내부 네트워크에 **참여해서** 백엔드를 스크레이프한다.
 #    그래서 앱 스택을 `docker compose down`(네트워크까지 제거)하려면 모니터링을 먼저
 #    내려야 한다. 파이프라인은 `up -d`만 쓰므로 평소 배포에는 영향 없다.
 #
-# 메모리 예산: 합계 상한 ~1.3GB (실사용은 그 절반 수준. 2026-07-31 available 9.4Gi 실측 기준 여유)
+# 메모리 예산: 합계 상한 ~1.9GB(Loki·Promtail 포함) (실사용은 그 절반 수준. 2026-07-31 available 9.4Gi 실측 기준 여유)
 
 services:
   # ── 로그: 전 컨테이너 실시간 tail·검색 (보존은 없음 — 보존/검색이 필요해지면 Loki 추가)
@@ -30,6 +35,33 @@ services:
       - "127.0.0.1:9999:8080"
     restart: unless-stopped
     mem_limit: 64m
+
+  # ── 로그 보존·검색 (Dozzle 은 실시간 전용 — 배포로 컨테이너가 교체되면 옛 로그가 사라진다)
+  loki:
+    image: grafana/loki:3.1.1
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    ports:
+      # 디버그·백필용 (backfill-docker-logs.py). Prometheus 9090 과 같은 127.0.0.1 바인딩이라
+      # 외부에서는 닿지 않는다. Grafana 는 이 포트가 아니라 monitoring 네트워크로 붙는다.
+      - "127.0.0.1:3100:3100"
+    networks: [monitoring]
+    restart: unless-stopped
+    mem_limit: 512m
+
+  # 도커 API 로 컨테이너를 발견해 로그를 Loki 로 보낸다. 소켓이 필요한 이유는 그것뿐이다.
+  promtail:
+    image: grafana/promtail:3.1.1
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [monitoring]
+    depends_on: [loki]
+    restart: unless-stopped
+    mem_limit: 128m
 
   # ── 메트릭 저장·수집
   prometheus:
@@ -130,3 +162,4 @@ networks:
 volumes:
   prometheus-data:
   grafana-data:
+  loki-data:
