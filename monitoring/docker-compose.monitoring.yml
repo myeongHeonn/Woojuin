@@ -43,6 +43,10 @@ services:
     volumes:
       - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki-data:/loki
+    ports:
+      # 디버그·백필용 (backfill-docker-logs.py). Prometheus 9090 과 같은 127.0.0.1 바인딩이라
+      # 외부에서는 닿지 않는다. Grafana 는 이 포트가 아니라 monitoring 네트워크로 붙는다.
+      - "127.0.0.1:3100:3100"
     networks: [monitoring]
     restart: unless-stopped
     mem_limit: 512m
