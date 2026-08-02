@@ -495,7 +495,10 @@ const styles: Record<string, React.CSSProperties> = {
   title: { margin: 0, fontSize: 16, fontWeight: 600 },
   muted: { margin: 0, fontSize: 14.5, lineHeight: 1.6, color: TEXT_2 },
   hint: { margin: 0, fontSize: 11, lineHeight: 1.6, color: TEXT_3, textAlign: 'center' },
-  label: { display: 'grid', gap: 6, fontSize: 12, fontWeight: 600, color: TEXT_2 },
+  // minWidth: 0 이 필요한 이유 — flex/grid 자식의 기본값은 min-width:auto 라서 내용보다
+  // 작아지지 못한다. 긴 워크스페이스 이름이 들어오면 이 칸이 부풀어 팝업 밖으로 삐져나간다
+  // (실측: 320px 컨테이너에서 트리거가 423px 까지 커졌다). 0 을 주면 줄어들며 … 로 잘린다.
+  label: { display: 'grid', gap: 6, minWidth: 0, fontSize: 12, fontWeight: 600, color: TEXT_2 },
   input: {
     boxSizing: 'border-box', width: '100%', height: 36, padding: '0 10px',
     border: `1px solid ${BORDER}`, borderRadius: 12,
