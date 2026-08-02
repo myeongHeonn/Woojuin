@@ -200,7 +200,9 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:?}      # 기동 자체가 실패(ClientRegistration 검증)
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:?}
-      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:?}            # localhost 로 회귀 → 브라우저 API 전부 차단
+      # 쉼표로 여러 출처를 넣는다(웹앱 + 크롬 익스텐션). 단수 CORS_ALLOWED_ORIGIN 은 폐기했다 —
+      # application.yml 이 복수 키를 우선 보므로, 단수만 넘기면 익스텐션 출처를 넣을 방법이 없다.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?}           # 누락 시 localhost 로 회귀 → 브라우저 API 전부 차단
       OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:?}    # localhost 로 회귀 → 로그인 후 엉뚱한 곳으로
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:?}                        # 기본 버킷으로 회귀 → dev/prod 데이터 섞임
       AWS_S3_PUBLIC_ENDPOINT: ${AWS_S3_PUBLIC_ENDPOINT:?}      # 내부 주소로 서명 → 브라우저에서 이미지 깨짐
