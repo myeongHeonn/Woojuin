@@ -51,3 +51,6 @@ test-results/
 
 # --- Docker ---
 docker-volumes/
+
+# 익스텐션 빌드 산출물 — 웹스토어 업로드용 ZIP 은 커밋하지 않는다(문서에도 명시)
+extension/woojuin-extension-*.zip

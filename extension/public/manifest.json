@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7DhkCl7+KBD9BV01OCN0ATg7LfwhH1dfVvwvPKyeJgstVRYPrPqrTFZcqoiPagmcG0Y5ChkGVTFSqRW35rFrNed/uHZ/izQTUFpQyB4973a8GSZfPY8rLiPKm2cd0T9DH6xCJ5zB94zIQncPHDxOxB+gB9gbXfN5E52wW0DKvFLYf2oETVG424kAI/sx19mld4KwvbKD0PqYzF2yheArT8tQ32p7UCbdlC1mgWtmrJqXoVah43yZSfFu4Biepa3skGf73tqatDS28w0rgcjRfx9IfR0FQghE+RC1WluuJiXhYn5bTRL+SiwSRpROnl34wDPtCA6yLEIAkN/24nxaxwIDAQAB",
   "name": "우주인 원클릭 스크랩",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "지금 보는 페이지를 우주인에 빠르게 저장합니다.",
   "icons": {
     "128": "icon128.png"
