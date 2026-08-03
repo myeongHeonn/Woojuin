@@ -145,6 +145,51 @@ const LogoRing = ({ diameter = '0.71em' }: LogoRingProps) => {
             <stop offset="1" stopColor="white" stopOpacity="0" />
           </radialGradient>
 
+          {/*
+            유리 행성 — 링을 평평한 단색이 아니라 부피가 있는 유리로 보이게 하는 세 겹.
+            색을 currentColor 로 두면 옆 숫자와 같은 색을 기준으로 밝기만 갈린다.
+
+            검은 배경에서는 backdrop-filter 를 쓸 수 없다(뒤에 블러할 것이 없어서 아무
+            효과가 없다). 그래서 글래스모피즘의 실제 단서인 **빛의 방향**으로 만든다 —
+            좌상단이 밝고 우하단으로 어두워지는 몸통 + 얇은 스페큘러 테두리.
+          */}
+          <linearGradient
+            id={id('glassRim')}
+            x1="19"
+            y1="16"
+            x2="43"
+            y2="45"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop offset="0" stopColor="currentColor" stopOpacity="1" />
+            <stop offset="0.55" stopColor="currentColor" stopOpacity="0.74" />
+            <stop offset="1" stopColor="currentColor" stopOpacity="0.44" />
+          </linearGradient>
+
+          <radialGradient
+            id={id('glassBody')}
+            cx="0"
+            cy="0"
+            r="1"
+            gradientUnits="userSpaceOnUse"
+            gradientTransform="translate(24 23) scale(19)"
+          >
+            <stop offset="0" stopColor="currentColor" stopOpacity="0.16" />
+            <stop offset="1" stopColor="currentColor" stopOpacity="0.02" />
+          </radialGradient>
+
+          <linearGradient
+            id={id('glassSpec')}
+            x1="20"
+            y1="17"
+            x2="35"
+            y2="35"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop offset="0" stopColor="currentColor" stopOpacity="0.95" />
+            <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+          </linearGradient>
+
           {(['sparkleV', 'sparkleH'] as const).map((name, index) => (
             <radialGradient
               key={name}
@@ -226,9 +271,38 @@ const LogoRing = ({ diameter = '0.71em' }: LogoRingProps) => {
           </g>
         </g>
 
-        {/* 중앙 링 — 이 자리에서 숫자 0 을 대신한다.
-            색을 currentColor 로 두면 옆 숫자와 정확히 같은 색이 되어 `0` 으로 읽힌다 */}
-        <circle cx="30" cy="30" r="11.5" stroke="currentColor" strokeWidth="7" />
+        {/*
+          조명층 — 빛이 좌상단에서 온다고 보고 세 겹을 겹친다. 전부 같은 중심의 원이라
+          한 그룹으로 묶여 있다(빛의 방향을 바꾸려면 이 그룹만 돌리면 되고, 동심원이라
+          돌려도 형태는 변하지 않는다).
+        */}
+        <g>
+          {/* 유리 몸통 — 아주 옅게 채워 속이 빈 고리가 아니라 투명한 구체로 읽히게 한다.
+              0 의 안쪽이 완전히 비어 있어야 숫자로 읽히므로 진하게 채우지 않는다 */}
+          <circle cx="30" cy="30" r={LOGO_RING_OUTER_RADIUS} fill={`url(#${id('glassBody')})`} />
+
+          {/* 링 본체 — 이 자리에서 숫자 0 을 대신한다 */}
+          <circle cx="30" cy="30" r="11.5" stroke={`url(#${id('glassRim')})`} strokeWidth="7" />
+
+          {/* 유리 두께를 만드는 스페큘러 — 바깥·안쪽 테두리에 얇게 얹는다 */}
+          <circle
+            cx="30"
+            cy="30"
+            r="14.7"
+            stroke={`url(#${id('glassSpec')})`}
+            strokeWidth="0.6"
+            fill="none"
+          />
+          <circle
+            cx="30"
+            cy="30"
+            r="8.3"
+            stroke={`url(#${id('glassSpec')})`}
+            strokeWidth="0.5"
+            fill="none"
+            opacity="0.7"
+          />
+        </g>
       </svg>
     </span>
   );

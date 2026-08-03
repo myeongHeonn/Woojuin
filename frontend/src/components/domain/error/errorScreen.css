@@ -39,6 +39,16 @@
   animation: error-drift 11s ease-in-out infinite alternate;
 }
 
+/*
+ * 우주인의 위치 — 코드 위에 겹치도록 가로 중앙·위쪽으로 끌어올린다.
+ * Tailwind 의 -translate-x-1/2 를 쓰지 않는 이유: 그것도 translate 속성을 쓰므로
+ * 안쪽 img 의 표류 애니메이션과 같은 속성을 두고 다투게 된다. 정렬은 이 바깥 요소가,
+ * 표류는 안쪽 img 가 각각 하나씩 맡는다.
+ */
+.error-spaceman-anchor {
+  translate: -50% -56%;
+}
+
 @keyframes error-drift {
   from {
     translate: -8px 6px;

@@ -51,24 +51,30 @@ const ErrorScreen = ({ code, title, description, actions, detail }: ErrorScreenP
         </Link>
 
         {/*
-          작게 두고 여백을 넓게 둔다 — 우주인이 크게 나오면 캐릭터 일러스트 화면이 되고,
-          작게 떠 있으면 텅 빈 공간이 주인공이 된다(디자인 의도).
+          우주인을 코드 **위에 겹쳐** 띄운다 — 나란히 두면 둘 다 같은 평면에 있는 그림이
+          되지만, 겹치면 우주인이 앞, 코드가 뒤(멀리)로 읽혀 공간감이 생긴다.
+          가로 중앙이 곧 `0` 의 중심이라 별도 계산 없이 행성 위에 떠 있는 모양이 된다.
+          작게 두는 이유: 크면 캐릭터 일러스트 화면이 되고, 작으면 텅 빈 공간이 주인공이 된다.
 
           `spaceman-floating.png` 는 원본 `spaceman-floating-2.png`(1254×1254 / 856KB)를
-          288px 로 줄인 것(68KB)이다. 80px 로 쓰는 그림에 856KB 를 받게 할 수 없다 —
+          288px 로 줄인 것(68KB)이다. 100px 로 쓰는 그림에 856KB 를 받게 할 수 없다 —
           에러 화면은 이미 뭔가 잘못된 상황에서 뜨므로 특히 가벼워야 한다.
           그림을 바꿀 일이 생기면 원본을 갈아 끼우고 같은 비율로 다시 줄이면 된다.
         */}
-        <img
-          src={spacemanFloating}
-          alt=""
-          aria-hidden
-          draggable={false}
-          className="error-spaceman mt-16 h-20 w-auto select-none opacity-85"
-        />
-
-        <div className="mt-12">
+        <div className="relative mt-20">
           <ErrorCodeMark code={code} />
+          {/* 정렬은 anchor 가, 표류는 img 가 맡는다 (errorScreen.css 참고) */}
+          <div className="error-spaceman-anchor pointer-events-none absolute left-1/2 top-0">
+            <img
+              src={spacemanFloating}
+              alt=""
+              aria-hidden
+              draggable={false}
+              // 코드와 **같은 비율로** 줄어들어야 한다 — 높이를 px 로 박으면 좁은 화면에서
+              // 코드만 작아져(clamp) 우주인이 0 을 덮어 숫자가 안 읽힌다(실측)
+              className="error-spaceman h-[clamp(58px,15vw,112px)] w-auto select-none"
+            />
+          </div>
         </div>
 
         {/*
