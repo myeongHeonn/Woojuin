@@ -8,6 +8,7 @@ import com.ssafy.woojuin.domain.auth.exception.WithdrawnUserException;
 import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
 import com.ssafy.woojuin.domain.notification.exception.NotificationTokenNotFoundException;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotAllowedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;
@@ -109,6 +110,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(WorkspaceOwnerRequiredException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ApiResponse<Void> handleWorkspaceOwnerRequired(WorkspaceOwnerRequiredException e) {
+        return ApiResponse.of(403, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(WorkspaceBannedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleWorkspaceBanned(WorkspaceBannedException e) {
         return ApiResponse.of(403, e.getMessage(), null);
     }
 

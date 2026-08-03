@@ -10,12 +10,14 @@ import com.ssafy.woojuin.domain.workspace.entity.WorkspaceInvitation;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotAllowedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceBanRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceInvitationRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
@@ -50,6 +52,9 @@ class WorkspaceInvitationServiceTest {
 
     @Mock
     private WorkspaceInvitationRepository workspaceInvitationRepository;
+
+    @Mock
+    private WorkspaceBanRepository workspaceBanRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -229,6 +234,22 @@ class WorkspaceInvitationServiceTest {
 
         assertThatThrownBy(() -> workspaceInvitationService.accept("abc-123", 2L))
                 .isInstanceOf(IllegalArgumentException.class);
+
+        verify(workspaceMemberRepository, never()).save(any(WorkspaceMember.class));
+    }
+
+    @Test
+    @DisplayName("이 워크스페이스에서 추방된 이력이 있으면 초대를 수락할 수 없다")
+    void accept_bannedUser_throwsBanned() {
+        User creator = user(1L);
+        Workspace ws = workspace(10L, creator);
+        WorkspaceInvitation inv = invitation("abc-123", ws, creator, OffsetDateTime.now().plusDays(1));
+        when(workspaceInvitationRepository.findByCode("abc-123")).thenReturn(Optional.of(inv));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+        when(workspaceBanRepository.existsByWorkspaceIdAndUserId(10L, 2L)).thenReturn(true);
+
+        assertThatThrownBy(() -> workspaceInvitationService.accept("abc-123", 2L))
+                .isInstanceOf(WorkspaceBannedException.class);
 
         verify(workspaceMemberRepository, never()).save(any(WorkspaceMember.class));
     }
