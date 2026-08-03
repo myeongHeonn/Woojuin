@@ -1,0 +1,64 @@
+/**
+ * 에러 화면 연출 — 별 반짝임 · 스페이스맨 표류 · 로고 스파클.
+ *
+ * 여기 있는 건 전부 장식이다. 정보를 전달하지 않으므로 prefers-reduced-motion 이면
+ * 모두 정지 상태로 굳힌다(정지해도 화면은 완성된 모양이다).
+ *
+ * 전부 CSS 로만 움직인다 — JS 도, SVG SMIL 도 쓰지 않는다. opacity·scale 만 건드리므로
+ * 레이아웃을 다시 계산하지 않고 합성 단계에서 끝난다.
+ *
+ * 랜딩(landing-twinkle)과 같은 결이지만 클래스를 공유하지 않는다: 랜딩 CSS 는 1300줄짜리
+ * 섹션 전용 파일이라 에러 화면이 그걸 끌어오면 첫 로딩에 얹히는 CSS 가 커진다.
+ */
+
+.error-star {
+  position: absolute;
+  border-radius: 999px;
+  /* 색은 인라인 style 로 별마다 다르게 준다 */
+  background: currentColor;
+  animation: error-twinkle var(--error-star-duration) ease-in-out var(--error-star-delay) infinite;
+}
+
+@keyframes error-twinkle {
+  0%,
+  100% {
+    opacity: 0.22;
+    scale: 0.8;
+  }
+  50% {
+    opacity: 1;
+    scale: 1.15;
+  }
+}
+
+/*
+ * 표류 — 작게 떠 있는 우주인이라, 빠르게 흔들리면 만화처럼 보인다.
+ * 아주 느리게(11초) 크게 움직여 흐르는 느낌만 남긴다.
+ */
+.error-spaceman {
+  animation: error-drift 11s ease-in-out infinite alternate;
+}
+
+@keyframes error-drift {
+  from {
+    translate: -8px 6px;
+    rotate: -7deg;
+  }
+  to {
+    translate: 8px -12px;
+    rotate: 7deg;
+  }
+}
+
+/*
+ * 로고 링(LogoRing)에는 애니메이션을 걸지 않는다 — opacity·scale 둘 다 스태킹 컨텍스트를
+ * 만들고, 그러면 스파클의 color-dodge 블렌딩이 격리되어 원본과 다른 모양이 된다.
+ * 자세한 경위는 LogoRing.tsx 주석에.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  .error-star,
+  .error-spaceman {
+    animation: none;
+  }
+}
