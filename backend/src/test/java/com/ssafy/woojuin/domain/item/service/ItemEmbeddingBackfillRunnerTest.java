@@ -126,10 +126,21 @@ class ItemEmbeddingBackfillRunnerTest {
         verify(embeddingRepository).upsert(eq(20L), eq(2L), any(), anyString(), eq("sha256:new"));
     }
 
+    /** 적격 규칙 도입 전에 저장된 무의미한 벡터(텍스트 신호 없음)는 백필이 청소한다. */
+    @Test
+    void 시작할_때_텍스트_신호_없는_임베딩을_지운다() {
+        when(itemRepository.findWorkspaceIdsWithEmbeddableItems()).thenReturn(List.of());
+
+        runnerWith(client).run();
+
+        verify(embeddingRepository).deleteEmbeddingsWithoutSourceText();
+    }
+
     @Test
     void aimix가_꺼져_있으면_아무것도_하지_않는다() {
         runnerWith(null).run();
 
         verify(itemRepository, never()).findWorkspaceIdsWithEmbeddableItems();
+        verify(embeddingRepository, never()).deleteEmbeddingsWithoutSourceText();
     }
 }

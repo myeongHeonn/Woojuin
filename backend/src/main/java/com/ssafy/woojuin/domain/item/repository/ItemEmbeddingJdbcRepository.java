@@ -76,6 +76,21 @@ public class ItemEmbeddingJdbcRepository {
                 workspaceId);
     }
 
+    /**
+     * 텍스트 신호가 제목뿐인 아이템(본문·미리보기 설명 모두 빈 것)의 임베딩 제거 —
+     * 적격 규칙({@code ItemEmbeddingService#hasEmbeddableSourceText}) 도입 전에 저장된
+     * 무의미한 벡터를 백필이 한 번 청소한다. 규칙 도입 후에는 애초에 저장되지 않는다.
+     * 휴지통 아이템도 지운다 — 복구돼도 어차피 부적격이다.
+     *
+     * @return 지운 행 수
+     */
+    public int deleteEmbeddingsWithoutSourceText() {
+        return jdbcTemplate.update(
+                "DELETE FROM item_embeddings e USING items i WHERE i.id = e.item_id "
+                        + "AND trim(coalesce(i.content, '')) = '' "
+                        + "AND trim(coalesce(i.preview_description, '')) = ''");
+    }
+
     /** 재계산된 좌표 일괄 반영. */
     public void updateCoordinates(List<Object[]> xyzByItemId) {
         jdbcTemplate.batchUpdate(

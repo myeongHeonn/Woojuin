@@ -76,6 +76,10 @@ public class ItemEmbeddingService {
             log.debug("요약이 없어 임베딩 생략(AI 보강 실패 아이템): itemId={}", itemId);
             return;
         }
+        if (!hasEmbeddableSourceText(item)) {
+            log.debug("본문·미리보기가 모두 비어 임베딩 생략(요약이 제목만으로 지어진 것): itemId={}", itemId);
+            return;
+        }
         List<EmbeddingCategory> categories = categoriesOf(itemId);
         if (categories.isEmpty()) {
             return;   // 기타 폴백조차 없는 옛 워크스페이스 — 계약상 카테고리 1개 이상 필수
@@ -93,6 +97,23 @@ public class ItemEmbeddingService {
                 result.embedding(), result.model(), result.inputHash());
         recomputeCoordinates(client, item.getWorkspaceId());
         log.info("임베딩·좌표 갱신 완료: itemId={}, workspaceId={}", itemId, item.getWorkspaceId());
+    }
+
+    /**
+     * 임베딩할 텍스트 신호가 있는가 — 본문(메모 원문/URL 추출 본문/이미지 OCR·설명)이나
+     * 미리보기 설명 중 하나는 있어야 한다. 둘 다 없으면 AI 요약은 제목(대개 생 URL)만 보고
+     * 지어낸 무의미한 문장이고, 그 임베딩은 벡터 공간 중간쯤에 떠서 아무 검색어에나
+     * 임계값 안으로 걸린다(실측: 크롤링 실패한 스마트스토어 상품이 "카페" 검색에 0.67로
+     * 등장). 요약 텍스트의 실패 패턴을 감지하는 대신 입력 신호로 판정하는 이유는 LLM
+     * 출력 문구가 언제든 바뀔 수 있어서다.
+     *
+     * <p>백필 대상 조회({@code ItemRepository#findEmbeddingSourceRows})와 기존 임베딩
+     * 정리({@code ItemEmbeddingJdbcRepository#deleteEmbeddingsWithoutSourceText})의 SQL
+     * 조건도 이 규칙과 같아야 한다.
+     */
+    static boolean hasEmbeddableSourceText(Item item) {
+        return (item.getContent() != null && !item.getContent().isBlank())
+                || (item.getPreviewDescription() != null && !item.getPreviewDescription().isBlank());
     }
 
     /**

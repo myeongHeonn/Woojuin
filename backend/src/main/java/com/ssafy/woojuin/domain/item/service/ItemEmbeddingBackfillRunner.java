@@ -85,6 +85,14 @@ public class ItemEmbeddingBackfillRunner {
             log.warn("임베딩 백필: aimix가 꺼져 있어 건너뜁니다(AIMIX_ENABLED=false)");
             return;
         }
+        // 적격 규칙(본문·미리보기 중 하나는 있어야 함) 도입 전에 저장된 무의미한 벡터 청소.
+        // 좌표 재계산은 안 한다 — 남은 벡터의 3차원 배치가 살짝 낡을 뿐이고, 다음 아이템
+        // 저장 때 어차피 전체 재계산된다.
+        int deleted = embeddingRepository.deleteEmbeddingsWithoutSourceText();
+        if (deleted > 0) {
+            log.info("임베딩 백필: 텍스트 신호 없는 아이템의 임베딩 {}건 제거", deleted);
+        }
+
         List<Long> workspaceIds = itemRepository.findWorkspaceIdsWithEmbeddableItems();
         log.info("임베딩 백필 시작: {}개 워크스페이스", workspaceIds.size());
         int updatedTotal = 0;
