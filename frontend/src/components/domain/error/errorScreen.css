@@ -1,0 +1,77 @@
+/**
+ * 에러 화면 연출 — 별 반짝임 · 스페이스맨 표류 · 로고 스파클.
+ *
+ * 여기 있는 건 전부 장식이다. 정보를 전달하지 않으므로 prefers-reduced-motion 이면
+ * 모두 정지 상태로 굳힌다(정지해도 화면은 완성된 모양이다).
+ *
+ * 전부 CSS 로만 움직인다 — JS 도, SVG SMIL 도 쓰지 않는다. opacity·scale 만 건드리므로
+ * 레이아웃을 다시 계산하지 않고 합성 단계에서 끝난다.
+ *
+ * 랜딩(landing-twinkle)과 같은 결이지만 클래스를 공유하지 않는다: 랜딩 CSS 는 1300줄짜리
+ * 섹션 전용 파일이라 에러 화면이 그걸 끌어오면 첫 로딩에 얹히는 CSS 가 커진다.
+ */
+
+/*
+ * 별 하나. 위치·크기·주기만 인라인 style 로 다르게 주고 색은 여기서 한 번만 정한다
+ * (성좌 팔레트를 섞어 봤지만 "빛 없는 검은 우주" 인상이 깨져서 흰색으로 통일했다).
+ */
+.error-star {
+  position: absolute;
+  border-radius: 999px;
+  background: var(--color-star-white);
+  animation: error-twinkle var(--error-star-duration) ease-in-out var(--error-star-delay) infinite;
+}
+
+@keyframes error-twinkle {
+  0%,
+  100% {
+    opacity: 0.22;
+    scale: 0.8;
+  }
+  50% {
+    opacity: 1;
+    scale: 1.15;
+  }
+}
+
+/*
+ * 표류 — 작게 떠 있는 우주인이라, 빠르게 흔들리면 만화처럼 보인다.
+ * 아주 느리게(11초) 크게 움직여 흐르는 느낌만 남긴다.
+ */
+.error-spaceman {
+  animation: error-drift 11s ease-in-out infinite alternate;
+}
+
+/*
+ * 우주인의 위치 — 코드 위에 겹치도록 가로 중앙·위쪽으로 끌어올린다.
+ * Tailwind 의 -translate-x-1/2 를 쓰지 않는 이유: 그것도 translate 속성을 쓰므로
+ * 안쪽 img 의 표류 애니메이션과 같은 속성을 두고 다투게 된다. 정렬은 이 바깥 요소가,
+ * 표류는 안쪽 img 가 각각 하나씩 맡는다.
+ */
+.error-spaceman-anchor {
+  translate: -50% -56%;
+}
+
+@keyframes error-drift {
+  from {
+    translate: -8px 6px;
+    rotate: -7deg;
+  }
+  to {
+    translate: 8px -12px;
+    rotate: 7deg;
+  }
+}
+
+/*
+ * 로고 링(LogoRing)은 정지 상태로 둔다 — 사이드바 로고의 평소 모습과 같은 얼굴이어야
+ * 브랜드로 읽히고, 궤도의 34% 만 링 밖이라 스파클을 돌리면 대부분 링에 가려진다.
+ * 자세한 경위는 LogoRing.tsx 주석에.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  .error-star,
+  .error-spaceman {
+    animation: none;
+  }
+}
