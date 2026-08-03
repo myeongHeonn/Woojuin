@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Modal from '@/components/ui/Modal';
 import type { AiUsage } from '@/services/auth';
+import TutorialReplayCard from '@/components/domain/mypage/TutorialReplayCard';
+import ChatIntegrationCard from '@/components/domain/mypage/ChatIntegrationCard';
+import type { TutorialReplayType } from '@/stores/tutorialAtoms';
 
 interface SettingsCardProps {
   // TODO: 알림 설정 기능을 다시 노출할 때 아래 두 prop과 주석 처리된 UI를 사용한다.
@@ -10,9 +13,23 @@ interface SettingsCardProps {
   aiUsage?: AiUsage;
   aiUsageLoading: boolean;
   aiUsageError: boolean;
+  personalSpaceId?: number;
+  sharedWorkspaceId?: number;
+  spacesLoading?: boolean;
+  onTutorialReplay?: (type: TutorialReplayType, workspaceId: number) => void;
+  onChatIntegrationError?: () => void;
 }
 
-const SettingsCard = ({ aiUsage, aiUsageLoading, aiUsageError }: SettingsCardProps) => {
+const SettingsCard = ({
+  aiUsage,
+  aiUsageLoading,
+  aiUsageError,
+  personalSpaceId,
+  sharedWorkspaceId,
+  spacesLoading = false,
+  onTutorialReplay = () => undefined,
+  onChatIntegrationError = () => undefined,
+}: SettingsCardProps) => {
   const [helpOpen, setHelpOpen] = useState(false);
   const usagePercent =
     aiUsage && aiUsage.limitEnabled && !aiUsage.unlimited && aiUsage.limit > 0
@@ -112,6 +129,16 @@ const SettingsCard = ({ aiUsage, aiUsageLoading, aiUsageError }: SettingsCardPro
           </span>
         )}
       </section>
+
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <TutorialReplayCard
+          personalSpaceId={personalSpaceId}
+          sharedWorkspaceId={sharedWorkspaceId}
+          loading={spacesLoading}
+          onReplay={onTutorialReplay}
+        />
+        <ChatIntegrationCard onError={onChatIntegrationError} />
+      </div>
 
       <section className="rounded-[20px] border border-border-soft bg-surface p-1.5">
         <button

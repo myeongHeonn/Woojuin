@@ -3,6 +3,7 @@ package com.ssafy.woojuin.domain.workspace.repository;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,10 +14,12 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
 
     List<WorkspaceMember> findByWorkspaceId(Long workspaceId);
 
+    @EntityGraph(attributePaths = "workspace")
     List<WorkspaceMember> findByUserId(Long userId);
 
     long countByUserId(Long userId);
 
+    @EntityGraph(attributePaths = "workspace")
     Optional<WorkspaceMember> findByWorkspaceIdAndUserId(Long workspaceId, Long userId);
 
     Optional<WorkspaceMember> findFirstByWorkspaceIdAndRoleAndUserDeletedAtIsNullOrderByJoinedAtAscIdAsc(
