@@ -26,16 +26,13 @@ interface StageHeaderProps {
 const StageHeader = ({ title, meta, actions }: StageHeaderProps) => (
   <header
     className={classNames(
-      'pointer-events-none absolute inset-x-0 top-0 z-[5] flex items-start justify-between gap-4 pt-5 desktop:pt-[26px]',
+      'pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 pt-5 desktop:pt-[26px]',
       STAGE_PX,
     )}
   >
     <div className="min-w-0">
       {/* 모바일: 이름 탭 → 워크스페이스 전환(사이드바 없음) / 데스크톱: 그냥 제목 */}
-      <div
-        className="pointer-events-auto min-w-0 desktop:hidden"
-        data-tutorial="workspace-title"
-      >
+      <div className="pointer-events-auto min-w-0 desktop:hidden" data-tutorial="workspace-title">
         <WorkspaceSwitcher />
       </div>
       <h1 className="hidden truncate text-2xl font-extrabold tracking-[-0.01em] text-text-1 desktop:block desktop:text-[30px]">
