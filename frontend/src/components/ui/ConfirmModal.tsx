@@ -7,6 +7,8 @@ interface ConfirmModalProps {
   confirmLabel: string;
   onCancel: () => void;
   onConfirm: () => void;
+  /** 취소할 수 있는 상황이 아닐 때(예: 이미 벌어진 일을 알리기만 하는 모달) false로 숨긴다. 기본 true. */
+  showCancel?: boolean;
 }
 
 const ConfirmModal = ({
@@ -16,6 +18,7 @@ const ConfirmModal = ({
   confirmLabel,
   onCancel,
   onConfirm,
+  showCancel = true,
 }: ConfirmModalProps) => {
   useEffect(() => {
     if (!open) return;
@@ -51,13 +54,15 @@ const ConfirmModal = ({
           {description}
         </p>
         <div className="flex justify-center gap-2.5">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-[11px] bg-surface-2 px-5 py-2.5 text-[13.5px] font-bold text-text-1 hover:bg-surface-3"
-          >
-            취소
-          </button>
+          {showCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-[11px] bg-surface-2 px-5 py-2.5 text-[13.5px] font-bold text-text-1 hover:bg-surface-3"
+            >
+              취소
+            </button>
+          )}
           <button
             type="button"
             onClick={onConfirm}
