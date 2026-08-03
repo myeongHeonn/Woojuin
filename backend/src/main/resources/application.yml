@@ -56,6 +56,10 @@ woojuin:
   integrations:
     chat:
       frontend-base-url: ${CHAT_INTEGRATION_FRONTEND_URL:http://localhost:5173}
+    discord:
+      # Discord Developer Portal의 General Information > Public Key.
+      public-key: ${DISCORD_PUBLIC_KEY:}
+      application-id: ${DISCORD_APPLICATION_ID:}
     mattermost:
       # Mattermost 슬래시 명령 저장 후 발급되는 토큰. 비어 있으면 콜백 API는 503으로 거부한다.
       slash-token: ${MATTERMOST_SLASH_TOKEN:}

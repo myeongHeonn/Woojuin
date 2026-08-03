@@ -8,15 +8,18 @@ interface ChatIntegrationCardProps {
 }
 
 const ChatIntegrationCard = ({ onError }: ChatIntegrationCardProps) => {
+  const discordApplicationId = import.meta.env.VITE_DISCORD_APPLICATION_ID;
+  const discordInstallUrl = discordApplicationId
+    ? `https://discord.com/oauth2/authorize?client_id=${encodeURIComponent(discordApplicationId)}`
+    : null;
   const [open, setOpen] = useState(false);
   const mutation = useMutation({
     mutationFn: issueChatLinkCode,
     onError,
   });
 
-  const copyCommand = async () => {
-    if (!mutation.data) return;
-    await navigator.clipboard.writeText(`/woojuin connect ${mutation.data.code}`);
+  const copyCommand = async (command: string) => {
+    await navigator.clipboard.writeText(command);
   };
 
   return (
@@ -43,6 +46,17 @@ const ChatIntegrationCard = ({ onError }: ChatIntegrationCardProps) => {
           코드는 10분 동안 유효하며 한 번 사용하면 폐기됩니다.
         </div>
 
+        {discordInstallUrl && (
+          <a
+            href={discordInstallUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 block w-full rounded-lg border border-border-soft px-4 py-3 text-center text-sm font-bold text-text-1 transition-colors hover:bg-surface-2"
+          >
+            Discord에 우주인 설치
+          </a>
+        )}
+
         <button
           type="button"
           disabled={mutation.isPending}
@@ -54,19 +68,37 @@ const ChatIntegrationCard = ({ onError }: ChatIntegrationCardProps) => {
 
         {mutation.data && (
           <div className="mt-4 rounded-[14px] border border-border-soft px-4 py-4">
-            <div className="text-[11px] text-text-3">Mattermost에서 아래 명령을 입력하세요.</div>
-            <code className="mt-2 block break-all text-sm font-bold text-text-1">
-              /woojuin connect {mutation.data.code}
-            </code>
-            <button
-              type="button"
-              onClick={copyCommand}
-              className="mt-3 text-xs font-semibold text-accent hover:underline"
-            >
-              명령 복사
-            </button>
+            {[
+              {
+                platform: 'Mattermost',
+                command: `/woojuin connect ${mutation.data.code}`,
+              },
+              {
+                platform: 'Discord',
+                command: `/woojuin connect code:${mutation.data.code}`,
+              },
+            ].map(({ platform, command }) => (
+              <div key={platform} className="mt-4 first:mt-0">
+                <div className="text-[11px] text-text-3">{platform}에서 입력하세요.</div>
+                <code className="mt-2 block break-all text-sm font-bold text-text-1">
+                  {command}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => copyCommand(command)}
+                  className="mt-2 text-xs font-semibold text-accent hover:underline"
+                >
+                  {platform} 명령 복사
+                </button>
+              </div>
+            ))}
           </div>
         )}
+
+        <div className="mt-4 text-xs leading-5 text-text-3">
+          Discord에서는 <code>/woojuin image</code>로 이미지를 바로 올리거나, 메시지를 우클릭해
+          <code> 앱 → 우주인에 저장</code>을 선택할 수 있어요.
+        </div>
       </Modal>
     </>
   );

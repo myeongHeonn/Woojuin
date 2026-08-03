@@ -6,6 +6,7 @@ import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import com.ssafy.woojuin.domain.integration.dto.ChatCommand;
 import com.ssafy.woojuin.domain.integration.dto.ChatCommandResult;
 import com.ssafy.woojuin.domain.integration.entity.ChatAccountConnection;
+import com.ssafy.woojuin.domain.integration.entity.ChatPlatform;
 import com.ssafy.woojuin.domain.integration.repository.ChatAccountConnectionRepository;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemSearchResponse;
@@ -75,7 +76,7 @@ public class ChatCommandService {
         try {
             String text = command.text() == null ? "" : command.text().trim();
             if (text.isEmpty() || text.equalsIgnoreCase("help")) {
-                return help();
+                return help(command.platform());
             }
             String[] parts = text.split("\\s+", 2);
             String action = parts[0].toLowerCase(Locale.ROOT);
@@ -336,8 +337,8 @@ public class ChatCommandService {
         }
     }
 
-    private ChatCommandResult help() {
-        return ChatCommandResult.of("""
+    private ChatCommandResult help(ChatPlatform platform) {
+        String common = """
                 우주인 명령어
                 `/woojuin help` 명령어 도움말
                 `/woojuin connect <연결코드>` 계정 연결
@@ -348,7 +349,12 @@ public class ChatCommandService {
                 `/woojuin save <URL> [--workspace <ID>]` 링크 저장
                 `/woojuin memo <내용>` 메모 저장
                 `/woojuin search <검색어>` 기본 공간 검색
-                """.trim());
+                """.trim();
+        if (platform == ChatPlatform.DISCORD) {
+            common += "\n`/woojuin image attachment:<이미지>` 이미지 저장"
+                    + "\n메시지 우클릭 → `앱` → `우주인에 저장`";
+        }
+        return ChatCommandResult.of(common);
     }
 
     private record SaveArguments(String url, Long workspaceId) {
