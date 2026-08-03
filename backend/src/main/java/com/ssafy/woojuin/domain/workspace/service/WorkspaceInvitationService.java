@@ -9,12 +9,14 @@ import com.ssafy.woojuin.domain.workspace.entity.WorkspaceInvitation;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotAllowedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceBanRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceInvitationRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
@@ -41,16 +43,19 @@ public class WorkspaceInvitationService {
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final WorkspaceInvitationRepository workspaceInvitationRepository;
+    private final WorkspaceBanRepository workspaceBanRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     public WorkspaceInvitationService(WorkspaceRepository workspaceRepository,
                                        WorkspaceMemberRepository workspaceMemberRepository,
                                        WorkspaceInvitationRepository workspaceInvitationRepository,
+                                       WorkspaceBanRepository workspaceBanRepository,
                                        UserRepository userRepository, ApplicationEventPublisher eventPublisher) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.workspaceInvitationRepository = workspaceInvitationRepository;
+        this.workspaceBanRepository = workspaceBanRepository;
         this.userRepository = userRepository;
         this.eventPublisher = eventPublisher;
     }
@@ -87,6 +92,9 @@ public class WorkspaceInvitationService {
 
         if (workspaceMemberRepository.findByWorkspaceIdAndUserId(workspace.getId(), userId).isPresent()) {
             throw new IllegalArgumentException("이미 가입된 워크스페이스입니다");
+        }
+        if (workspaceBanRepository.existsByWorkspaceIdAndUserId(workspace.getId(), userId)) {
+            throw new WorkspaceBannedException(workspace.getId());
         }
 
         User joiner = userRepository.findById(userId)

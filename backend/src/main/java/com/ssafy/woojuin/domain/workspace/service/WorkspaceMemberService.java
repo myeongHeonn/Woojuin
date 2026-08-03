@@ -2,6 +2,8 @@ package com.ssafy.woojuin.domain.workspace.service;
 
 import com.ssafy.woojuin.domain.workspace.dto.UpdateMemberRoleRequest;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceMemberResponse;
+import com.ssafy.woojuin.domain.workspace.entity.Workspace;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceBan;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceLastOwnerException;
@@ -9,6 +11,7 @@ import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberNotFoundExcep
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceBanRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
@@ -28,13 +31,16 @@ public class WorkspaceMemberService {
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final WorkspaceBanRepository workspaceBanRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     public WorkspaceMemberService(WorkspaceRepository workspaceRepository,
                                    WorkspaceMemberRepository workspaceMemberRepository,
+                                   WorkspaceBanRepository workspaceBanRepository,
                                    ApplicationEventPublisher eventPublisher) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
+        this.workspaceBanRepository = workspaceBanRepository;
         this.eventPublisher = eventPublisher;
     }
 
@@ -66,22 +72,26 @@ public class WorkspaceMemberService {
 
     @Transactional
     public void remove(Long workspaceId, Long targetUserId, Long requesterId) {
-        findWorkspace(workspaceId);
+        Workspace workspace = findWorkspace(workspaceId);
         WorkspaceMember target = findTargetMembership(workspaceId, targetUserId);
 
-        if (!requesterId.equals(targetUserId)) {
+        boolean isKick = !requesterId.equals(targetUserId);
+        if (isKick) {
             requireOwner(workspaceId, requesterId);
         }
         if (target.getRole() == WorkspaceRole.OWNER) {
             requireNotLastOwner(workspaceId);
         }
 
+        if (isKick) {
+            workspaceBanRepository.save(WorkspaceBan.builder().workspace(workspace).user(target.getUser()).build());
+        }
         workspaceMemberRepository.delete(target);
         eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.MEMBER));
     }
 
-    private void findWorkspace(Long workspaceId) {
-        workspaceRepository.findById(workspaceId)
+    private Workspace findWorkspace(Long workspaceId) {
+        return workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new WorkspaceNotFoundException(workspaceId));
     }
 
