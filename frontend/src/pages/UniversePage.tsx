@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAtomValue, useSetAtom } from 'jotai';
 import UniverseCanvas from '@/components/domain/universe/UniverseCanvas';
 import ConstellationSearch from '@/components/domain/search/ConstellationSearch';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
@@ -9,6 +10,11 @@ import { useStageMeta } from '@/hooks/useStageMeta';
 import { processingPollInterval, useItems } from '@/hooks/useItems';
 import { useCategories } from '@/hooks/useCategories';
 import { universeKey, useUniverse } from '@/hooks/useUniverse';
+import { tutorialActiveAtom, tutorialFixtureVisibleAtom } from '@/stores/tutorialAtoms';
+import {
+  isUniverseEmpty,
+  tutorialUniverseFixture,
+} from '@/components/domain/tutorial/tutorialUniverseFixture';
 
 /**
  * 성좌 뷰.
@@ -21,6 +27,8 @@ const UniversePage = () => {
   const workspaceId = Number(workspaceIdParam);
   const queryClient = useQueryClient();
   const [openItemId, setOpenItemId] = useState<number | null>(null);
+  const isTutorialActive = useAtomValue(tutorialActiveAtom);
+  const setTutorialFixtureVisible = useSetAtom(tutorialFixtureVisibleAtom);
 
   // 헤더 숫자와 PROCESSING 여부는 기존 목록 쿼리를 재사용한다(전용 통계 API 없음).
   const { data: itemsData } = useItems({ workspaceId, size: 20 });
@@ -50,9 +58,22 @@ const UniversePage = () => {
       : undefined,
   );
 
+  const showTutorialFixture = Boolean(isTutorialActive && universe && isUniverseEmpty(universe));
+  const displayedUniverse = showTutorialFixture ? tutorialUniverseFixture : universe;
+
+  useEffect(() => {
+    setTutorialFixtureVisible(showTutorialFixture);
+    return () => setTutorialFixtureVisible(false);
+  }, [setTutorialFixtureVisible, showTutorialFixture]);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-space">
-      {universe && <UniverseCanvas data={universe} onOpenItem={setOpenItemId} />}
+      {displayedUniverse && (
+        <UniverseCanvas
+          data={displayedUniverse}
+          onOpenItem={showTutorialFixture ? undefined : setOpenItemId}
+        />
+      )}
 
       {isUniverseLoading && (
         <div className="absolute inset-0 grid place-items-center">
