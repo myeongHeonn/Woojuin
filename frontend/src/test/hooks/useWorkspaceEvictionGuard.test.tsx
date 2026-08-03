@@ -24,6 +24,8 @@ const member = (userId: number): WorkspaceMember => ({
   nickname: '멤버' + userId,
   email: `member${userId}@woojuin.com`,
   role: 'MEMBER',
+  joinedAt: '',
+  avatarColor: 'BLUE',
 });
 
 const profile = (id: number): UserProfile => ({
@@ -33,6 +35,10 @@ const profile = (id: number): UserProfile => ({
   profileImageUrl: null,
   provider: 'GOOGLE',
   emailVerified: true,
+  avatarColor: 'WHITE',
+  personalSpaceId: 1,
+  personalTutorialCompleted: true,
+  sharedWorkspaceTutorialCompleted: true,
 });
 
 /** 훅만 부르는 프로브 — 화면은 evicted 값만 보여준다 */
