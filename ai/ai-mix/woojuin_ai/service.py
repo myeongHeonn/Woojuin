@@ -33,7 +33,7 @@ from .prompts import (
 from .reduction import reduce_to_3d
 
 
-EMBEDDING_TEXT_VERSION = "category-title-summary-v1"
+EMBEDDING_TEXT_VERSION = "title-summary-categories-v2"
 
 
 class InvalidModelResponse(RuntimeError):
@@ -163,15 +163,18 @@ class AiMixService:
 
 
 def build_embedding_text(value: EmbeddingInput) -> str:
+    """검색어 임베딩(생 문장)과 같은 평문 형태로 조립한다.
+
+    v1은 "카테고리:/제목:/요약:" 라벨을 붙였는데, 모든 아이템이 같은 보일러플레이트를
+    공유해 서로 뭉치고 평문인 검색어와는 체계적으로 멀어졌다 — 실측에서 관련 쿼리
+    0.50~0.70 vs 무관 쿼리 0.72~0.77로 변별 구간이 2%p까지 좁아진 원인. 카테고리명은
+    단어 수준 검색어("맛집")와의 연결 신호라 라벨 없이 꼬리에만 남긴다.
+    """
     category_names = [
         item.name
         for item in sorted(value.categories, key=lambda item: item.category_id)
     ]
-    return (
-        f"카테고리: {', '.join(category_names)}\n"
-        f"제목: {value.title}\n"
-        f"요약: {value.summary}"
-    )
+    return f"{value.title}\n{value.summary}\n{', '.join(category_names)}"
 
 
 def embedding_input_hash(text: str) -> str:
