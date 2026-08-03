@@ -79,19 +79,32 @@ const ImageForm = ({ onDone }: ImageFormProps) => {
   /**
    * Ctrl+V 로 붙여넣기 — 스크린샷을 찍고 바로 저장하는 흐름이 이 앱에서 잦다.
    *
-   * AddModal 이 사진 탭일 때만 이 폼을 렌더하므로, document 에 걸어도 다른 탭에서는
-   * 동작하지 않는다. 이미지가 없는 붙여넣기(평범한 텍스트 복사)는 건드리지 않는다 —
-   * 안내를 띄우면 다른 입력에 붙여넣으려던 사용자를 방해한다.
+   * AddModal 이 사진 탭일 때만 이 폼을 렌더하므로 document 에 걸어도 다른 탭에서는
+   * 동작하지 않는다. 다만 문서 전체를 듣기 때문에, 입력창에 붙여넣는 중이라면
+   * 그쪽 몫으로 두고 비켜야 한다 — 검색창에 텍스트를 붙여넣는데 사진 폼이 끼어들어
+   * "이미지가 아니다"라고 하면 엉뚱하다.
    */
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
       const items = event.clipboardData?.items;
       if (!items) return;
 
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest('input, textarea, [contenteditable="true"]')
+      ) {
+        return;
+      }
+
       const image = [...items].find(
         (item) => item.kind === 'file' && item.type.startsWith('image/'),
       );
-      if (!image) return;
+      if (!image) {
+        // 사진 탭에서 누른 Ctrl+V 는 사진을 넣으려는 뜻이다 — 왜 안 됐는지 알려준다
+        setFileError(NOT_IMAGE_MESSAGE);
+        return;
+      }
 
       event.preventDefault();
       void pickRef.current(image.getAsFile());
