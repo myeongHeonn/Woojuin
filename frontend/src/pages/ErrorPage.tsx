@@ -34,6 +34,13 @@ const isChunkLoadError = (error: unknown): boolean => {
   );
 };
 
+/** 화면에 띄울 원인 한 줄. 개발 빌드에서만 쓴다 */
+const describeError = (error: unknown): string => {
+  if (error instanceof Error) return `${error.name}: ${error.message}`;
+  if (isRouteErrorResponse(error)) return `${error.status} ${error.statusText}`;
+  return String(error);
+};
+
 const ErrorPage = () => {
   const error = useRouteError();
 
@@ -46,13 +53,7 @@ const ErrorPage = () => {
   const reload = () => window.location.reload();
 
   // 개발 중에만 원인을 화면에 띄운다 — 운영에서는 사용자에게 의미가 없고 내부 경로가 드러난다
-  const detail = import.meta.env.DEV
-    ? error instanceof Error
-      ? `${error.name}: ${error.message}`
-      : isRouteErrorResponse(error)
-        ? `${error.status} ${error.statusText}`
-        : String(error)
-    : undefined;
+  const detail = import.meta.env.DEV ? describeError(error) : undefined;
 
   if (isChunkLoadError(error)) {
     return (

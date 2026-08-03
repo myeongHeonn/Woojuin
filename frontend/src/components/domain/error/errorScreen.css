@@ -11,11 +11,14 @@
  * 섹션 전용 파일이라 에러 화면이 그걸 끌어오면 첫 로딩에 얹히는 CSS 가 커진다.
  */
 
+/*
+ * 별 하나. 위치·크기·주기만 인라인 style 로 다르게 주고 색은 여기서 한 번만 정한다
+ * (성좌 팔레트를 섞어 봤지만 "빛 없는 검은 우주" 인상이 깨져서 흰색으로 통일했다).
+ */
 .error-star {
   position: absolute;
   border-radius: 999px;
-  /* 색은 인라인 style 로 별마다 다르게 준다 */
-  background: currentColor;
+  background: var(--color-star-white);
   animation: error-twinkle var(--error-star-duration) ease-in-out var(--error-star-delay) infinite;
 }
 
@@ -61,8 +64,8 @@
 }
 
 /*
- * 로고 링(LogoRing)에는 애니메이션을 걸지 않는다 — opacity·scale 둘 다 스태킹 컨텍스트를
- * 만들고, 그러면 스파클의 color-dodge 블렌딩이 격리되어 원본과 다른 모양이 된다.
+ * 로고 링(LogoRing)은 정지 상태로 둔다 — 사이드바 로고의 평소 모습과 같은 얼굴이어야
+ * 브랜드로 읽히고, 궤도의 34% 만 링 밖이라 스파클을 돌리면 대부분 링에 가려진다.
  * 자세한 경위는 LogoRing.tsx 주석에.
  */
 

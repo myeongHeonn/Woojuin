@@ -34,8 +34,9 @@ interface LogoRingProps {
  * 불투명 판을 깔면 옆의 `4` 가 검게 잘려 나간다(실제로 그렇게 나왔다).
  *
  * 그래서 dodge 의 **결과**를 그라데이션 정지점으로 직접 그린다 — 중심은 흰색으로 꽉 차고
- * 바로 급격히 떨어지는 stop 배치다. 겹치는 두 갈래를 각각 screen 으로 얹으면 교차점에서
- * 밝기가 합쳐져 원본처럼 핀포인트가 된다. 불투명한 판이 없으므로 무엇 위에 놓아도 안전하다.
+ * 바로 급격히 떨어지는 stop 배치다(SPARKLE_STOPS). 두 갈래가 겹치는 교차점은 알파가
+ * 쌓여 흰색으로 포화되므로 블렌드 모드가 따로 필요하지 않고, 불투명한 판이 없으니 무엇
+ * 위에 놓아도 안전하다.
  *
  * ── 왜 기존 두 구현을 쓰지 않는가 (실측 비교) ────────────────────────────────
  * 랜딩(AnimatedLogoBackdrop): 시안 HTML 을 `?raw` 로 번들에 싣고 iframe 으로 띄운다.
@@ -247,62 +248,54 @@ const LogoRing = ({ diameter = '0.71em' }: LogoRingProps) => {
           />
 
           {/*
-            십자 스파클 — 세로·가로를 **각각** screen 으로 얹는다.
-            두 번으로 나뉘어 있어야 가로 빛이 세로 빛의 결과 위에 다시 합쳐져 교차점이
-            흰 핀포인트로 포화된다. 한 그룹에 넣으면 그 압축이 사라져 뭉개진 십자가 된다.
+            십자 스파클 — 세로 갈래와 가로 갈래.
+            한때 각각 screen 블렌드로 얹었지만 뺐다. 감쇠를 정지점에 직접 그려 넣은 뒤로는
+            보통의 알파 합성과 결과가 같았다(래스터 픽셀 비교: 평균 차 0.003/255, 최대 2).
+            블렌드 모드는 별도 합성 단계를 강제하므로 값을 못 하면 지우는 쪽이 맞다.
           */}
-          <g style={{ mixBlendMode: 'screen' }}>
-            <ellipse
-              cx={LOGO_SPARKLE_HOME.x}
-              cy={LOGO_SPARKLE_HOME.y}
-              rx="0.885417"
-              ry="8.5"
-              fill={`url(#${id('sparkleV')})`}
-            />
-          </g>
-          <g style={{ mixBlendMode: 'screen' }}>
-            <ellipse
-              cx={LOGO_SPARKLE_HOME.x}
-              cy={LOGO_SPARKLE_HOME.y}
-              rx="8.5"
-              ry="0.885417"
-              fill={`url(#${id('sparkleH')})`}
-            />
-          </g>
-        </g>
-
-        {/*
-          조명층 — 빛이 좌상단에서 온다고 보고 세 겹을 겹친다. 전부 같은 중심의 원이라
-          한 그룹으로 묶여 있다(빛의 방향을 바꾸려면 이 그룹만 돌리면 되고, 동심원이라
-          돌려도 형태는 변하지 않는다).
-        */}
-        <g>
-          {/* 유리 몸통 — 아주 옅게 채워 속이 빈 고리가 아니라 투명한 구체로 읽히게 한다.
-              0 의 안쪽이 완전히 비어 있어야 숫자로 읽히므로 진하게 채우지 않는다 */}
-          <circle cx="30" cy="30" r={LOGO_RING_OUTER_RADIUS} fill={`url(#${id('glassBody')})`} />
-
-          {/* 링 본체 — 이 자리에서 숫자 0 을 대신한다 */}
-          <circle cx="30" cy="30" r="11.5" stroke={`url(#${id('glassRim')})`} strokeWidth="7" />
-
-          {/* 유리 두께를 만드는 스페큘러 — 바깥·안쪽 테두리에 얇게 얹는다 */}
-          <circle
-            cx="30"
-            cy="30"
-            r="14.7"
-            stroke={`url(#${id('glassSpec')})`}
-            strokeWidth="0.6"
-            fill="none"
+          <ellipse
+            cx={LOGO_SPARKLE_HOME.x}
+            cy={LOGO_SPARKLE_HOME.y}
+            rx="0.885417"
+            ry="8.5"
+            fill={`url(#${id('sparkleV')})`}
           />
-          <circle
-            cx="30"
-            cy="30"
-            r="8.3"
-            stroke={`url(#${id('glassSpec')})`}
-            strokeWidth="0.5"
-            fill="none"
-            opacity="0.7"
+          <ellipse
+            cx={LOGO_SPARKLE_HOME.x}
+            cy={LOGO_SPARKLE_HOME.y}
+            rx="8.5"
+            ry="0.885417"
+            fill={`url(#${id('sparkleH')})`}
           />
         </g>
+
+        {/* 조명층 — 빛이 좌상단에서 온다고 보고 세 겹을 겹친다. 전부 같은 중심의 원이다 */}
+
+        {/* 유리 몸통 — 아주 옅게 채워 속이 빈 고리가 아니라 투명한 구체로 읽히게 한다.
+            0 의 안쪽이 완전히 비어 있어야 숫자로 읽히므로 진하게 채우지 않는다 */}
+        <circle cx="30" cy="30" r={LOGO_RING_OUTER_RADIUS} fill={`url(#${id('glassBody')})`} />
+
+        {/* 링 본체 — 이 자리에서 숫자 0 을 대신한다 */}
+        <circle cx="30" cy="30" r="11.5" stroke={`url(#${id('glassRim')})`} strokeWidth="7" />
+
+        {/* 유리 두께를 만드는 스페큘러 — 바깥·안쪽 테두리에 얇게 얹는다 */}
+        <circle
+          cx="30"
+          cy="30"
+          r="14.7"
+          stroke={`url(#${id('glassSpec')})`}
+          strokeWidth="0.6"
+          fill="none"
+        />
+        <circle
+          cx="30"
+          cy="30"
+          r="8.3"
+          stroke={`url(#${id('glassSpec')})`}
+          strokeWidth="0.5"
+          fill="none"
+          opacity="0.7"
+        />
       </svg>
     </span>
   );

@@ -11,20 +11,21 @@ import './errorScreen.css';
  * 레이아웃을 다시 계산하지 않는다(합성 단계에서 끝난다).
  */
 
-/**
- * 별은 흰색뿐이다.
- *
- * 성좌 팔레트(라벤더·블루·옐로)를 섞어 봤지만 뺐다 — 이 화면은 "빛 없는 검은 우주"가
- * 컨셉이라, 색이 들어가면 그 인상이 깨진다. 밝기·크기만 흩어 놓는다.
- */
-const STAR_COLOR = 'var(--color-star-white)';
-
 const STARS = (() => {
-  // 선형 합동 생성기 — 시드가 같으면 항상 같은 수열이 나온다
+  /*
+   * 결정적 난수 — 시드가 같으면 항상 같은 수열이 나온다.
+   *
+   * 흔한 LCG(seed * 1103515245 + 12345)를 쓰면 곱셈 결과가 2^53 을 넘겨 부동소수점
+   * 정밀도를 잃는다. 결과가 재현되긴 하지만 하위 비트가 뭉개져 분포를 보장할 수 없다.
+   * Math.imul 은 32비트 정수 곱셈을 정확히 하므로 그 함정이 없다.
+   */
   let seed = 20260803;
   const random = () => {
-    seed = (seed * 1103515245 + 12345) % 2147483648;
-    return seed / 2147483648;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = seed;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 
   return Array.from({ length: 44 }, () => ({
@@ -49,7 +50,6 @@ const StarField = () => (
           top: star.top,
           width: star.size,
           height: star.size,
-          color: STAR_COLOR,
           // 애니메이션이 꺼졌을 때(동작 줄이기) 보이는 밝기
           opacity: star.restingOpacity,
           ['--error-star-duration' as string]: star.duration,
