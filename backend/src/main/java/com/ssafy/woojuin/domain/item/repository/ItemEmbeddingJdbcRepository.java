@@ -1,7 +1,11 @@
 package com.ssafy.woojuin.domain.item.repository;
 
 import com.ssafy.woojuin.domain.ai.AiMixClient.ItemVector;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -29,6 +33,22 @@ public class ItemEmbeddingJdbcRepository {
                 "SELECT input_hash FROM item_embeddings WHERE item_id = ?",
                 (rs, i) -> rs.getString(1), itemId);
         return rows.stream().findFirst();
+    }
+
+    /** 여러 아이템의 저장된 입력 해시 — 백필이 무변경 업서트를 건너뛰는 근거(멱등 재실행). */
+    public Map<Long, String> findInputHashes(Collection<Long> itemIds) {
+        if (itemIds.isEmpty()) {
+            return Map.of();
+        }
+        String placeholders = String.join(",", Collections.nCopies(itemIds.size(), "?"));
+        Map<Long, String> hashes = new HashMap<>();
+        jdbcTemplate.query(
+                "SELECT item_id, input_hash FROM item_embeddings WHERE item_id IN (" + placeholders + ")",
+                rs -> {
+                    hashes.put(rs.getLong(1), rs.getString(2));
+                },
+                itemIds.toArray());
+        return hashes;
     }
 
     /** 임베딩 upsert. 좌표(x/y/z)는 건드리지 않는다 — 재계산이 별도로 채운다. */

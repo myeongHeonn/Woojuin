@@ -157,8 +157,8 @@ class EmbeddingBatchOutput(StrictModel):
 
 
 class QueryEmbeddingInput(StrictModel):
-    """검색어 임베딩 입력. 아이템(카테고리·제목·요약)과 달리 생 문장 그대로 임베딩한다 —
-    사용자 검색어에는 그런 구조가 없고, 같은 모델이면 같은 벡터 공간에 떨어진다."""
+    """검색어 임베딩 입력. 생 문장 그대로 임베딩한다 — 아이템 임베딩 텍스트도 라벨 없는
+    평문(제목·요약·카테고리명 개행 연결)이라 양쪽이 같은 형태로 비교된다."""
 
     text: str = Field(min_length=1, max_length=500)
 

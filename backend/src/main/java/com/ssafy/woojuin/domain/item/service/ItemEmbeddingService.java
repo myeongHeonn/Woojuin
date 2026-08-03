@@ -95,8 +95,12 @@ public class ItemEmbeddingService {
         log.info("임베딩·좌표 갱신 완료: itemId={}, workspaceId={}", itemId, item.getWorkspaceId());
     }
 
-    /** 워크스페이스 전체 임베딩으로 3차원 좌표를 다시 계산해 반영한다. */
-    private void recomputeCoordinates(AiMixClient client, Long workspaceId) {
+    /**
+     * 워크스페이스 전체 임베딩으로 3차원 좌표를 다시 계산해 반영한다.
+     * 패키지 공개인 이유: {@link ItemEmbeddingBackfillRunner}가 워크스페이스 벌크 갱신 뒤
+     * 1회 호출로 재사용한다(아이템별 재계산 경로를 타면 UMAP이 아이템 수만큼 돈다).
+     */
+    void recomputeCoordinates(AiMixClient client, Long workspaceId) {
         List<ItemVector> vectors = embeddingRepository.findActiveVectors(workspaceId);
         if (vectors.isEmpty()) {
             return;

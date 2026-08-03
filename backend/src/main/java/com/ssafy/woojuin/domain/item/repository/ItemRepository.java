@@ -47,4 +47,25 @@ public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificat
             + "where i.workspaceId = :workspaceId and i.deletedAt is null "
             + "and i.lat is not null and i.lng is not null")
     List<ItemGeoRow> findGeoRows(@Param("workspaceId") Long workspaceId, Limit limit);
+
+    /**
+     * 임베딩 백필 대상 워크스페이스 — 요약 있는 활성 아이템이 하나라도 있는 곳
+     * ({@code ItemEmbeddingBackfillRunner}). 요약 없는 아이템은 임베딩 입력 계약을
+     * 못 채우므로 여기서부터 걸러 헛돌지 않게 한다.
+     */
+    @Query("select distinct i.workspaceId from Item i where i.deletedAt is null "
+            + "and i.summary is not null and trim(i.summary) <> ''")
+    List<Long> findWorkspaceIdsWithEmbeddableItems();
+
+    /**
+     * 임베딩 백필 입력 프로젝션 — 엔티티로 받으면 백필이 쓰지 않는 {@code content}
+     * (text 컬럼, 본문 전문)까지 워크스페이스 전건이 메모리로 올라온다({@link #findGeoRows}와
+     * 같은 이유). 워크스페이스당 최대 1000건 수준이라 페이지네이션은 두지 않는다.
+     */
+    @Query("select new com.ssafy.woojuin.domain.item.repository.ItemEmbeddingSourceRow("
+            + "i.id, i.title, i.summary) "
+            + "from Item i "
+            + "where i.workspaceId = :workspaceId and i.deletedAt is null "
+            + "and i.summary is not null and trim(i.summary) <> ''")
+    List<ItemEmbeddingSourceRow> findEmbeddingSourceRows(@Param("workspaceId") Long workspaceId);
 }
