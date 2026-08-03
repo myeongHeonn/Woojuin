@@ -9,6 +9,7 @@ import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberNotFoundExcep
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceBanRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
@@ -28,13 +29,16 @@ public class WorkspaceMemberService {
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final WorkspaceBanRepository workspaceBanRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     public WorkspaceMemberService(WorkspaceRepository workspaceRepository,
                                    WorkspaceMemberRepository workspaceMemberRepository,
+                                   WorkspaceBanRepository workspaceBanRepository,
                                    ApplicationEventPublisher eventPublisher) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
+        this.workspaceBanRepository = workspaceBanRepository;
         this.eventPublisher = eventPublisher;
     }
 
