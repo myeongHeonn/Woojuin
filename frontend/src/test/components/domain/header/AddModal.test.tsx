@@ -41,8 +41,9 @@ describe('AddModal', () => {
 
       const file = container.querySelector<HTMLInputElement>('input[type="file"]');
       expect(file).not.toBeNull();
-      // 이미지가 아닌 파일이 섞이면 서버에서 걸러야 하므로 입력 단계에서 제한한다
-      expect(file).toHaveAttribute('accept', 'image/*');
+      // 이미지가 아닌 파일이 섞이면 서버에서 걸러야 하므로 입력 단계에서 제한한다.
+      // .heic/.heif 를 따로 적는 이유는 ImageForm 주석 참고 (image/* 로는 안 잡히는 브라우저가 있다)
+      expect(file).toHaveAttribute('accept', 'image/*,.heic,.heif');
       expect(container.querySelector('input[type="url"]')).toBeNull();
     });
 

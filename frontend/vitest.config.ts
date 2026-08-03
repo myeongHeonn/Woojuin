@@ -45,6 +45,11 @@ export default defineConfig({
       // 위 팀 규칙이 지켜지지 않은 첫 사례. 운 좋게 통과했지만 언제든 타임아웃으로 갈 수 있었다.
       'firebase/app',
       'firebase/messaging',
+      // HEIC 업로드 지원(2026-08-03)으로 추가. 셋 다 ImageForm 에서 동적 import 라
+      // HEIC 를 고른 사용자만 내려받지만, 위 팀 규칙대로 여기에도 적어 둔다.
+      'heic-to',
+      'exifr',
+      'piexifjs',
     ],
   },
   test: {
