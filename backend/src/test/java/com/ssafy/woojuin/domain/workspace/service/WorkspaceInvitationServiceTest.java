@@ -40,6 +40,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -279,5 +280,22 @@ class WorkspaceInvitationServiceTest {
         assertThat(captor.getValue().getWorkspace()).isEqualTo(ws);
         assertThat(captor.getValue().getUser()).isEqualTo(joiner);
         assertThat(captor.getValue().getType()).isEqualTo(WorkspaceMemberActivityType.JOINED);
+    }
+
+    @Test
+    @DisplayName("활동 이력 저장에 실패하면 예외가 전파되어 멤버십 생성이 롤백된다")
+    void accept_activityLogSaveFails_propagatesException() {
+        User creator = user(1L);
+        Workspace ws = workspace(10L, creator);
+        WorkspaceInvitation inv = invitation("abc-123", ws, creator, OffsetDateTime.now().plusDays(1));
+        User joiner = user(2L);
+        when(workspaceInvitationRepository.findByCode("abc-123")).thenReturn(Optional.of(inv));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(joiner));
+        when(workspaceMemberRepository.save(any(WorkspaceMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new RuntimeException("DB 오류")).when(workspaceMemberActivityRepository).save(any());
+
+        assertThatThrownBy(() -> workspaceInvitationService.accept("abc-123", 2L))
+                .isInstanceOf(RuntimeException.class);
     }
 }

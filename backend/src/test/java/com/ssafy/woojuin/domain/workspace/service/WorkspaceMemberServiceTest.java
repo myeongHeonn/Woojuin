@@ -36,6 +36,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -358,5 +359,24 @@ class WorkspaceMemberServiceTest {
         assertThat(activityCaptor.getValue().getWorkspace()).isEqualTo(ws);
         assertThat(activityCaptor.getValue().getUser()).isEqualTo(me);
         assertThat(activityCaptor.getValue().getType()).isEqualTo(WorkspaceMemberActivityType.LEFT);
+    }
+
+    @Test
+    @DisplayName("활동 이력 저장에 실패하면 예외가 전파되어 멤버십 삭제가 롤백된다")
+    void remove_activityLogSaveFails_propagatesExceptionAndDoesNotDeleteMembership() {
+        User owner = user(1L);
+        User target = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember ownerMembership = member(ws, owner, WorkspaceRole.OWNER);
+        WorkspaceMember targetMembership = member(ws, target, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(ownerMembership));
+        doThrow(new RuntimeException("DB 오류")).when(workspaceMemberActivityRepository).save(any());
+
+        assertThatThrownBy(() -> workspaceMemberService.remove(10L, 2L, 1L))
+                .isInstanceOf(RuntimeException.class);
+
+        verify(workspaceMemberRepository, never()).delete(any());
     }
 }

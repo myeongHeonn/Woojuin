@@ -76,6 +76,11 @@ public class WorkspaceMemberService {
         return WorkspaceMemberResponse.of(target);
     }
 
+    /**
+     * 활동 이력 저장은 멤버십 삭제와 같은 트랜잭션 안에서 실행된다 — 저장에 실패하면
+     * 예외를 여기서 잡지 않고 그대로 전파해 트랜잭션 전체(멤버십 삭제, 재입장 차단 등록 포함)가
+     * 함께 롤백되도록 한다. 이력만 빠진 채 멤버십만 바뀌는 상태를 만들지 않기 위함이다.
+     */
     @Transactional
     public void remove(Long workspaceId, Long targetUserId, Long requesterId) {
         Workspace workspace = findWorkspace(workspaceId);

@@ -91,6 +91,10 @@ public class WorkspaceInvitationService {
         return WorkspaceInvitationResponse.of(findValidInvitation(code));
     }
 
+    /**
+     * 활동 이력 저장은 멤버십 생성과 같은 트랜잭션 안에서 실행된다 — 저장에 실패하면
+     * 예외를 여기서 잡지 않고 그대로 전파해 멤버십 생성까지 함께 롤백되도록 한다.
+     */
     @Transactional
     public WorkspaceResponse accept(String code, Long userId) {
         WorkspaceInvitation invitation = findValidInvitation(code);
