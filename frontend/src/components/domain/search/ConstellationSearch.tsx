@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearch, searchKey } from '@/hooks/useSearch';
@@ -12,11 +12,16 @@ import CloseButton from '@/components/ui/button/CloseButton';
 import Spinner from '@/components/ui/Spinner';
 import AddBtn from '@/components/domain/header/AddBtn';
 
+interface ConstellationSearchProps {
+  /** 검색 결과 아이템 ID 목록 변경 알림 */
+  onSearchResults?: (itemIds: number[]) => void;
+}
+
 /**
  * 성좌 검색 — 화면 하단 중앙 플로팅 바(v3.5). 검색은 제자리(URL 안 바꿈)로 바 위에 결과 패널이 뜬다.
  * 패널 X → 결과 초기화 + 진행 중 요청 취소(cancelQueries). AI 모드면 해석어를 SearchMeta 로 알린다.
  */
-const ConstellationSearch = () => {
+const ConstellationSearch = ({ onSearchResults }: ConstellationSearchProps) => {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const wsId = Number(workspaceId);
   const qc = useQueryClient();
@@ -36,6 +41,14 @@ const ConstellationSearch = () => {
     q,
     aiMode,
   );
+
+  useEffect(() => {
+    if (q.trim().length > 0 && items.length > 0) {
+      onSearchResults?.(items.map((item) => item.itemId));
+    } else {
+      onSearchResults?.([]);
+    }
+  }, [items, q, onSearchResults]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
