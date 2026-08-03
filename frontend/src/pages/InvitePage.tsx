@@ -19,6 +19,13 @@ const InvitePage = () => {
   const { data: invite, isLoading, isError } = useInvitation(code);
   const accept = useAcceptInvitation(code);
 
+  const acceptErrorMessage = axios.isAxiosError(accept.error)
+    ? (accept.error.response?.data as ApiResponse<unknown> | undefined)?.message
+    : undefined;
+  // 추방된 이력이 있으면(WorkspaceBannedException) 재시도해도 절대 성공하지 않는다 —
+  // "다시 시도해 주세요"로 안내하면 사실과 다르므로 전용 문구로 구분한다.
+  const isBannedError = acceptErrorMessage?.includes('추방') ?? false;
+
   const handleAccept = () => {
     if (!token) {
       // /invite/:code는 AuthLayout 밖의 public 라우트라 그쪽의 리다이렉트 캡처를 안 탄다 —
@@ -65,17 +72,31 @@ const InvitePage = () => {
             <p className="mt-1 text-sm text-text-3">여기에 참여할까요?</p>
 
             {accept.isError && (
-              <p className="mt-3 text-xs text-danger">참여하지 못했어요. 다시 시도해 주세요.</p>
+              <p className="mt-3 text-xs text-danger">
+                {isBannedError
+                  ? '이 워크스페이스에서 추방되어 다시 참여할 수 없어요.'
+                  : '참여하지 못했어요. 다시 시도해 주세요.'}
+              </p>
             )}
 
-            <button
-              type="button"
-              onClick={handleAccept}
-              disabled={accept.isPending}
-              className="mt-5 w-full rounded-lg bg-accent py-2 text-[13px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
-            >
-              {token ? '참여하기' : '로그인하고 참여하기'}
-            </button>
+            {isBannedError ? (
+              <button
+                type="button"
+                onClick={() => navigate('/home')}
+                className="mt-5 w-full rounded-lg border border-border py-2 text-[13px] text-text-2 hover:text-text-1"
+              >
+                홈으로
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleAccept}
+                disabled={accept.isPending}
+                className="mt-5 w-full rounded-lg bg-accent py-2 text-[13px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
+              >
+                {token ? '참여하기' : '로그인하고 참여하기'}
+              </button>
+            )}
           </>
         )}
       </div>
