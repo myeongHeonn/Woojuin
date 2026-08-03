@@ -9,6 +9,7 @@ import com.ssafy.woojuin.domain.workspace.entity.WorkspaceInvitation;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotAllowedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;
@@ -91,6 +92,9 @@ public class WorkspaceInvitationService {
 
         if (workspaceMemberRepository.findByWorkspaceIdAndUserId(workspace.getId(), userId).isPresent()) {
             throw new IllegalArgumentException("이미 가입된 워크스페이스입니다");
+        }
+        if (workspaceBanRepository.existsByWorkspaceIdAndUserId(workspace.getId(), userId)) {
+            throw new WorkspaceBannedException(workspace.getId());
         }
 
         User joiner = userRepository.findById(userId)
