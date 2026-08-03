@@ -33,9 +33,8 @@ describe('MapPlacePanel', () => {
 
     expect(container.querySelector('img')).not.toBeNull();
     expect(text).toContain('아직 지도에 표시할 장소가 없어요');
-    expect(text).toContain(
-      '위치 정보가 있는 링크·사진·메모를 저장하면 지도에서 한눈에 볼 수 있어요.',
-    );
+    expect(text).toContain('위치 정보가 있는 사진이나');
+    expect(text).toContain('지도 앱에서 공유한 장소 링크를 저장해 보세요.');
     for (const hiddenText of ['저장한 장소', '즐겨찾기', '전체', '여행']) {
       expect(text).not.toContain(hiddenText);
     }
