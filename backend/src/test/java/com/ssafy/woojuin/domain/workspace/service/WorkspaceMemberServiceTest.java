@@ -7,6 +7,8 @@ import com.ssafy.woojuin.domain.workspace.dto.WorkspaceMemberResponse;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceBan;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivity;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivityType;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceLastOwnerException;
@@ -15,6 +17,7 @@ import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredExcep
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceBanRepository;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberActivityRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -48,6 +51,9 @@ class WorkspaceMemberServiceTest {
 
     @Mock
     private WorkspaceBanRepository workspaceBanRepository;
+
+    @Mock
+    private WorkspaceMemberActivityRepository workspaceMemberActivityRepository;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -312,5 +318,45 @@ class WorkspaceMemberServiceTest {
         workspaceMemberService.remove(10L, 2L, 2L);
 
         verify(workspaceBanRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("OWNER가 다른 멤버를 강제로 내보내면 활동 이력에 KICKED로 기록된다")
+    void remove_ownerRemovesOther_logsKickedActivity() {
+        User owner = user(1L);
+        User target = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember ownerMembership = member(ws, owner, WorkspaceRole.OWNER);
+        WorkspaceMember targetMembership = member(ws, target, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(ownerMembership));
+
+        workspaceMemberService.remove(10L, 2L, 1L);
+
+        ArgumentCaptor<WorkspaceMemberActivity> activityCaptor = ArgumentCaptor.forClass(WorkspaceMemberActivity.class);
+        verify(workspaceMemberActivityRepository).save(activityCaptor.capture());
+        assertThat(activityCaptor.getValue().getWorkspace()).isEqualTo(ws);
+        assertThat(activityCaptor.getValue().getUser()).isEqualTo(target);
+        assertThat(activityCaptor.getValue().getType()).isEqualTo(WorkspaceMemberActivityType.KICKED);
+    }
+
+    @Test
+    @DisplayName("본인이 스스로 탈퇴하면 활동 이력에 LEFT로 기록된다")
+    void remove_selfLeave_logsLeftActivity() {
+        User owner = user(1L);
+        User me = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember myMembership = member(ws, me, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(myMembership));
+
+        workspaceMemberService.remove(10L, 2L, 2L);
+
+        ArgumentCaptor<WorkspaceMemberActivity> activityCaptor = ArgumentCaptor.forClass(WorkspaceMemberActivity.class);
+        verify(workspaceMemberActivityRepository).save(activityCaptor.capture());
+        assertThat(activityCaptor.getValue().getWorkspace()).isEqualTo(ws);
+        assertThat(activityCaptor.getValue().getUser()).isEqualTo(me);
+        assertThat(activityCaptor.getValue().getType()).isEqualTo(WorkspaceMemberActivityType.LEFT);
     }
 }
