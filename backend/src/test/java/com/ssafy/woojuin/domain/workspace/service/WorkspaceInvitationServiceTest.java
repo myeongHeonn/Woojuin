@@ -8,6 +8,8 @@ import com.ssafy.woojuin.domain.workspace.dto.WorkspaceResponse;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceInvitation;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivity;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivityType;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
@@ -19,6 +21,7 @@ import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceBanRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceInvitationRepository;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberActivityRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -55,6 +58,9 @@ class WorkspaceInvitationServiceTest {
 
     @Mock
     private WorkspaceBanRepository workspaceBanRepository;
+
+    @Mock
+    private WorkspaceMemberActivityRepository workspaceMemberActivityRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -252,5 +258,26 @@ class WorkspaceInvitationServiceTest {
                 .isInstanceOf(WorkspaceBannedException.class);
 
         verify(workspaceMemberRepository, never()).save(any(WorkspaceMember.class));
+    }
+
+    @Test
+    @DisplayName("유효한 코드로 수락하면 활동 이력에 JOINED로 기록된다")
+    void accept_valid_logsJoinedActivity() {
+        User creator = user(1L);
+        Workspace ws = workspace(10L, creator);
+        WorkspaceInvitation inv = invitation("abc-123", ws, creator, OffsetDateTime.now().plusDays(1));
+        User joiner = user(2L);
+        when(workspaceInvitationRepository.findByCode("abc-123")).thenReturn(Optional.of(inv));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(joiner));
+        when(workspaceMemberRepository.save(any(WorkspaceMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        workspaceInvitationService.accept("abc-123", 2L);
+
+        ArgumentCaptor<WorkspaceMemberActivity> captor = ArgumentCaptor.forClass(WorkspaceMemberActivity.class);
+        verify(workspaceMemberActivityRepository).save(captor.capture());
+        assertThat(captor.getValue().getWorkspace()).isEqualTo(ws);
+        assertThat(captor.getValue().getUser()).isEqualTo(joiner);
+        assertThat(captor.getValue().getType()).isEqualTo(WorkspaceMemberActivityType.JOINED);
     }
 }
