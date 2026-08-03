@@ -1,11 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchMembers, createInvitation, removeMember } from '@/services/workspaces';
 
-/** 워크스페이스 멤버 목록 — 공유 모달·아바타 스택이 쓰는 서버 상태 */
+/**
+ * 워크스페이스 멤버 목록 — 공유 모달·아바타 스택이 쓰는 서버 상태.
+ *
+ * refetchOnWindowFocus를 'always'로 강제한다(기본 staleTime=30s보다 우선). 탭이
+ * 숨겨지면 SSE 연결이 끊기는데(useWorkspaceEvents), 그 사이 남이 가입/탈퇴/추방돼도
+ * 30초 안에 돌아오면 focus 재요청이 "아직 신선하다"며 건너뛰어 새로고침 전까진 낡은
+ * 목록이 계속 보였다.
+ */
 export function useMembers(workspaceId: number) {
   return useQuery({
     queryKey: ['members', workspaceId],
     queryFn: () => fetchMembers(workspaceId),
+    refetchOnWindowFocus: 'always',
   });
 }
 
