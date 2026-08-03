@@ -42,13 +42,16 @@ const ConstellationSearch = ({ onSearchResults }: ConstellationSearchProps) => {
     aiMode,
   );
 
+  const itemIdsStr = items.map((item) => item.itemId).join(',');
+
   useEffect(() => {
-    if (q.trim().length > 0 && items.length > 0) {
-      onSearchResults?.(items.map((item) => item.itemId));
+    const parsedIds = itemIdsStr ? itemIdsStr.split(',').map(Number) : [];
+    if (q.trim().length > 0 && parsedIds.length > 0) {
+      onSearchResults?.(parsedIds);
     } else {
       onSearchResults?.([]);
     }
-  }, [items, q, onSearchResults]);
+  }, [itemIdsStr, q, onSearchResults]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
