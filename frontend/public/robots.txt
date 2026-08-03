@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+# 로그인 후에만 의미 있는 개인 영역은 색인에서 제외한다
+Disallow: /workspace/
+Disallow: /my
+Disallow: /share-target
+
+Sitemap: https://woojuin.store/sitemap.xml
