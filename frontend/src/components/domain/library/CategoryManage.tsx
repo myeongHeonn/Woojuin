@@ -54,6 +54,7 @@ const CategoryManage = ({ workspaceId }: CategoryManageProps) => {
   return (
     <Dropdown
       align="left"
+      scrollable={false}
       renderTrigger={(toggle, open) => (
         <button
           type="button"
@@ -67,11 +68,12 @@ const CategoryManage = ({ workspaceId }: CategoryManageProps) => {
       )}
     >
       {() => (
-        <div className="w-72">
+        <div className="flex max-h-[320px] w-72 flex-col">
           {chips.length === 0 ? (
             <p className="px-2 py-6 text-center text-sm text-text-3">카테고리가 없어요</p>
           ) : (
-            <div className="max-h-[280px] space-y-0.5 overflow-y-auto scrollbar-none">
+            // 목록만 스크롤 — 아래 추가 폼은 flex 로 하단에 고정된다(min-h-0 없으면 안 줄어듦)
+            <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto scrollbar-none">
               {chips.map((chip) => {
                 // "기타"는 잠금 — 수정·삭제 진입 자체를 막는다
                 const locked = chip.name === ETC_CATEGORY;
@@ -159,7 +161,7 @@ const CategoryManage = ({ workspaceId }: CategoryManageProps) => {
 
           <form
             onSubmit={handleAdd}
-            className="mt-1 flex items-center gap-2 border-t border-border px-1 pt-2"
+            className="mt-1 flex shrink-0 items-center gap-2 border-t border-border px-1 pt-2"
           >
             <TextInput
               placeholder="새 카테고리 이름"

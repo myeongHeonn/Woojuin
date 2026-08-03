@@ -12,6 +12,12 @@ interface DropdownProps {
   direction?: 'up' | 'down';
   /** 래퍼(트리거 감싸는 상자) 추가 클래스 — 폭 제한(w-full min-w-0) 등에 쓴다 */
   className?: string;
+  /**
+   * 패널이 스스로 세로 스크롤(max-h + overflow)을 걸지 여부. 기본 true.
+   * false 면 내용(children)이 높이·스크롤을 직접 관리한다 — 목록만 스크롤하고
+   * 하단 폼은 고정하는 식(카테고리 관리)의 레이아웃에 쓴다.
+   */
+  scrollable?: boolean;
 }
 
 /**
@@ -25,6 +31,7 @@ const Dropdown = ({
   align = 'right',
   direction = 'down',
   className,
+  scrollable = true,
 }: DropdownProps) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -54,8 +61,10 @@ const Dropdown = ({
         <div
           role="menu"
           className={classNames(
-            // 목록이 길어도 박스 안에서 스크롤 — 모달을 뚫고 늘어나지 않게 max-h 제한
-            'scrollbar-none absolute z-50 max-h-[240px] min-w-[150px] overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-float',
+            'absolute z-50 min-w-[150px] rounded-lg border border-border bg-surface p-1 shadow-float',
+            // 목록이 길어도 박스 안에서 스크롤 — 모달을 뚫고 늘어나지 않게 max-h 제한.
+            // scrollable=false 면 children 이 직접 높이/스크롤을 관리한다(하단 고정 폼 등).
+            scrollable && 'scrollbar-none max-h-[240px] overflow-y-auto',
             direction === 'up' ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]',
             align === 'right' ? 'right-0' : 'left-0',
           )}
