@@ -7,6 +7,9 @@ import com.ssafy.woojuin.domain.auth.exception.UserNotFoundException;
 import com.ssafy.woojuin.domain.auth.exception.WithdrawnUserException;
 import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
+import com.ssafy.woojuin.domain.integration.exception.BotAuthenticationException;
+import com.ssafy.woojuin.domain.integration.exception.ChannelMappingConflictException;
+import com.ssafy.woojuin.domain.integration.exception.ChannelMappingNotFoundException;
 import com.ssafy.woojuin.domain.notification.exception.NotificationTokenNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
@@ -39,6 +42,24 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler(BotAuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Void> handleBotAuthentication(BotAuthenticationException e) {
+        return ApiResponse.of(401, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(ChannelMappingNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleChannelMappingNotFound(ChannelMappingNotFoundException e) {
+        return ApiResponse.of(404, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(ChannelMappingConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Void> handleChannelMappingConflict(ChannelMappingConflictException e) {
+        return ApiResponse.of(409, e.getMessage(), null);
+    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)

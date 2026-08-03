@@ -56,6 +56,8 @@ woojuin:
   integrations:
     chat:
       frontend-base-url: ${CHAT_INTEGRATION_FRONTEND_URL:http://localhost:5173}
+    bot:
+      secret: ${CHAT_BOT_SECRET:}
     discord:
       # Discord Developer Portal의 General Information > Public Key.
       public-key: ${DISCORD_PUBLIC_KEY:}
