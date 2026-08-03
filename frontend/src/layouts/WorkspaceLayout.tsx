@@ -30,6 +30,7 @@ const WorkspaceLayout = () => {
         title="워크스페이스에서 추방되었어요"
         description="이 워크스페이스에 더 이상 접근할 수 없어요."
         confirmLabel="확인"
+        showCancel={false}
         onConfirm={() => navigate('/home')}
         onCancel={() => navigate('/home')}
       />
