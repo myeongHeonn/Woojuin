@@ -16,10 +16,12 @@ import java.util.List;
  * @param semanticMatch 문자가 일치하는 결과가 아예 없어 의미상 비슷한 아이템으로 폴백했음
  *                      ("비슷한 항목을 찾았어요"). 결과는 관련도(거리)순 정렬이다.
  * @param semanticSupplementCount 이 페이지 content의 <b>끝에서부터</b> 이 개수만큼은 키워드
- *                      일치가 아니라 의미 검색으로 보충된 아이템이다("비슷한 항목" 구분선을
- *                      그 앞에 그리면 된다). 키워드 결과가 한 페이지를 못 채울 때만 보충이
- *                      붙는다. totalElements에는 보충 전체 건수가 포함되므로, 키워드 결과가
- *                      끝난 뒤 페이지는 content 전체가 보충일 수 있다.
+ *                      일치가 아니라 의미 검색으로 보충된 아이템이다. 키워드 결과가 한
+ *                      페이지를 못 채울 때만 보충이 붙고, totalElements에는 보충 전체 건수가
+ *                      포함된다(키워드 결과가 끝난 뒤 페이지는 content 전체가 보충일 수 있다).
+ *                      FE는 구분 없이 한 목록으로 렌더링하기로 했다(2026-08-03 회의) —
+ *                      이 필드는 화면용이 아니라 관측용이다(보충이 얼마나 자주·많이 붙는지
+ *                      네트워크 탭이나 로그 수집에서 바로 보인다).
  */
 public record ItemSearchResponse(
         List<ItemSummaryResponse> content,
