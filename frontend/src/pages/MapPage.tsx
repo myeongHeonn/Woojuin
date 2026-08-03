@@ -119,6 +119,11 @@ const MapPage = () => {
     }
   };
 
+  const resetMapView = () => {
+    setSelectedCategories([]);
+    setSelectedPlaceId(null);
+  };
+
   return (
     <div
       data-map-panel-collapsed={isMapPanelCollapsed}
@@ -131,6 +136,7 @@ const MapPage = () => {
         onSelectPlace={selectPlaceAndCollapsePanel}
         onOpenItem={setOpenItemId}
         onDeselectPlace={() => setSelectedPlaceId(null)}
+        onResetView={resetMapView}
       />
       <MapPlacePanel
         categories={sortedFilterCategories}

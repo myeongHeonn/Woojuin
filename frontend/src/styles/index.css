@@ -22,6 +22,13 @@
   }
 }
 
+.woojuin-map-reset-view-icon {
+  display: block;
+  width: 19px;
+  height: 19px;
+  margin: 5px;
+}
+
 .woojuin-map-marker-anchor {
   width: 20px;
   height: 20px;
