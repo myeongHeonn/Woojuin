@@ -94,12 +94,30 @@ export default defineConfig({
             purpose: 'maskable',
           },
         ],
-        // Web Share Target (FR-013): Android에서 OS 공유 시트에 '우주인' 노출
-        // PWA를 홈 화면에 설치해야 WebAPK로 등록됨. iOS 미지원(클립보드 감지로 보완)
+        /*
+         * Web Share Target (FR-013): Android에서 OS 공유 시트에 '우주인' 노출.
+         * PWA를 홈 화면에 설치해야 WebAPK로 등록됨. iOS 미지원(클립보드 감지로 보완).
+         *
+         * POST + multipart 인 이유: **GET 은 파일을 받을 수 없다.** files 선언이 없으면
+         * 안드로이드가 사진 공유 목록에서 우주인을 아예 빼 버린다(실측).
+         *
+         * 대가는 텍스트·링크까지 POST 로 온다는 것이다. 그래서 서비스워커가 그 POST 를
+         * 가로채 **지금까지와 똑같은 쿼리 주소로 303 리다이렉트**한다 — 화면 코드는 GET
+         * 시절 그대로다(src/sw.ts 의 share-target 핸들러 참고).
+         *
+         * manifest 변경은 WebAPK 가 갱신돼야 반영된다. 이미 설치한 앱은 한동안 옛 등록을
+         * 쓰므로, 확인할 때는 홈 화면 앱을 삭제하고 다시 추가해야 한다.
+         */
         share_target: {
           action: '/share-target',
-          method: 'GET',
-          params: { title: 'title', text: 'text', url: 'url' },
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: {
+            title: 'title',
+            text: 'text',
+            url: 'url',
+            files: [{ name: 'files', accept: ['image/*'] }],
+          },
         },
       },
     }),

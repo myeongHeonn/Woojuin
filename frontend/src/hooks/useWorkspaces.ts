@@ -9,11 +9,17 @@ import { fetchMyWorkspaces, updateWorkspace, fetchWorkspacePreview } from '@/ser
  * 다른 워크스페이스에 가입해도, 복귀 시 focus 재요청이 건너뛰어 새로고침 전까진
  * 낡은 목록이 계속 보였다.
  */
-export function useWorkspaces() {
+export function useWorkspaces({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ['workspaces'],
     queryFn: fetchMyWorkspaces,
     refetchOnWindowFocus: 'always',
+    /**
+     * enabled 를 받는 이유는 ShareTargetPage 하나다 — 그 화면은 AuthLayout 밖이라 **로그인
+     * 전에도 렌더된다.** 끄지 않으면 비로그인 진입에서 401 을 맞고 토큰 갱신까지 헛돌린다.
+     * 나머지 소비처는 전부 로그인 뒤 화면이라 기본값(true)을 그대로 쓴다.
+     */
+    enabled,
   });
 }
 
