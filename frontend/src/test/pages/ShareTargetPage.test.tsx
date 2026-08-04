@@ -182,6 +182,38 @@ describe('ShareTargetPage', () => {
     expect(container.textContent).toContain('https://example.com/a');
   });
 
+  it('저장 후 닫기를 누르면 히스토리를 뒤로 보내 원래 앱으로 돌아간다', async () => {
+    // window.close() 만으로는 안 된다 — 스크립트가 열지 않은 창은 닫히지 않아 경고만 남는다.
+    // 공유 진입은 히스토리 항목이 하나라, 뒤로 가면 앱 밖으로 나가고 원래 앱으로 돌아간다
+    workspacesOk();
+    post.mockResolvedValue({ data: { data: { itemId: 30, status: 'PROCESSING' } } });
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const close = vi.spyOn(window, 'close').mockImplementation(() => {});
+
+    try {
+      const { container } = await renderShare('?url=https://example.com/a');
+      await vi.waitFor(() => {
+        expect(container.textContent).toContain('Personal Space');
+      });
+      [...container.querySelectorAll('button')]
+        .find((button) => button.textContent?.trim() === '저장하기')!
+        .click();
+      await vi.waitFor(() => {
+        expect(container.textContent).toContain('저장했어요');
+      });
+
+      [...container.querySelectorAll('button')]
+        .find((button) => button.textContent?.trim() === '닫기')!
+        .click();
+
+      expect(close).toHaveBeenCalled();
+      expect(back).toHaveBeenCalled();
+    } finally {
+      back.mockRestore();
+      close.mockRestore();
+    }
+  });
+
   it('사진 공유는 캐시에서 꺼내 순서대로 올린다', async () => {
     // 사진은 주소에 실리지 않는다 — 서비스워커가 캐시에 넣고 ?shared=files 로 보낸다
     await putSharedFile(0, imageFile('첫장.png'));

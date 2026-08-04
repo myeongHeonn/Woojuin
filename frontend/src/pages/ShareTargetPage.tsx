@@ -190,13 +190,15 @@ const ShareTargetPage = () => {
         <p className="break-keep text-sm leading-relaxed text-text-2">
           우주인이 내용을 정리하는 중이에요. 앱에서 바로 확인할 수 있어요.
         </p>
-        <Link to={`/workspace/${spaceId}/library`} className={primaryActionClass}>
-          저장한 곳 보기
-        </Link>
-        {/* 이어서 더 공유할 수 있게 — 공유 시트로 돌아가는 건 OS 가 하므로 안내만 한다 */}
-        <p className="text-center text-xs text-text-3">
-          계속 공유하려면 원래 앱으로 돌아가면 돼요.
-        </p>
+        {/* 주 동작(앱으로 들어가기) 왼쪽, 닫기가 오른쪽 — 에러 화면의 버튼 순서와 같은 규칙 */}
+        <div className="grid grid-cols-[1fr_auto] gap-2.5">
+          <Link to={`/workspace/${spaceId}/library`} className={primaryActionClass}>
+            저장한 곳 보기
+          </Link>
+          <button type="button" onClick={closeShareWindow} className={secondaryActionClass}>
+            닫기
+          </button>
+        </div>
       </Shell>
     );
   }
@@ -263,6 +265,22 @@ const ShareTargetPage = () => {
       )}
     </Shell>
   );
+};
+
+/**
+ * 공유 화면을 닫고 원래 앱으로 돌아간다.
+ *
+ * `window.close()` 만으로는 안 된다 — 스크립트가 열지 않은 창은 닫을 수 없어서, 공유로 실행된
+ * PWA 에서는 경고만 남고 아무 일도 일어나지 않는다. 그래서 히스토리를 한 칸 뒤로 보낸다:
+ * 공유 진입은 항목이 하나뿐이라(리다이렉트는 항목을 늘리지 않는다) 뒤로 가면 앱 밖으로 나가고,
+ * 안드로이드는 그때 원래 앱으로 돌아간다.
+ *
+ * 순서가 이 방향인 이유: close() 가 통하는 환경(스크립트로 열린 창)에서는 그게 가장 정확하고,
+ * 막히면 조용히 실패하므로 곧바로 다음 줄이 실행된다.
+ */
+const closeShareWindow = () => {
+  window.close();
+  window.history.back();
 };
 
 /** 공유로 들어온 내용 미리보기 — 무엇이 저장될지 먼저 보여 준다 */
