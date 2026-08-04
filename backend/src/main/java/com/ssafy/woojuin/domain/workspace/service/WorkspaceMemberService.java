@@ -8,6 +8,7 @@ import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivity;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivityType;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceLastOwnerException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
@@ -54,7 +55,7 @@ public class WorkspaceMemberService {
     @Transactional(readOnly = true)
     public List<WorkspaceMemberResponse> list(Long workspaceId, Long requesterId) {
         findWorkspace(workspaceId);
-        findMembership(workspaceId, requesterId);
+        requireMemberOrBanAwareForbidden(workspaceId, requesterId);
 
         return workspaceMemberRepository.findByWorkspaceId(workspaceId).stream()
                 .map(WorkspaceMemberResponse::of)
@@ -115,6 +116,21 @@ public class WorkspaceMemberService {
     private WorkspaceMember findMembership(Long workspaceId, Long userId) {
         return workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .orElseThrow(() -> new WorkspaceMemberRequiredException(workspaceId));
+    }
+
+    /**
+     * 멤버 목록 조회 전용 — 멤버가 아닐 때 추방 이력이 있으면(강퇴로 인한 workspace_bans
+     * 등록) 일반 403이 아니라 WorkspaceBannedException을 던져 프론트가 "추방되었어요"와
+     * "접근 권한이 없어요"를 구분할 수 있게 한다. 자진 탈퇴는 ban 기록이 없어 여기 안 걸린다.
+     */
+    private void requireMemberOrBanAwareForbidden(Long workspaceId, Long userId) {
+        if (workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId).isPresent()) {
+            return;
+        }
+        if (workspaceBanRepository.existsByWorkspaceIdAndUserId(workspaceId, userId)) {
+            throw new WorkspaceBannedException(workspaceId);
+        }
+        throw new WorkspaceMemberRequiredException(workspaceId);
     }
 
     /** 대상 유저에 대한 조회. 요청자 본인의 멤버십 여부(403)와 달리, 대상이 없으면 404다. */

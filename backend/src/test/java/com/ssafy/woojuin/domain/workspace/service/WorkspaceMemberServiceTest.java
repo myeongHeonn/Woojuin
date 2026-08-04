@@ -11,6 +11,7 @@ import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivity;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivityType;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceLastOwnerException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
@@ -135,6 +136,19 @@ class WorkspaceMemberServiceTest {
 
         assertThatThrownBy(() -> workspaceMemberService.list(10L, 99L))
                 .isInstanceOf(WorkspaceMemberRequiredException.class);
+    }
+
+    @Test
+    @DisplayName("추방된 이력이 있으면 목록 조회 시 일반 403이 아니라 추방 전용 예외를 던진다")
+    void list_bannedUser_throwsWorkspaceBanned() {
+        User owner = user(1L);
+        Workspace ws = workspace(10L, owner);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+        when(workspaceBanRepository.existsByWorkspaceIdAndUserId(10L, 2L)).thenReturn(true);
+
+        assertThatThrownBy(() -> workspaceMemberService.list(10L, 2L))
+                .isInstanceOf(WorkspaceBannedException.class);
     }
 
     @Test

@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { useWorkspaceEvictionGuard } from '@/hooks/useWorkspaceEvictionGuard';
 import { fetchMembers } from '@/services/workspaces';
-import type { WorkspaceMember } from '@/services/workspaces';
 
 vi.mock('@/services/workspaces', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/services/workspaces')>()),
@@ -13,23 +12,17 @@ vi.mock('@/services/workspaces', async (importOriginal) => ({
 
 const mockFetchMembers = vi.mocked(fetchMembers);
 
-const member = (userId: number): WorkspaceMember => ({
-  userId,
-  nickname: '멤버' + userId,
-  email: `member${userId}@woojuin.com`,
-  role: 'MEMBER',
-  joinedAt: '',
-  avatarColor: 'BLUE',
-});
-
-/** axios가 실제로 만드는 것과 같은 모양의 에러 — response.status로 분기하므로 이 형태가 맞아야 한다 */
-const axiosErrorWithStatus = (status: number) =>
+/**
+ * axios가 실제로 만드는 것과 같은 모양의 에러 — response.status/response.data.message로
+ * 분기하므로 이 형태가 맞아야 한다. message는 백엔드 ApiResponse의 message 필드다.
+ */
+const axiosErrorWithStatus = (status: number, message = '') =>
   new AxiosError('요청 실패', String(status), undefined, undefined, {
     status,
     statusText: '',
     headers: new AxiosHeaders(),
     config: { headers: new AxiosHeaders() },
-    data: null,
+    data: { status, message, data: null },
   });
 
 /** 훅만 부르는 프로브 — 화면은 evicted/accessDenied 값만 보여준다 */
@@ -43,19 +36,18 @@ function Probe({ workspaceId }: { workspaceId: number }) {
   );
 }
 
-const renderProbe = async (workspaceId = 10) => {
+const renderProbe = (workspaceId = 10) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const result = await render(
+  return render(
     <QueryClientProvider client={queryClient}>
       <Probe workspaceId={workspaceId} />
     </QueryClientProvider>,
   );
-  return { ...result, queryClient };
 };
 
 describe('useWorkspaceEvictionGuard', () => {
   it('멤버 목록 조회가 성공하면 추방도 권한 없음도 아니다', async () => {
-    mockFetchMembers.mockResolvedValue([member(1), member(2)]);
+    mockFetchMembers.mockResolvedValue([]);
 
     const { getByTestId } = await renderProbe();
 
@@ -63,25 +55,29 @@ describe('useWorkspaceEvictionGuard', () => {
     await expect.element(getByTestId('access-denied')).toHaveTextContent('false');
   });
 
-  it('첫 조회부터 403이면 접근 권한이 없는 것이다 (초대 없이 남의 워크스페이스 URL로 바로 들어온 경우 — 추방 아님)', async () => {
-    mockFetchMembers.mockRejectedValue(axiosErrorWithStatus(403));
+  it('추방 이력이 있는 403(WorkspaceBannedException)이면 추방 상태다 — 이미 보고 있던 화면에서 실시간으로도, 모른 채 나중에 들어와도 동일하다', async () => {
+    mockFetchMembers.mockRejectedValue(
+      axiosErrorWithStatus(
+        403,
+        'COMMON_403: 이 워크스페이스에서 추방된 이력이 있어 재입장할 수 없습니다',
+      ),
+    );
+
+    const { getByTestId } = await renderProbe();
+
+    await expect.element(getByTestId('evicted')).toHaveTextContent('true');
+    await expect.element(getByTestId('access-denied')).toHaveTextContent('false');
+  });
+
+  it('추방 이력이 없는 403(자진 탈퇴했거나 애초에 멤버였던 적 없음)이면 접근 권한 없음이다', async () => {
+    mockFetchMembers.mockRejectedValue(
+      axiosErrorWithStatus(403, 'COMMON_403: 워크스페이스 멤버가 아닙니다'),
+    );
 
     const { getByTestId } = await renderProbe();
 
     await expect.element(getByTestId('access-denied')).toHaveTextContent('true');
     await expect.element(getByTestId('evicted')).toHaveTextContent('false');
-  });
-
-  it('한 번 성공적으로 조회된 뒤 403이 나면 추방 상태다 (더 이상 멤버가 아님)', async () => {
-    mockFetchMembers.mockResolvedValueOnce([member(1)]);
-    const { getByTestId, queryClient } = await renderProbe();
-    await expect.element(getByTestId('evicted')).toHaveTextContent('false');
-
-    mockFetchMembers.mockRejectedValueOnce(axiosErrorWithStatus(403));
-    await queryClient.refetchQueries({ queryKey: ['members', 10] });
-
-    await expect.element(getByTestId('evicted')).toHaveTextContent('true');
-    await expect.element(getByTestId('access-denied')).toHaveTextContent('false');
   });
 
   it('403이 아닌 다른 실패(네트워크 오류 등)는 둘 다로 보지 않는다', async () => {
