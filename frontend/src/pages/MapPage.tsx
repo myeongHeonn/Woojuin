@@ -148,6 +148,11 @@ const MapPage = () => {
     }
   };
 
+  const resetMapView = () => {
+    setSelectedCategories([]);
+    setSelectedPlaceId(null);
+  };
+
   return (
     <div
       data-map-panel-collapsed={isMapPanelCollapsed}
@@ -160,6 +165,7 @@ const MapPage = () => {
         onSelectPlace={selectPlaceAndCollapsePanel}
         onOpenItem={setOpenItemId}
         onDeselectPlace={() => setSelectedPlaceId(null)}
+        onResetView={resetMapView}
       />
       {/*
         헤더 왼쪽 아래, MapPlacePanel(우측/하단)과 안 겹치는 좌상단. 헤더 왼쪽에는

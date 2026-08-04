@@ -21,4 +21,5 @@ export interface MapAdapterOptions {
   onSelectPoint: (pointId: number) => void;
   onOpenPoint: (pointId: number) => void;
   onDeselectPoint: () => void;
+  onResetView: () => void;
 }
