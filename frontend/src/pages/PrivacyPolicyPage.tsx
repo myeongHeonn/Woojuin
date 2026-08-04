@@ -16,7 +16,7 @@ const PrivacyPolicyPage = () => (
   <div className="min-h-dvh bg-space text-text-1">
     <BackButton className="fixed left-4 top-4" />
 
-    <main className="mx-auto max-w-2xl px-6 pb-24 pt-16 desktop:pt-20">
+    <main className="mx-auto max-w-2xl px-6 pb-24 pt-[calc(64px+var(--safe-top))] desktop:pt-20">
       <BrandMark className="justify-center" />
 
       <h1 className="mt-10 text-2xl font-extrabold tracking-tight">개인정보처리방침</h1>
