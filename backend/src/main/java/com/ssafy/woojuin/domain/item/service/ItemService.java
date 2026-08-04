@@ -277,7 +277,7 @@ public class ItemService {
 
     /**
      * 상세용 IMAGE presigned URL — 항상 원본. URL/MEMO는 S3 원본이 없어 null.
-     * 만료가 있는 URL이라 저장하지 않고 응답을 만들 때마다 새로 발급한다(S3Uploader.presignGet).
+     * 만료가 있는 URL이라 컬럼에 저장하지 않는다 — 발급과 캐시는 S3Uploader.presignGet이 책임진다.
      */
     private String imageUrlOf(Item item) {
         if (item.getType() == ItemType.IMAGE && item.getS3Key() != null) {
