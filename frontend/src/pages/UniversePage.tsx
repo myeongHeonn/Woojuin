@@ -21,6 +21,8 @@ const UniversePage = () => {
   const workspaceId = Number(workspaceIdParam);
   const queryClient = useQueryClient();
   const [openItemId, setOpenItemId] = useState<number | null>(null);
+  const [highlightItemIds, setHighlightItemIds] = useState<number[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
 
   // 헤더 숫자와 PROCESSING 여부는 기존 목록 쿼리를 재사용한다(전용 통계 API 없음).
   const { data: itemsData } = useItems({ workspaceId, size: 20 });
@@ -52,7 +54,17 @@ const UniversePage = () => {
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-space">
-      {universe && <UniverseCanvas data={universe} onOpenItem={setOpenItemId} />}
+      {universe && (
+        <UniverseCanvas
+          data={universe}
+          highlightItemIds={highlightItemIds}
+          activeCategoryId={activeCategoryId}
+          onSelectConstellation={(catId) =>
+            setActiveCategoryId((prev) => (prev === catId ? null : catId))
+          }
+          onOpenItem={setOpenItemId}
+        />
+      )}
 
       {isUniverseLoading && (
         <div className="absolute inset-0 grid place-items-center">
@@ -75,7 +87,7 @@ const UniversePage = () => {
         </div>
       )}
 
-      <ConstellationSearch />
+      <ConstellationSearch onSearchResults={setHighlightItemIds} />
       <ItemModal
         workspaceId={workspaceId}
         itemId={openItemId}

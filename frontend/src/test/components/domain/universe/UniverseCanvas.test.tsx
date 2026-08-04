@@ -13,6 +13,8 @@ vi.mock('@/utils/scene', () => ({
     sceneCallbacks = callbacks;
     return {
       focusOn: vi.fn(),
+      setHighlightedItems: vi.fn(),
+      setActiveCategory: vi.fn(),
       setPointerOverTooltip: vi.fn(),
       dispose: vi.fn(),
     };
