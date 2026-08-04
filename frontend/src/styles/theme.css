@@ -18,7 +18,14 @@
 
 @theme {
   /* ── 정적 토큰 (테마 무관) ─────────────────────────── */
-  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', sans-serif;
+  /*
+   * 'Pretendard Variable' 이 먼저다 — index.html 이 variable + dynamic-subset 을 싣는데
+   * 그 CSS 가 선언하는 family 이름이 이것이다. 'Pretendard' 를 뒤에 남겨 두는 건
+   * 이 폰트를 로컬에 설치해 둔 사용자를 위한 폴백이다.
+   */
+  --font-sans:
+    'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI',
+    sans-serif;
 
   /*
    * 모바일/데스크톱을 가르는 유일한 분기점 — 여기가 원본이다.
