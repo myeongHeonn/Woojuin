@@ -123,7 +123,7 @@ class WorkspaceItemActivityServiceTest {
         WorkspaceMember membership = member(ws, owner, WorkspaceRole.OWNER);
         when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(membership));
         when(workspaceMemberLastSeenRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.empty());
-        when(itemActivityService.hasActivitySince(10L, OffsetDateTime.MIN)).thenReturn(true);
+        when(itemActivityService.hasActivitySince(10L, WorkspaceItemActivityService.NEVER_SEEN)).thenReturn(true);
 
         boolean result = workspaceItemActivityService.hasNewActivity(10L, 1L);
 

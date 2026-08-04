@@ -9,6 +9,7 @@ import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberLastSeenRepo
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class WorkspaceItemActivityService {
+
+    /**
+     * "한 번도 확인한 적 없음"을 나타내는 하한값. {@code OffsetDateTime.MIN}을 쓰면 PostgreSQL
+     * timestamptz 표현 범위(기원전 4713년~)를 훨씬 벗어나 "timestamp out of range" 쿼리 에러가
+     * 난다 — 실사용 데이터가 존재할 수 없는 과거 시점이면 충분하므로 유닉스 epoch로 대신한다.
+     */
+    static final OffsetDateTime NEVER_SEEN = OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC);
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
@@ -42,7 +50,7 @@ public class WorkspaceItemActivityService {
         verifyAccess(workspaceId, userId);
         OffsetDateTime since = workspaceMemberLastSeenRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .map(WorkspaceMemberLastSeen::getLastSeenAt)
-                .orElse(OffsetDateTime.MIN);
+                .orElse(NEVER_SEEN);
         return itemActivityService.hasActivitySince(workspaceId, since);
     }
 
