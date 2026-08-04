@@ -16,8 +16,9 @@ interface ConstellationSearchProps {
   /** 검색 결과 아이템 ID 목록 변경 알림 */
   onSearchResults?: (itemIds: number[]) => void;
   /**
-   * 검색 바 바로 위에 얹을 내용(예: 처리 중 배지) — 이 컴포넌트는 "무엇을 얹는지" 모른다.
-   * 검색과 무관한 상태를 이 컴포넌트가 알 필요는 없고, 하단 플로팅 스택 배치만 재사용한다.
+   * 하단 플로팅 스택의 맨 위(결과 패널보다도 위)에 얹을 내용(예: 처리 중 배지) — 이
+   * 컴포넌트는 "무엇을 얹는지" 모른다. 검색과 무관한 상태를 이 컴포넌트가 알 필요는
+   * 없고, 하단 플로팅 스택 배치만 재사용한다.
    */
   aboveBar?: ReactNode;
 }
@@ -89,6 +90,8 @@ const ConstellationSearch = ({ onSearchResults, aboveBar }: ConstellationSearchP
         기준으로 잡혀, AddModal(모바일에서 fixed 로 화면 중앙) 이 엉뚱한 곳에 떴다.
       */}
       <div className="absolute inset-x-0 bottom-[calc(88px+env(safe-area-inset-bottom))] z-30 mx-auto w-[min(520px,90%)] desktop:bottom-10">
+        {aboveBar && <div className="mb-2.5 flex justify-center">{aboveBar}</div>}
+
         {showPanel && (
           <div className="relative mb-2.5 rounded-2xl border border-border bg-surface/95 p-3 shadow-float backdrop-blur-xl">
             <CloseButton onClick={reset} className="absolute right-2.5 top-2.5 z-10" />
@@ -127,8 +130,6 @@ const ConstellationSearch = ({ onSearchResults, aboveBar }: ConstellationSearchP
             )}
           </div>
         )}
-
-        {aboveBar && <div className="mb-1.5 flex justify-center">{aboveBar}</div>}
 
         {/* 입력 바 바로 위 우측. 바가 하단 고정이라 검색해도 바는 안 움직이고 패널이 위로 쌓인다 */}
         <AiModeHint className="mb-1.5 pr-1.5 text-right" />
