@@ -37,7 +37,8 @@ class DiscordImageSaveServiceTest {
     @BeforeEach
     void setUp() {
         service = new DiscordImageSaveService(
-                connectionRepository, deduplicationService, workspaceRepository, itemService);
+                connectionRepository, deduplicationService, workspaceRepository, itemService,
+                "http://localhost:5173");
         ChatAccountConnection connection = new ChatAccountConnection(ChatPlatform.DISCORD, "discord-user", user);
         connection.changeDefaultWorkspace(workspace);
         when(connectionRepository.findByPlatformAndExternalUserId(ChatPlatform.DISCORD, "discord-user"))

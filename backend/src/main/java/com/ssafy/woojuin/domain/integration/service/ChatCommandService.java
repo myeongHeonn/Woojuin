@@ -9,6 +9,7 @@ import com.ssafy.woojuin.domain.integration.entity.ChatAccountConnection;
 import com.ssafy.woojuin.domain.integration.entity.ChatPlatform;
 import com.ssafy.woojuin.domain.integration.repository.ChatAccountConnectionRepository;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
+import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemSearchResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemSummaryResponse;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
@@ -172,12 +173,11 @@ public class ChatCommandService {
                 ? parsed.workspaceId()
                 : defaultWorkspaceId(connection);
         try {
-            itemService.createFromRequest(
+            ItemCreateResponse item = itemService.createFromRequest(
                     workspaceId,
                     connection.getUser().getId(),
                     new ItemCreateRequest(ItemType.URL, parsed.url(), null));
-            return ChatCommandResult.of("🚀 우주인으로 보냈어요.\n저장 위치: "
-                    + workspaceName(workspaceId));
+            return savedMessage("🔗", "링크", workspaceId, item.itemId());
         } catch (WorkspaceAccessDeniedException e) {
             return ChatCommandResult.of("해당 워크스페이스에 접근할 권한이 없어요.");
         } catch (AiUsageLimitExceededException e) {
@@ -255,11 +255,11 @@ public class ChatCommandService {
         }
         Long workspaceId = defaultWorkspaceId(connection);
         try {
-            itemService.createFromRequest(
+            ItemCreateResponse item = itemService.createFromRequest(
                     workspaceId,
                     connection.getUser().getId(),
                     new ItemCreateRequest(ItemType.MEMO, null, content));
-            return ChatCommandResult.of("📝 우주인으로 보냈어요.\n저장 위치: " + workspaceName(workspaceId));
+            return savedMessage("📝", "메모", workspaceId, item.itemId());
         } catch (WorkspaceAccessDeniedException e) {
             return ChatCommandResult.of("해당 워크스페이스에 접근할 권한이 없어요.");
         } catch (AiUsageLimitExceededException e) {
@@ -355,6 +355,14 @@ public class ChatCommandService {
                     + "\n메시지 우클릭 → `앱` → `우주인에 저장`";
         }
         return ChatCommandResult.of(common);
+    }
+
+    private ChatCommandResult savedMessage(String icon, String type, Long workspaceId, Long itemId) {
+        String deepLink = frontendBaseUrl + "/workspace/" + workspaceId + "/library?item=" + itemId;
+        return ChatCommandResult.of(icon + " 우주인으로 보냈어요."
+                + "\n저장 공간: " + workspaceName(workspaceId)
+                + "\n종류: " + type
+                + "\n[우주인에서 열기](" + deepLink + ")");
     }
 
     private record SaveArguments(String url, Long workspaceId) {

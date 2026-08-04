@@ -9,6 +9,7 @@ import com.ssafy.woojuin.domain.integration.service.ChatCommandDeduplicationServ
 import com.ssafy.woojuin.domain.integration.service.ChatCommandService.ChatAccountNotLinkedException;
 import com.ssafy.woojuin.domain.integration.service.ChatCommandService.DefaultWorkspaceNotSetException;
 import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
+import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.service.ItemService;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
@@ -20,6 +21,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Set;
 import org.springframework.stereotype.Service;
@@ -38,17 +40,21 @@ public class DiscordImageSaveService {
     private final ChatCommandDeduplicationService deduplicationService;
     private final WorkspaceRepository workspaceRepository;
     private final ItemService itemService;
+    private final String frontendBaseUrl;
     private final HttpClient httpClient;
 
     public DiscordImageSaveService(
             ChatAccountConnectionRepository connectionRepository,
             ChatCommandDeduplicationService deduplicationService,
             WorkspaceRepository workspaceRepository,
-            ItemService itemService) {
+            ItemService itemService,
+            @org.springframework.beans.factory.annotation.Value("${woojuin.integrations.chat.frontend-base-url:http://localhost:5173}")
+            String frontendBaseUrl) {
         this.connectionRepository = connectionRepository;
         this.deduplicationService = deduplicationService;
         this.workspaceRepository = workspaceRepository;
         this.itemService = itemService;
+        this.frontendBaseUrl = frontendBaseUrl.replaceAll("/+$", "");
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .followRedirects(HttpClient.Redirect.NEVER)
@@ -64,6 +70,7 @@ public class DiscordImageSaveService {
             return ChatCommandResult.of("이미 처리한 요청이에요. 우주인에서 결과를 확인해주세요.");
         }
         int saved = 0;
+        List<Long> itemIds = new ArrayList<>();
         try {
             ChatAccountConnection connection = connectionRepository
                     .findByPlatformAndExternalUserId(ChatPlatform.DISCORD, externalUserId)
@@ -83,15 +90,25 @@ public class DiscordImageSaveService {
             }
             for (DiscordAttachment attachment : images) {
                 byte[] bytes = download(attachment);
-                itemService.createFromImage(workspaceId, connection.getUser().getId(),
+                ItemCreateResponse item = itemService.createFromImage(workspaceId, connection.getUser().getId(),
                         new DiscordDownloadedFile(safeFilename(attachment.filename()), attachment.contentType(), bytes));
+                itemIds.add(item.itemId());
                 saved++;
             }
             String workspaceName = workspaceRepository.findById(workspaceId)
                     .map(Workspace::getName)
                     .orElse("워크스페이스 " + workspaceId);
             String count = saved == 1 ? "이미지" : "이미지 " + saved + "개";
-            return ChatCommandResult.of("🖼️ " + count + "를 우주인으로 보냈어요.\n저장 위치: " + workspaceName);
+            StringBuilder message = new StringBuilder("🖼️ ").append(count).append("를 우주인으로 보냈어요.")
+                    .append("\n저장 공간: ").append(workspaceName)
+                    .append("\n종류: 이미지");
+            for (int i = 0; i < itemIds.size(); i++) {
+                String label = itemIds.size() == 1 ? "우주인에서 열기" : "이미지 " + (i + 1) + " 열기";
+                message.append("\n[").append(label).append("](")
+                        .append(frontendBaseUrl).append("/workspace/").append(workspaceId)
+                        .append("/library?item=").append(itemIds.get(i)).append(')');
+            }
+            return ChatCommandResult.of(message.toString());
         } catch (WorkspaceAccessDeniedException e) {
             return ChatCommandResult.of(partial(saved, "해당 워크스페이스에 접근할 권한이 없어요."));
         } catch (AiUsageLimitExceededException e) {

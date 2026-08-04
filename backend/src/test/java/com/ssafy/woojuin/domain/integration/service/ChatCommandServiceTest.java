@@ -90,7 +90,9 @@ class ChatCommandServiceTest {
 
         assertThat(result.message())
                 .contains("우주인으로 보냈어요")
-                .contains("저장 위치: 마이스페이스")
+                .contains("저장 공간: 마이스페이스")
+                .contains("종류: 링크")
+                .contains("[우주인에서 열기](http://localhost:5173/workspace/11/library?item=42)")
                 .doesNotContain("PROCESSING");
         verify(itemService).createFromRequest(eq(11L), eq(7L),
                 eq(new ItemCreateRequest(com.ssafy.woojuin.domain.item.entity.ItemType.URL,
@@ -161,7 +163,11 @@ class ChatCommandServiceTest {
 
         ChatCommandResult result = service.handle(command("memo-request", "memo 다음 회의 일정 확인"));
 
-        assertThat(result.message()).contains("우주인으로 보냈어요").contains("저장 위치");
+        assertThat(result.message())
+                .contains("우주인으로 보냈어요")
+                .contains("저장 공간: 마이스페이스")
+                .contains("종류: 메모")
+                .contains("[우주인에서 열기](http://localhost:5173/workspace/11/library?item=43)");
         verify(itemService).createFromRequest(eq(11L), eq(7L),
                 eq(new ItemCreateRequest(
                         com.ssafy.woojuin.domain.item.entity.ItemType.MEMO,
@@ -195,7 +201,7 @@ class ChatCommandServiceTest {
                 51L, ItemType.MEMO, ItemStatus.DONE, "AI가 만든 제목", null, "AI 요약",
                 null, null, List.of(), false, OffsetDateTime.now(), null);
         when(itemSearchService.search(11L, 7L, "야구", 0, 5))
-                .thenReturn(new ItemSearchResponse(List.of(summary), 0, 5, 1, false, false));
+                .thenReturn(new ItemSearchResponse(List.of(summary), 0, 5, 1, false, false, 0));
         Item memo = Item.builder().workspaceId(11L).createdBy(7L).type(ItemType.MEMO)
                 .content("다음 주 야구 경기 티켓 예매하기").build();
         ReflectionTestUtils.setField(memo, "id", 51L);
