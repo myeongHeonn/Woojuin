@@ -19,6 +19,7 @@ import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
 import com.ssafy.woojuin.global.sse.WorkspaceEventType;
+import com.ssafy.woojuin.global.sse.WorkspaceMemberAction;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -101,7 +102,9 @@ public class WorkspaceMemberService {
         workspaceMemberActivityRepository.save(
                 WorkspaceMemberActivity.builder().workspace(workspace).user(target.getUser()).type(activityType).build());
         workspaceMemberRepository.delete(target);
-        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.MEMBER));
+        eventPublisher.publishEvent(WorkspaceChangedEvent.ofMemberAction(workspaceId,
+                activityType == WorkspaceMemberActivityType.KICKED
+                        ? WorkspaceMemberAction.KICKED : WorkspaceMemberAction.LEFT));
     }
 
     private Workspace findWorkspace(Long workspaceId) {

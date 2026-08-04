@@ -24,7 +24,7 @@ import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberActivityRepo
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
-import com.ssafy.woojuin.global.sse.WorkspaceEventType;
+import com.ssafy.woojuin.global.sse.WorkspaceMemberAction;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -113,7 +113,7 @@ public class WorkspaceInvitationService {
                 WorkspaceMember.builder().workspace(workspace).user(joiner).role(WorkspaceRole.MEMBER).build());
         workspaceMemberActivityRepository.save(WorkspaceMemberActivity.builder()
                 .workspace(workspace).user(joiner).type(WorkspaceMemberActivityType.JOINED).build());
-        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspace.getId(), WorkspaceEventType.MEMBER));
+        eventPublisher.publishEvent(WorkspaceChangedEvent.ofMemberAction(workspace.getId(), WorkspaceMemberAction.JOINED));
 
         return WorkspaceResponse.of(workspace, WorkspaceRole.MEMBER);
     }

@@ -24,6 +24,8 @@ import com.ssafy.woojuin.domain.workspace.repository.WorkspaceInvitationReposito
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberActivityRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceMemberAction;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -297,5 +299,24 @@ class WorkspaceInvitationServiceTest {
 
         assertThatThrownBy(() -> workspaceInvitationService.accept("abc-123", 2L))
                 .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @DisplayName("초대를 수락하면 SSE 이벤트에 JOINED 세부 종류가 실린다")
+    void accept_valid_publishesEventWithJoinedAction() {
+        User creator = user(1L);
+        Workspace ws = workspace(10L, creator);
+        WorkspaceInvitation inv = invitation("abc-123", ws, creator, OffsetDateTime.now().plusDays(1));
+        User joiner = user(2L);
+        when(workspaceInvitationRepository.findByCode("abc-123")).thenReturn(Optional.of(inv));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(joiner));
+        when(workspaceMemberRepository.save(any(WorkspaceMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        workspaceInvitationService.accept("abc-123", 2L);
+
+        ArgumentCaptor<WorkspaceChangedEvent> captor = ArgumentCaptor.forClass(WorkspaceChangedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().memberAction()).isEqualTo(WorkspaceMemberAction.JOINED);
     }
 }

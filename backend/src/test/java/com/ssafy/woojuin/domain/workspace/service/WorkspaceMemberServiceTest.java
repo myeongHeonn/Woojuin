@@ -20,6 +20,8 @@ import com.ssafy.woojuin.domain.workspace.repository.WorkspaceBanRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberActivityRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceMemberAction;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -378,5 +380,60 @@ class WorkspaceMemberServiceTest {
                 .isInstanceOf(RuntimeException.class);
 
         verify(workspaceMemberRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("강퇴하면 SSE 이벤트에 KICKED 세부 종류가 실린다")
+    void remove_kick_publishesEventWithKickedAction() {
+        User owner = user(1L);
+        User target = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember ownerMembership = member(ws, owner, WorkspaceRole.OWNER);
+        WorkspaceMember targetMembership = member(ws, target, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(ownerMembership));
+
+        workspaceMemberService.remove(10L, 2L, 1L);
+
+        ArgumentCaptor<WorkspaceChangedEvent> captor = ArgumentCaptor.forClass(WorkspaceChangedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().memberAction()).isEqualTo(WorkspaceMemberAction.KICKED);
+    }
+
+    @Test
+    @DisplayName("스스로 탈퇴하면 SSE 이벤트에 LEFT 세부 종류가 실린다")
+    void remove_selfLeave_publishesEventWithLeftAction() {
+        User owner = user(1L);
+        User me = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember myMembership = member(ws, me, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(myMembership));
+
+        workspaceMemberService.remove(10L, 2L, 2L);
+
+        ArgumentCaptor<WorkspaceChangedEvent> captor = ArgumentCaptor.forClass(WorkspaceChangedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().memberAction()).isEqualTo(WorkspaceMemberAction.LEFT);
+    }
+
+    @Test
+    @DisplayName("역할만 변경하면 SSE 이벤트의 세부 종류는 비어있다")
+    void updateRole_publishesEventWithoutMemberAction() {
+        User owner = user(1L);
+        User target = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember ownerMembership = member(ws, owner, WorkspaceRole.OWNER);
+        WorkspaceMember targetMembership = member(ws, target, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(ownerMembership));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
+
+        workspaceMemberService.updateRole(10L, 2L, 1L, new UpdateMemberRoleRequest(WorkspaceRole.OWNER));
+
+        ArgumentCaptor<WorkspaceChangedEvent> captor = ArgumentCaptor.forClass(WorkspaceChangedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().memberAction()).isNull();
     }
 }
