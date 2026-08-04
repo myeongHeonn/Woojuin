@@ -26,18 +26,17 @@ const TutorialReplayCard = ({
 
   return (
     <>
-      <section className="rounded-[20px] border border-border-soft bg-surface p-1.5">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex w-full items-center rounded-md px-5 py-[13px] text-left hover:bg-surface-2"
-        >
-          <span className="flex-1 text-sm font-semibold text-text-1">튜토리얼 다시 보기</span>
-          <span aria-hidden="true" className="text-lg leading-none text-text-3">
-            ›
-          </span>
-        </button>
-      </section>
+      {/* 설정 그룹 카드의 한 행 — 상자는 부모(SettingsCard)가 친다 */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center px-5 py-[15px] text-left hover:bg-surface-2"
+      >
+        <span className="flex-1 text-sm font-semibold text-text-1">튜토리얼 다시 보기</span>
+        <span aria-hidden="true" className="text-lg leading-none text-text-3">
+          ›
+        </span>
+      </button>
 
       <Modal open={open} onClose={() => setOpen(false)} title="튜토리얼 다시 보기">
         <p className="text-[13px] text-text-2">다시 확인할 튜토리얼을 선택해주세요.</p>

@@ -50,9 +50,10 @@ const ProfileCard = ({
   };
 
   return (
-    <>
-      <section className="mb-4 flex items-center gap-4 rounded-[20px] border border-border-soft bg-surface px-5 py-6 desktop:gap-[18px] desktop:px-[26px]">
-        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-surface-3">
+    // 카드가 아니라 페이지의 머리(히어로)다 — 테두리 상자 없이 여백과 구분선만으로 나눈다
+    <div className="mb-6 border-b border-border-soft pb-6">
+      <section className="flex items-center gap-4 px-1 desktop:gap-[18px]">
+        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full bg-surface-3">
           <img
             src={getSpacemanImage(avatarColor)}
             alt={`${nickname} 프로필`}
@@ -106,7 +107,7 @@ const ProfileCard = ({
       </section>
 
       <AvatarColorPicker value={avatarColor} disabled={saving} onChange={onAvatarColorChange} />
-    </>
+    </div>
   );
 };
 

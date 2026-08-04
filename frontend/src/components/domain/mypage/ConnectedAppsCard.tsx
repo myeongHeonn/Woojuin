@@ -52,16 +52,18 @@ const ConnectedAppsCard = ({ onError }: ConnectedAppsCardProps) => {
   return (
     <section
       aria-labelledby="connected-apps-title"
-      className="mb-4 rounded-[20px] border border-border-soft bg-surface px-5 py-[18px]"
+      className="mb-4 overflow-hidden rounded-[20px] border border-border-soft bg-surface pt-[18px]"
     >
-      <h2 id="connected-apps-title" className="text-xs font-bold tracking-[0.1em] text-text-3">
+      <h2 id="connected-apps-title" className="px-5 text-xs font-bold tracking-[0.1em] text-text-3">
         연결된 앱
       </h2>
 
-      {isPending && <p className="mt-3 text-[13px] text-text-3">연동 목록을 불러오는 중입니다…</p>}
+      {isPending && (
+        <p className="mt-3 px-5 pb-4 text-[13px] text-text-3">연동 목록을 불러오는 중입니다…</p>
+      )}
 
       {isError && (
-        <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="mt-3 flex items-center justify-between gap-3 px-5 pb-4">
           <p className="text-[13px] text-text-2">연동 목록을 불러오지 못했습니다.</p>
           <button
             type="button"
@@ -74,14 +76,14 @@ const ConnectedAppsCard = ({ onError }: ConnectedAppsCardProps) => {
       )}
 
       {connections && connections.length === 0 && (
-        <p className="mt-3 text-[13px] leading-relaxed text-text-3">
+        <p className="mt-3 px-5 pb-4 text-[13px] leading-relaxed text-text-3">
           연결된 채팅 앱이 없습니다. 아래에서 Mattermost·Discord를 연결하면 채팅에서 바로 저장할 수
           있습니다.
         </p>
       )}
 
       {connections && connections.length > 0 && (
-        <ul className="mt-2">
+        <ul className="mt-2 px-5">
           {connections.map((connection) => (
             <li
               key={connection.id}
@@ -110,7 +112,7 @@ const ConnectedAppsCard = ({ onError }: ConnectedAppsCardProps) => {
       )}
 
       {/* 연결하는 길 — 링크 코드 발급·Discord 설치·연동 안내 모달이 이 안에 있다 */}
-      <div className="mt-3">
+      <div className="border-t border-border-soft">
         <ChatIntegrationCard
           onError={() => onError('연결 코드를 발급하지 못했습니다. 다시 시도해 주세요.')}
         />

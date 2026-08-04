@@ -145,16 +145,17 @@ const MyPage = () => {
           onLogout={() => setConfirmKind('logout')}
         />
 
-        <section aria-label="활동 통계" className="mb-4 grid grid-cols-3 gap-3">
+        {/* 상자 세 개 대신 구분선 있는 스트립 하나 — 숫자가 나란히 읽힌다 */}
+        <section
+          aria-label="활동 통계"
+          className="mb-4 flex divide-x divide-border-soft rounded-[20px] border border-border-soft bg-surface py-4"
+        >
           {[
             [stats?.totalSaved, '전체 저장'],
             [stats?.workspaceCount, '워크스페이스'],
             [stats?.savedThisWeek, '이번 주 저장'],
           ].map(([value, label]) => (
-            <div
-              key={String(label)}
-              className="rounded-lg border border-border-soft bg-surface px-3 py-4 desktop:px-[18px]"
-            >
+            <div key={String(label)} className="min-w-0 flex-1 px-4 text-center desktop:px-[18px]">
               <div className="text-[22px] font-extrabold text-text-1">
                 {typeof value === 'number' ? value.toLocaleString('ko-KR') : '—'}
               </div>
@@ -162,6 +163,13 @@ const MyPage = () => {
             </div>
           ))}
         </section>
+
+        {/* 계정에 붙어 있는 것들(기기·앱)이 먼저, 사용량·도움말류 설정은 그 아래 */}
+        <ConnectedDevicesCard
+          onSessionEnded={handleSessionEnded}
+          onError={(message) => setToast({ message, tone: 'error' })}
+        />
+        <ConnectedAppsCard onError={(message) => setToast({ message, tone: 'error' })} />
 
         <SettingsCard
           notificationEnabled={notificationEnabled}
@@ -174,12 +182,6 @@ const MyPage = () => {
           spacesLoading={spacesLoading}
           onTutorialReplay={handleTutorialReplay}
         />
-
-        <ConnectedDevicesCard
-          onSessionEnded={handleSessionEnded}
-          onError={(message) => setToast({ message, tone: 'error' })}
-        />
-        <ConnectedAppsCard onError={(message) => setToast({ message, tone: 'error' })} />
 
         <div className="mt-[34px] text-center">
           <button

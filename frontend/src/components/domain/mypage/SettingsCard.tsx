@@ -81,75 +81,75 @@ const SettingsCard = ({
           </div>
         </section>
       */}
-      <section
-        aria-labelledby="monthly-ai-usage-title"
-        className="mb-4 rounded-[20px] border border-border-soft bg-surface px-5 py-[18px]"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h2
-              id="monthly-ai-usage-title"
-              className="text-xs font-bold tracking-[0.1em] text-text-3"
-            >
-              이번 달 AI 사용량
-            </h2>
-            <p className="mt-2 text-xs text-text-3">{usageDescription}</p>
+      {/* AI 사용량·튜토리얼·도움말을 상자 하나에 행으로 묶는다 — 상자 남발이 "블록" 인상을 만든다 */}
+      <section className="mb-4 overflow-hidden rounded-[20px] border border-border-soft bg-surface">
+        <div aria-labelledby="monthly-ai-usage-title" className="px-5 py-[18px]">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2
+                id="monthly-ai-usage-title"
+                className="text-xs font-bold tracking-[0.1em] text-text-3"
+              >
+                이번 달 AI 사용량
+              </h2>
+              <p className="mt-2 text-xs text-text-3">{usageDescription}</p>
+            </div>
+            <span className="shrink-0 text-[18px] font-extrabold tabular-nums text-text-1">
+              {usageValue}
+            </span>
           </div>
-          <span className="shrink-0 text-[18px] font-extrabold tabular-nums text-text-1">
-            {usageValue}
-          </span>
+
+          {aiUsage?.limitEnabled && !aiUsage.unlimited && (
+            <div className="mt-4">
+              <div
+                role="progressbar"
+                aria-label="이번 달 AI 사용량"
+                aria-valuemin={0}
+                aria-valuemax={aiUsage.limit}
+                aria-valuenow={Math.min(aiUsage.used, aiUsage.limit)}
+                className="h-2 overflow-hidden rounded-pill bg-surface-3"
+              >
+                <div
+                  className="h-full rounded-pill bg-accent transition-[width]"
+                  style={{ width: `${usagePercent}%` }}
+                />
+              </div>
+              <div className="mt-1.5 flex justify-between text-[11px] text-text-3">
+                <span>{aiUsage.used.toLocaleString('ko-KR')}회 저장</span>
+                <span>{aiUsage.limit.toLocaleString('ko-KR')}회 한도</span>
+              </div>
+            </div>
+          )}
+
+          {aiUsage?.unlimited && (
+            <span className="mt-3 inline-flex rounded-pill bg-surface-3 px-2.5 py-1 text-[11px] font-bold text-text-2">
+              무제한
+            </span>
+          )}
         </div>
 
-        {aiUsage?.limitEnabled && !aiUsage.unlimited && (
-          <div className="mt-4">
-            <div
-              role="progressbar"
-              aria-label="이번 달 AI 사용량"
-              aria-valuemin={0}
-              aria-valuemax={aiUsage.limit}
-              aria-valuenow={Math.min(aiUsage.used, aiUsage.limit)}
-              className="h-2 overflow-hidden rounded-pill bg-surface-3"
-            >
-              <div
-                className="h-full rounded-pill bg-accent transition-[width]"
-                style={{ width: `${usagePercent}%` }}
-              />
-            </div>
-            <div className="mt-1.5 flex justify-between text-[11px] text-text-3">
-              <span>{aiUsage.used.toLocaleString('ko-KR')}회 저장</span>
-              <span>{aiUsage.limit.toLocaleString('ko-KR')}회 한도</span>
-            </div>
-          </div>
-        )}
+        <div className="border-t border-border-soft">
+          {/* 채팅 앱 연동은 "연결된 앱" 카드(ConnectedAppsCard)로 옮겼다 — 연동 목록·해제와 한곳 */}
+          <TutorialReplayCard
+            personalSpaceId={personalSpaceId}
+            sharedWorkspaceId={sharedWorkspaceId}
+            loading={spacesLoading}
+            onReplay={onTutorialReplay}
+          />
+        </div>
 
-        {aiUsage?.unlimited && (
-          <span className="mt-3 inline-flex rounded-pill bg-surface-3 px-2.5 py-1 text-[11px] font-bold text-text-2">
-            무제한
-          </span>
-        )}
-      </section>
-
-      {/* 채팅 앱 연동은 "연결된 앱" 카드(ConnectedAppsCard)로 옮겼다 — 연동 목록·해제와 한곳 */}
-      <div className="mb-4">
-        <TutorialReplayCard
-          personalSpaceId={personalSpaceId}
-          sharedWorkspaceId={sharedWorkspaceId}
-          loading={spacesLoading}
-          onReplay={onTutorialReplay}
-        />
-      </div>
-
-      <section className="rounded-[20px] border border-border-soft bg-surface p-1.5">
-        <button
-          type="button"
-          onClick={() => setHelpOpen(true)}
-          className="flex w-full items-center rounded-md px-5 py-[13px] text-left hover:bg-surface-2"
-        >
-          <span className="flex-1 text-sm font-semibold text-text-1">도움말 및 고객센터</span>
-          <span aria-hidden="true" className="text-lg leading-none text-text-3">
-            ›
-          </span>
-        </button>
+        <div className="border-t border-border-soft">
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            className="flex w-full items-center px-5 py-[15px] text-left hover:bg-surface-2"
+          >
+            <span className="flex-1 text-sm font-semibold text-text-1">도움말 및 고객센터</span>
+            <span aria-hidden="true" className="text-lg leading-none text-text-3">
+              ›
+            </span>
+          </button>
+        </div>
       </section>
 
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title="도움말 및 고객센터">

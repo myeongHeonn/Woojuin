@@ -1,4 +1,4 @@
-import { getSpacemanImage, type SpacemanColor } from '@/utils/getSpacemanImage';
+import { type SpacemanColor } from '@/utils/getSpacemanImage';
 import { getAvatarSwatch } from '@/utils/avatarSwatch';
 
 /**
@@ -29,16 +29,10 @@ const AvatarColorPicker = ({ value, disabled, onChange }: AvatarColorPickerProps
   const normalizedValue = value.toLowerCase();
 
   return (
-    <section className="mb-4 rounded-[20px] border border-border-soft bg-surface px-[26px] py-[22px]">
-      <h2 className="mb-4 text-xs font-bold tracking-[0.1em] text-text-3">우주인 색상</h2>
-      <div className="flex flex-wrap items-center gap-5">
-        <div className="h-[58px] w-[58px] shrink-0 overflow-hidden rounded-[15px] border border-border bg-surface-3">
-          <img
-            src={getSpacemanImage(normalizedValue)}
-            alt="선택한 우주인 색상 미리보기"
-            className="h-full w-full object-cover"
-          />
-        </div>
+    // 프로필 히어로에 붙는 꾸미기 영역 — 상자 없이 히어로의 일부로 읽히게 한다
+    <section className="mt-5 px-1">
+      <h2 className="mb-3 text-xs font-bold tracking-[0.1em] text-text-3">우주인 색상</h2>
+      <div className="flex flex-wrap items-center gap-4">
         <div role="radiogroup" aria-label="우주인 색상" className="flex flex-wrap gap-[11px]">
           {COLORS.map(({ name, label }) => {
             const selected = name === normalizedValue;
@@ -64,7 +58,7 @@ const AvatarColorPicker = ({ value, disabled, onChange }: AvatarColorPickerProps
           })}
         </div>
       </div>
-      <p className="mt-3.5 text-xs text-text-3">
+      <p className="mt-3 text-xs text-text-3">
         선택한 색상은 사이드바와 프로필의 우주인 이미지에 함께 적용됩니다.
       </p>
     </section>
