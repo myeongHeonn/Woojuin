@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -29,19 +30,29 @@ public class S3Uploader {
     private static final Set<String> ALLOWED_CONTENT_TYPES =
             Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
 
-    /** presigned GET URL 유효시간. 조회 시점마다 새로 발급하므로 짧게 잡아도 무방하다. */
+    /** presigned GET URL 유효시간. 캐시(TTL 절반)에서 꺼낸 URL도 최소 절반은 유효하도록 여유를 둔다. */
     private static final Duration PRESIGN_TTL = Duration.ofMinutes(60);
+
+    /**
+     * presigned URL 캐시 유효시간 — 반드시 PRESIGN_TTL보다 짧아야 한다. 캐시 만료 직전에
+     * 꺼낸 URL도 (PRESIGN_TTL - PRESIGN_CACHE_TTL)만큼은 유효하다는 게 이 관계로 보장된다.
+     */
+    private static final Duration PRESIGN_CACHE_TTL = Duration.ofMinutes(30);
+
+    static final String PRESIGN_CACHE_PREFIX = "presigned-url:";
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
+    private final StringRedisTemplate redisTemplate;
     private final String bucket;
     private final boolean localMode;
 
-    public S3Uploader(S3Client s3Client, S3Presigner s3Presigner,
+    public S3Uploader(S3Client s3Client, S3Presigner s3Presigner, StringRedisTemplate redisTemplate,
             @Value("${aws.s3.bucket}") String bucket,
             @Value("${aws.s3.endpoint:}") String endpoint) {
         this.s3Client = s3Client;
         this.s3Presigner = s3Presigner;
+        this.redisTemplate = redisTemplate;
         this.bucket = bucket;
         this.localMode = endpoint != null && !endpoint.isBlank();
     }
@@ -125,16 +136,49 @@ public class S3Uploader {
 
     /**
      * IMAGE 아이템 원본을 브라우저가 직접 읽을 수 있는 presigned GET URL을 만든다.
-     * URL엔 만료 시각이 서명돼 있어 컬럼에 저장하면 안 되고(만료되면 죽은 링크), 조회
-     * 응답을 만들 때마다 새로 발급해야 한다. presign은 순수 서명 연산이라 네트워크 호출이
-     * 없어 목록에서 아이템마다 호출해도 부담이 없다.
+     * URL엔 만료 시각이 서명돼 있어 컬럼에 저장하면 안 되고(만료되면 죽은 링크), 대신
+     * Redis에 잠시 캐시한다. presign은 네트워크 없는 순수 서명 연산이라 비용 절감이
+     * 목적이 아니다 — 서명에 발급 시각이 들어가 호출마다 URL 문자열이 달라지는데,
+     * 목록 폴링(PROCESSING 중 3초 간격)마다 다른 URL이 내려가면 브라우저가 같은
+     * 이미지를 새 리소스로 보고 다시 받아 카드가 깜박인다. URL을 고정해야 브라우저가
+     * 재요청 자체를 안 한다. 인스턴스 여러 대가 번갈아 응답해도 같은 URL이 내려가도록
+     * 로컬 맵이 아닌 Redis에 둔다.
      */
     public String presignGet(String key) {
+        String cacheKey = PRESIGN_CACHE_PREFIX + key;
+        String cached = readCacheQuietly(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
         GetObjectPresignRequest request = GetObjectPresignRequest.builder()
                 .signatureDuration(PRESIGN_TTL)
                 .getObjectRequest(GetObjectRequest.builder().bucket(bucket).key(key).build())
                 .build();
-        return s3Presigner.presignGetObject(request).url().toString();
+        String url = s3Presigner.presignGetObject(request).url().toString();
+        writeCacheQuietly(cacheKey, url);
+        return url;
+    }
+
+    /**
+     * 캐시는 URL 고정용일 뿐이라 Redis 장애가 목록 조회까지 죽이면 안 된다 —
+     * 실패하면 그냥 새로 발급한다(깜박임이 500보다 낫다).
+     */
+    private String readCacheQuietly(String cacheKey) {
+        try {
+            return redisTemplate.opsForValue().get(cacheKey);
+        } catch (RuntimeException e) {
+            log.warn("presigned URL 캐시 조회 실패 — 새로 발급으로 대체: {}", cacheKey, e);
+            return null;
+        }
+    }
+
+    private void writeCacheQuietly(String cacheKey, String url) {
+        try {
+            redisTemplate.opsForValue().set(cacheKey, url, PRESIGN_CACHE_TTL);
+        } catch (RuntimeException e) {
+            log.warn("presigned URL 캐시 저장 실패 — 다음 조회에서 재시도: {}", cacheKey, e);
+        }
     }
 
     /** IMAGE 아이템 가공(OCR) 시 원본 바이트를 읽어온다. 실패는 호출부가 판단한다. */
