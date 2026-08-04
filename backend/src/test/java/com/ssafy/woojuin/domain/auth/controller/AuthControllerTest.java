@@ -54,7 +54,7 @@ class AuthControllerTest {
 
     @Test
     void login_validCredentials_returnsTokens() throws Exception {
-        when(loginService.login(any(LoginRequest.class)))
+        when(loginService.login(any(LoginRequest.class), any()))
                 .thenReturn(new TokenResponse("access-1", "refresh-1"));
 
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(LOGIN_BODY))
@@ -70,7 +70,7 @@ class AuthControllerTest {
      */
     @Test
     void login_wrongPassword_returns401WithMessage() throws Exception {
-        when(loginService.login(any(LoginRequest.class)))
+        when(loginService.login(any(LoginRequest.class), any()))
                 .thenThrow(new BadCredentialsException("Bad credentials"));
 
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(LOGIN_BODY))
@@ -82,7 +82,7 @@ class AuthControllerTest {
     /** 가입 여부를 캐낼 수 없도록 "계정 없음"도 비밀번호 오류와 같은 문구를 쓴다. */
     @Test
     void login_unknownEmail_returnsSameMessageAsWrongPassword() throws Exception {
-        when(loginService.login(any(LoginRequest.class)))
+        when(loginService.login(any(LoginRequest.class), any()))
                 .thenThrow(new UsernameNotFoundException("User not found: astronaut@woojuin.com"));
 
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(LOGIN_BODY))
