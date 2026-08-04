@@ -79,6 +79,11 @@ pipeline {
         VITE_FCM_APP_ID              = '1:138341207339:web:35f790c9ec6bdd07f3896e'
         VITE_FCM_VAPID_KEY           = 'BDZPcTlZsyHOvY1HSAVwHvXlcvi6d9Y0Dgkw9fEdYJusr4dxuLQNivp_4hKD4IJDdfJkY5UHpUVE4iwfxvmDzJk'
 
+        // Discord Application ID. 마이페이지 "Discord에 우주인 설치" 링크의 client_id 로,
+        // 백엔드 DISCORD_APPLICATION_ID(env-dev/env-prod)와 같은 값이다 — Discord 앱이
+        // 하나뿐이고 dev/prod 가 공유한다. 설치 URL에 그대로 노출되는 공개값.
+        VITE_DISCORD_APPLICATION_ID  = '1533826351377678548'
+
         // 환경별 값(STACK, FE_API_BASE_URL, 웹루트, credential, lock ...)은 여기 있지 않다 —
         // 브랜치/MR 타겟에 따라 달라지므로 Checkout 스테이지에서 계산한다(TARGET_ENV).
     }
@@ -371,6 +376,7 @@ pipeline {
                         --build-arg VITE_FCM_MESSAGING_SENDER_ID=${VITE_FCM_MESSAGING_SENDER_ID} \
                         --build-arg VITE_FCM_APP_ID=${VITE_FCM_APP_ID} \
                         --build-arg VITE_FCM_VAPID_KEY=${VITE_FCM_VAPID_KEY} \
+                        --build-arg VITE_DISCORD_APPLICATION_ID=${VITE_DISCORD_APPLICATION_ID} \
                         -t woojuin-frontend:${env.SHORT_SHA}-${env.TARGET_ENV} \
                         -f frontend/Dockerfile frontend
                 """
