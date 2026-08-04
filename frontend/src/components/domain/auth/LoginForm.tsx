@@ -1,5 +1,25 @@
-import { Link } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useAtom, useSetAtom } from 'jotai';
+import axios from 'axios';
+import { login } from '@/services/auth';
+import { loginSchema, type LoginFormValues } from '@/schemas/authSchemas';
+import { accessTokenAtom, postLoginRedirectAtom, refreshTokenAtom } from '@/stores/authAtoms';
+import FormTextField from '@/components/ui/form/FormTextField';
+import SubmitButton from '@/components/ui/button/SubmitButton';
 import GoogleAuthButton from './GoogleAuthButton';
+
+/**
+ * 구글 로그인 버튼을 띄울지 여부.
+ *
+ * 우리 구글 Cloud 프로젝트가 정책 위반으로 정지돼 동의 화면이 열리지 않는다(2026-08-04, 재심사 요청 상태).
+ * 버튼을 그대로 두면 누른 사람 전원이 우리 화면 밖 구글 오류 페이지로 떨어져 돌아올 방법이 없으므로
+ * 심사가 끝날 때까지 감춘다. 컴포넌트·백엔드 ClientRegistration·콜백 라우트는 손대지 않았으니
+ * 심사가 통과하면 이 값만 true 로 되돌리면 된다.
+ */
+const GOOGLE_LOGIN_ENABLED: boolean = false;
 
 /**
  * 로그인 폼 — /login 페이지와 모바일 랜딩이 함께 쓴다.
@@ -9,17 +29,52 @@ import GoogleAuthButton from './GoogleAuthButton';
  * CSS 로만 감춰지므로, 자동 포커스가 엉뚱한 곳으로 튈 수 있다.
  */
 const LoginForm = () => {
+  const navigate = useNavigate();
+  const formMethods = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
+  const setAccessToken = useSetAtom(accessTokenAtom);
+  const setRefreshToken = useSetAtom(refreshTokenAtom);
+  const [postLoginRedirect, setPostLoginRedirect] = useAtom(postLoginRedirectAtom);
+
+  const loginMutation = useMutation({
+    mutationFn: login,
+    // 토큰 저장과 도착지 결정은 구글 로그인(OAuthCallbackPage)과 같은 규칙을 따른다 —
+    // AuthLayout 이 로그인 전 경로를 postLoginRedirect 에 남겨두므로 그리로 돌려보낸다.
+    onSuccess: ({ accessToken, refreshToken }) => {
+      setAccessToken(accessToken);
+      setRefreshToken(refreshToken);
+      setPostLoginRedirect(null);
+      navigate(postLoginRedirect ?? '/home', { replace: true });
+    },
+  });
+
+  // 자격 증명이 틀렸는지(401) 서버가 죽었는지는 사용자가 할 수 있는 일이 다르므로
+  // 서버 메시지를 그대로 보여주고, 메시지가 없을 때만 기본 문구로 떨어진다.
+  const errorMessage = loginMutation.isError
+    ? ((axios.isAxiosError(loginMutation.error)
+        ? loginMutation.error.response?.data?.message
+        : null) ?? '로그인에 실패했습니다')
+    : null;
+
   return (
     <div className="flex w-full flex-col gap-4">
-      {/* 이메일·비밀번호 로그인은 현재 사용하지 않는다.
-      <form className="flex flex-col gap-3">
-        <FormTextField type="email" placeholder="이메일" name="email" />
-        <FormTextField type="password" placeholder="비밀번호" name="password" />
-        <SubmitButton>로그인</SubmitButton>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={formMethods.handleSubmit((values) => loginMutation.mutate(values))}
+      >
+        <FormTextField type="email" placeholder="이메일" name="email" formMethods={formMethods} />
+        <FormTextField
+          type="password"
+          placeholder="비밀번호"
+          name="password"
+          formMethods={formMethods}
+        />
+        {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
+        <SubmitButton pending={loginMutation.isPending} pendingLabel="로그인 중...">
+          로그인
+        </SubmitButton>
       </form>
-      */}
 
-      <GoogleAuthButton />
+      {GOOGLE_LOGIN_ENABLED && <GoogleAuthButton />}
 
       {/* 구글은 첫 로그인이 곧 가입이라(OAuthAccountService.findOrCreateUser) 여기에도 고지한다 */}
       <p className="text-center text-xs text-text-3">
@@ -30,14 +85,12 @@ const LoginForm = () => {
         에 동의하는 것으로 봅니다.
       </p>
 
-      {/* 이메일 회원가입은 현재 사용하지 않는다.
       <p className="text-center text-sm text-text-3">
         계정이 없으신가요?{' '}
         <Link to="/signup" className="font-semibold text-accent hover:text-accent-hover">
           회원가입
         </Link>
       </p>
-      */}
     </div>
   );
 };
