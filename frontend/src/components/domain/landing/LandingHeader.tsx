@@ -17,6 +17,10 @@ const LandingHeader = () => (
 
     <Link
       to="/login"
+      // replace 인 이유: 로그인 뒤에도 히스토리에 랜딩이 남으면, 뒤로가기가 `/` 로 갔다가
+      // GuestOnly 가 앱으로 되돌려서 "눌러도 아무 일이 없는" 상태가 된다. 로그인은 되돌아올
+      // 화면이 아니라 지나가는 관문이므로 항목을 남기지 않는다.
+      replace
       className="ml-auto rounded-[10px] bg-accent px-3.5 py-2 text-[13.5px] font-semibold text-white transition-colors hover:bg-accent-hover"
     >
       로그인

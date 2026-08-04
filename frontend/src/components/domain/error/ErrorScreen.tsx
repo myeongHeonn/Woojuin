@@ -98,8 +98,8 @@ const ErrorScreen = ({ code, title, description, actions, detail }: ErrorScreenP
           {actions}
           {/*
             뒤로가기는 페이지가 아니라 여기서 붙인다 — 두 화면에서 항상 주 동작 **오른쪽**
-            같은 자리에 오게 하려고. 히스토리가 없는 진입(공유 링크·북마크·주소 직접
-            입력)이면 useGoBack 이 홈으로 폴백하므로 막히는 경우가 없다.
+            같은 자리에 오게 하려고. 히스토리를 되짚지 않고 홈으로 보내므로(useGoBack)
+            공유 링크·북마크·주소 직접 입력으로 들어온 경우에도 막히지 않는다.
           */}
           <button type="button" onClick={goBack} className={errorSecondaryActionClass}>
             <ArrowLeftIcon />

@@ -1,6 +1,7 @@
 import type { ComponentType, SVGProps } from 'react';
 import { Link, useLocation, useMatch } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
+import { IS_INSTALLED_APP } from '@/utils/installedApp';
 import { useSpaces } from '@/hooks/useSpaces';
 import { ConstellationIcon, DashboardIcon, MapIcon, UserIcon } from '@/assets/icons';
 
@@ -66,6 +67,10 @@ const TabBar = ({ className }: { className?: string }) => {
               key={label}
               data-tutorial-view={segment}
               to={to}
+              // 설치된 앱에서는 탭 전환이 히스토리를 쌓지 않는다 — 네이티브 앱의 탭과 같다.
+              // 그래야 뷰에서 뒤로가기가 앱을 닫고(안드로이드), 엣지 스와이프가 무반응이다(iOS).
+              // 브라우저 탭에서는 뒤로가기가 정상 동작해야 하므로 그대로 쌓는다.
+              replace={IS_INSTALLED_APP}
               title={label}
               aria-label={label}
               aria-current={active ? 'page' : undefined}
