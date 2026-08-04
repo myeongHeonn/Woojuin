@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import Modal from '@/components/ui/Modal';
+
 interface TutorialReplayCardProps {
   personalSpaceId?: number;
   sharedWorkspaceId?: number;
@@ -18,9 +21,12 @@ const TutorialReplayCard = ({
     onReplay(type, workspaceId);
   };
 
+  const replayButtonClass =
+    'rounded-lg bg-accent px-3 py-3 text-xs font-semibold text-white transition-colors enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40';
+
   return (
     <>
-      <section className="mb-4 rounded-[20px] border border-border-soft bg-surface p-1.5">
+      <section className="rounded-[20px] border border-border-soft bg-surface p-1.5">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -34,13 +40,13 @@ const TutorialReplayCard = ({
       </section>
 
       <Modal open={open} onClose={() => setOpen(false)} title="튜토리얼 다시 보기">
-        <p className="text-[13px] text-text-2">다시 확인할 튜토리얼을 선택해 주세요.</p>
+        <p className="text-[13px] text-text-2">다시 확인할 튜토리얼을 선택해주세요.</p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button
             type="button"
             disabled={loading || personalSpaceId === undefined}
             onClick={() => personalSpaceId !== undefined && replay('PERSONAL', personalSpaceId)}
-            className="rounded-lg border border-border px-3 py-3 text-xs font-semibold text-text-1 transition-colors enabled:hover:border-accent enabled:hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+            className={replayButtonClass}
           >
             개인 스페이스
           </button>
@@ -50,7 +56,7 @@ const TutorialReplayCard = ({
             onClick={() =>
               sharedWorkspaceId !== undefined && replay('SHARED_WORKSPACE', sharedWorkspaceId)
             }
-            className="rounded-lg border border-border px-3 py-3 text-xs font-semibold text-text-1 transition-colors enabled:hover:border-accent enabled:hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+            className={replayButtonClass}
           >
             공유 워크스페이스
           </button>
@@ -64,5 +70,3 @@ const TutorialReplayCard = ({
 };
 
 export default TutorialReplayCard;
-import { useState } from 'react';
-import Modal from '@/components/ui/Modal';

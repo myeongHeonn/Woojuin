@@ -158,6 +158,12 @@ const MyPage = () => {
           sharedWorkspaceId={teams[0]?.id}
           spacesLoading={spacesLoading}
           onTutorialReplay={handleTutorialReplay}
+          onChatIntegrationError={() =>
+            setToast({
+              message: '연결 코드를 발급하지 못했습니다. 다시 시도해 주세요.',
+              tone: 'error',
+            })
+          }
         />
 
         <div className="mt-[34px] text-center">

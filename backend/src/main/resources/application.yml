@@ -71,6 +71,25 @@ spring:
         # "clientId cannot be empty"로 부팅 자체가 실패하니 그 전엔 비워둔다.
 
 woojuin:
+  integrations:
+    chat:
+      frontend-base-url: ${CHAT_INTEGRATION_FRONTEND_URL:http://localhost:5173}
+    bot:
+      secret: ${CHAT_BOT_SECRET:}
+    discord:
+      # Discord Developer Portal의 General Information > Public Key.
+      public-key: ${DISCORD_PUBLIC_KEY:}
+      application-id: ${DISCORD_APPLICATION_ID:}
+    mattermost:
+      # Mattermost 슬래시 명령 저장 후 발급되는 토큰. 비어 있으면 콜백 API는 503으로 거부한다.
+      slash-token: ${MATTERMOST_SLASH_TOKEN:}
+      server-url: ${MATTERMOST_SERVER_URL:}
+      oauth-client-id: ${MATTERMOST_OAUTH_CLIENT_ID:}
+      oauth-client-secret: ${MATTERMOST_OAUTH_CLIENT_SECRET:}
+      oauth-redirect-uri: ${MATTERMOST_OAUTH_REDIRECT_URI:}
+      oauth-frontend-redirect: ${MATTERMOST_OAUTH_FRONTEND_REDIRECT:http://localhost:5173/my}
+      token-encryption-key: ${MATTERMOST_TOKEN_ENCRYPTION_KEY:}
+      plugin-token: ${MATTERMOST_PLUGIN_TOKEN:}
   # 프론트 origin. FE/BE를 서브도메인으로 분리해 운영하므로(prod=woojuin.store,
   # api=api.woojuin.store) 모든 API 호출이 CORS를 탄다. 이 값이 실제 프론트 주소와
   # 다르면 브라우저가 응답을 버려서 상태코드도 안 남는다(SecurityConfig 주석 참고).

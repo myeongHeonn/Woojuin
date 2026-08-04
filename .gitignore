@@ -28,6 +28,7 @@ dist/
 dev-dist/
 *.local
 npm-debug.log*
+*.log
 *.tsbuildinfo
 
 # --- Java / Gradle (backend) ---

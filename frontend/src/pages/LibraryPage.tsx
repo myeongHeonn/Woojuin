@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
 import { STAGE_PT, STAGE_PX } from '@/constants/stage';
@@ -18,6 +18,7 @@ import { toggleCategorySelection } from '@/utils/categorySelection';
  */
 const LibraryPage = () => {
   const { workspaceId } = useParams<{ workspaceId: string }>();
+  const [params, setParams] = useSearchParams();
 
   // 카테고리는 서버 상태 — useState 가 아니라 useQuery(useCategories)로 받는다.
   // 로딩 전이나 실패 시에도 화면이 비지 않게 빈 배열로 시작한다
@@ -30,8 +31,13 @@ const LibraryPage = () => {
   // 상세 모달 — 열린 아이템 id(null 이면 닫힘)
   const [openItemId, setOpenItemId] = useState<number | null>(null);
 
+  // Mattermost 검색 결과의 딥링크(?item=42)로 들어오면 해당 상세를 바로 연다.
+  const linkedItemId = Number(params.get('item'));
+  useEffect(() => {
+    if (Number.isSafeInteger(linkedItemId) && linkedItemId > 0) setOpenItemId(linkedItemId);
+  }, [linkedItemId]);
+
   // 검색 상태는 URL 에 — 검색어가 있으면 목록 대신 검색 결과를 보인다(카테고리 필터는 검색 시 무시)
-  const [params] = useSearchParams();
   const q = params.get('q') ?? '';
   const aiMode = params.get('ai') === '1';
 
@@ -107,7 +113,14 @@ const LibraryPage = () => {
       <ItemModal
         workspaceId={Number(workspaceId)}
         itemId={openItemId}
-        onClose={() => setOpenItemId(null)}
+        onClose={() => {
+          setOpenItemId(null);
+          if (params.has('item')) {
+            const next = new URLSearchParams(params);
+            next.delete('item');
+            setParams(next, { replace: true });
+          }
+        }}
       />
     </div>
   );
