@@ -68,7 +68,8 @@ public class AuthController {
     @AuthenticatedUser
     @PostMapping("/logout")
     public ApiResponse<Void> logout() {
-        logoutService.logout(currentUserResolver.resolveUserId());
+        // sid 는 필터가 access token 에서 꺼내 실어 둔 것 — 그 기기(세션)만 끊는다
+        logoutService.logout(currentUserResolver.resolveUserId(), currentUserResolver.resolveSessionId());
         return ApiResponse.success(null);
     }
 }
