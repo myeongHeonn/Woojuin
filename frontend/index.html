@@ -47,10 +47,21 @@
     <meta name="twitter:description" content="저장은 1초, 정리는 AI가, 찾을 땐 검색 한 번" />
     <meta name="twitter:image" content="https://woojuin.store/og-image.png" />
 
-    <!-- 디자인 토큰(--font-sans)이 Pretendard 를 첫 후보로 쓰므로 목업과 동일하게 로드 -->
+    <!-- 폰트가 렌더를 막는 자원이라 연결을 미리 열어 둔다(cross-origin 이라 crossorigin 필수) -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+
+    <!--
+      디자인 토큰(--font-sans)이 Pretendard 를 첫 후보로 쓰므로 목업과 동일하게 로드.
+
+      **variable + dynamic-subset** 을 쓴다. static 은 굵기마다 한글 전체 글리프가 든
+      ~750KB 파일을 통째로 받는다 — 이 앱은 400·500·600·700·800 다섯 굵기를 쓰므로
+      최악의 경우 3.7MB 다(2026-08-04 실측: 로그인 화면에서만도 Regular·SemiBold·
+      ExtraBold 3종 2,291KB). variable 은 굵기를 파일 하나로 처리하고,
+      dynamic-subset 은 unicode-range 로 쪼개 **화면에 실제로 쓰인 글자 범위만** 받는다.
+      요청 수는 늘지만 각각이 아주 작고 HTTP/2 로 병렬 처리된다.
+    -->
     <link
-      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
       rel="stylesheet"
     />
     <!-- Clarity 분석을 위한 script -->

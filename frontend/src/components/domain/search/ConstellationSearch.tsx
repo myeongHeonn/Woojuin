@@ -89,7 +89,7 @@ const ConstellationSearch = ({ onSearchResults, aboveBar }: ConstellationSearchP
         transform 이 걸린 조상 안에서는 자식의 position:fixed 가 뷰포트가 아니라 이 상자
         기준으로 잡혀, AddModal(모바일에서 fixed 로 화면 중앙) 이 엉뚱한 곳에 떴다.
       */}
-      <div className="absolute inset-x-0 bottom-[calc(88px+env(safe-area-inset-bottom))] z-30 mx-auto w-[min(520px,90%)] desktop:bottom-10">
+      <div className="absolute inset-x-0 bottom-above-tabbar z-30 mx-auto w-[min(520px,90%)] desktop:bottom-10">
         {aboveBar && <div className="mb-2.5 flex justify-center">{aboveBar}</div>}
 
         {showPanel && (

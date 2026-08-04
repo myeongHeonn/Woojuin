@@ -41,7 +41,12 @@ const TrashView = ({ workspaceId }: { workspaceId: number }) => {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-space">
       {/* ‹ 는 왼쪽, 제목·부제는 한 컬럼으로 묶어 같은 선에 맞춘다(부제가 ‹ 가 아니라 제목과 정렬) */}
-      <div className={classNames('flex items-start justify-between gap-2 pt-10', STAGE_PX)}>
+      <div
+        className={classNames(
+          'flex items-start justify-between gap-2 pt-[calc(40px+var(--safe-top))]',
+          STAGE_PX,
+        )}
+      >
         <div className="flex items-start gap-1.5">
           <button
             type="button"
@@ -75,7 +80,7 @@ const TrashView = ({ workspaceId }: { workspaceId: number }) => {
 
       <div
         className={classNames(
-          'scrollbar-none min-h-0 flex-1 overflow-y-auto pt-6 pb-[calc(88px+env(safe-area-inset-bottom))] desktop:pb-24',
+          'scrollbar-none min-h-0 flex-1 overflow-y-auto pt-6 pb-above-tabbar desktop:pb-24',
           STAGE_PX,
         )}
       >

@@ -14,7 +14,10 @@ import OnboardingTutorial from '@/components/domain/tutorial/OnboardingTutorial'
  */
 const Layout = () => {
   return (
-    <div className="flex h-dvh overflow-hidden">
+    // 좌우 안전영역은 셸에서 한 번만 처리한다 — 가로 모드 노치 기기에서만 0 이 아니고,
+    // 그때는 사이드바·탭바·본문이 전부 안쪽으로 들어와야 한다. 상단은 요소마다 기준 여백이
+    // 달라서 셸에서 못 준다(캔버스는 상태바 뒤로 흘러야 하므로 여기 pt 를 주면 연출이 깨진다).
+    <div className="flex h-dvh overflow-hidden pl-[var(--safe-left)] pr-[var(--safe-right)]">
       <SideBar />
 
       <div className="relative flex min-w-0 flex-1 flex-col">
