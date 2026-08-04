@@ -1,6 +1,7 @@
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useWorkspaceEvents } from '@/hooks/useWorkspaceEvents';
 import { useWorkspaceEvictionGuard } from '@/hooks/useWorkspaceEvictionGuard';
+import { useWorkspacePreview } from '@/hooks/useWorkspaces';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 
 /**
@@ -24,13 +25,17 @@ const WorkspaceLayout = () => {
 
   useWorkspaceEvents(id);
   const { evicted, accessDenied } = useWorkspaceEvictionGuard(id);
+  // 멤버가 아니어서 뜨는 모달이니 이름은 별도(멤버십 무관) 미리보기 API로 가져온다.
+  // 로딩 중이라 아직 이름이 없으면 워크스페이스라는 일반 표현으로 대체한다.
+  const { data: preview } = useWorkspacePreview(id, evicted || accessDenied);
+  const workspaceLabel = preview?.name ? `'${preview.name}'` : '워크스페이스';
 
   return (
     <>
       <Outlet />
       <ConfirmModal
         open={evicted}
-        title="워크스페이스에서 추방되었어요"
+        title={`${workspaceLabel}에서 추방되었어요`}
         description="이 워크스페이스에 더 이상 접근할 수 없어요."
         confirmLabel="확인"
         showCancel={false}
@@ -39,7 +44,7 @@ const WorkspaceLayout = () => {
       />
       <ConfirmModal
         open={accessDenied}
-        title="접근 권한이 없어요"
+        title={`${workspaceLabel}에 접근 권한이 없어요`}
         description="이 워크스페이스에 접근할 권한이 없어요."
         confirmLabel="확인"
         showCancel={false}

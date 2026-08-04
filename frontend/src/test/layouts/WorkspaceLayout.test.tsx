@@ -18,6 +18,13 @@ vi.mock('@/hooks/useWorkspaceEvictionGuard', () => ({
   useWorkspaceEvictionGuard: () => ({ evicted: mockEvicted, accessDenied: mockAccessDenied }),
 }));
 
+let mockPreviewName: string | undefined = '우리팀';
+vi.mock('@/hooks/useWorkspaces', () => ({
+  useWorkspacePreview: () => ({
+    data: mockPreviewName ? { id: 10, name: mockPreviewName } : undefined,
+  }),
+}));
+
 const renderLayout = () =>
   render(
     <MemoryRouter initialEntries={['/workspace/10/universe']}>
@@ -50,6 +57,28 @@ describe('WorkspaceLayout — 추방 감지', () => {
     await expect.element(screen.getByText(/추방/)).toBeInTheDocument();
   });
 
+  it('추방 모달의 제목에 워크스페이스 이름이 들어간다', async () => {
+    mockEvicted = true;
+    mockAccessDenied = false;
+    mockPreviewName = '우리팀';
+
+    const screen = await renderLayout();
+
+    await expect.element(screen.getByText("'우리팀'에서 추방되었어요")).toBeInTheDocument();
+  });
+
+  it('이름을 아직 못 받아왔으면 일반 표현으로 대체한다', async () => {
+    mockEvicted = true;
+    mockAccessDenied = false;
+    mockPreviewName = undefined;
+
+    const screen = await renderLayout();
+
+    await expect.element(screen.getByText('워크스페이스에서 추방되었어요')).toBeInTheDocument();
+
+    mockPreviewName = '우리팀'; // 다음 테스트에 영향 없도록 원복
+  });
+
   it('확인 버튼을 누르면 /home으로 이동한다', async () => {
     mockEvicted = true;
     mockAccessDenied = false;
@@ -70,7 +99,7 @@ describe('WorkspaceLayout — 접근 권한 없음 감지', () => {
     const screen = await renderLayout();
 
     await expect.element(screen.getByRole('alertdialog')).toBeInTheDocument();
-    await expect.element(screen.getByText(/권한이 없어요/)).toBeInTheDocument();
+    await expect.element(screen.getByText("'우리팀'에 접근 권한이 없어요")).toBeInTheDocument();
     expect(screen.getByText(/추방/).elements()).toHaveLength(0);
   });
 

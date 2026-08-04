@@ -42,6 +42,14 @@ export interface MemberActivity {
   occurredAt: string;
 }
 
+/** 멤버가 아니어도 볼 수 있는 이름만 — 추방/권한없음 모달용 */
+export async function fetchWorkspacePreview(workspaceId: number) {
+  const res = await api.get<ApiResponse<{ id: number; name: string }>>(
+    `/workspaces/${workspaceId}/preview`,
+  );
+  return res.data.data;
+}
+
 export async function fetchMyWorkspaces() {
   const res = await api.get<ApiResponse<Workspace[]>>('/workspaces');
   return res.data.data;
