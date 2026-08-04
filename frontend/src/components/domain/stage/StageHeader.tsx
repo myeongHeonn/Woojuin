@@ -26,7 +26,10 @@ interface StageHeaderProps {
 const StageHeader = ({ title, meta, actions }: StageHeaderProps) => (
   <header
     className={classNames(
-      'pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-4 pt-5 desktop:pt-[26px]',
+      // 상단 여백에 안전영역을 더한다 — iOS 홈 화면 앱에서 pt-5(20px)만 두면 상태바
+      // (47~59px) 밑에 헤더가 들어가 오른쪽 버튼들이 눌리지 않았다 (theme.css --safe-top).
+      'pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-4',
+      'pt-[calc(20px+var(--safe-top))] desktop:pt-[calc(26px+var(--safe-top))]',
       STAGE_PX,
     )}
   >
