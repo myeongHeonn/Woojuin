@@ -120,7 +120,8 @@ public class MemoItemProcessor implements ItemProcessor {
             return aiAnalyzer.analyze(new AiAnalysisRequest(
                     AiSourceType.MEMO, snapshot.getTitle(), snapshot.getContent(), candidates));
         } catch (Exception e) {
-            log.warn("AI 보강 실패(무시): itemId={}, cause={}", snapshot.getId(), e.toString());
+            // 스택트레이스 포함 — 래퍼 예외에 묻힌 근본 원인(DB 커넥션 등)이 보여야 한다.
+            log.warn("AI 보강 실패(무시): itemId={}", snapshot.getId(), e);
             return null;
         }
     }

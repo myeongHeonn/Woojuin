@@ -166,7 +166,7 @@ public class ImageItemProcessor implements ItemProcessor {
                     .map(locationResolver::resolveForCoordinates)
                     .orElse(null);
         } catch (Exception e) {
-            log.warn("EXIF 위치 확보 실패(무시): itemId={}, cause={}", snapshot.getId(), e.toString());
+            log.warn("EXIF 위치 확보 실패(무시): itemId={}", snapshot.getId(), e);
             return null;
         }
     }
@@ -215,7 +215,7 @@ public class ImageItemProcessor implements ItemProcessor {
             }
             return s3Uploader.uploadThumbnail(thumbnail, snapshot.getS3Key());
         } catch (Exception e) {
-            log.warn("썸네일 생성 실패(무시), 목록은 원본으로 폴백: itemId={}, cause={}", snapshot.getId(), e.toString());
+            log.warn("썸네일 생성 실패(무시), 목록은 원본으로 폴백: itemId={}", snapshot.getId(), e);
             return null;
         }
     }
@@ -230,7 +230,8 @@ public class ImageItemProcessor implements ItemProcessor {
             return aiAnalyzer.analyze(
                     new AiAnalysisRequest(AiSourceType.IMAGE, snapshot.getTitle(), text, candidates));
         } catch (Exception e) {
-            log.warn("AI 보강 실패(무시): itemId={}, cause={}", snapshot.getId(), e.toString());
+            // 스택트레이스 포함 — 래퍼 예외에 묻힌 근본 원인(DB 커넥션 등)이 보여야 한다.
+            log.warn("AI 보강 실패(무시): itemId={}", snapshot.getId(), e);
             return null;
         }
     }
