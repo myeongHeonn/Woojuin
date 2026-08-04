@@ -16,6 +16,12 @@
  *
  * 📌 실제 모듈에 export 가 추가되면 여기도 같이 추가할 것 — 빠지면 그 값을 읽는
  *    컴포넌트가 테스트에서만 undefined 를 보게 된다.
+ *
+ * ⚠️ 2026-08-03 추가 — 공용 mock 도 간헐 실패를 **못 막았다**. `vi.mock` 자체가
+ *    적용되지 않는 실행이 있어서(실제 axios 가 그대로 들어옴) 같은 에러가 재발했다.
+ *    그래서 서비스 테스트 3개는 모듈 mock 을 버리고 test/helpers/stubApi.ts 로
+ *    옮겼다 — 이 파일을 쓰는 곳은 이제 useWorkspaceEvents 테스트뿐이다.
+ *    새 테스트를 쓸 때 client 를 가로채야 하면 stubApi 를 먼저 검토할 것.
  */
 import { vi } from 'vitest';
 
