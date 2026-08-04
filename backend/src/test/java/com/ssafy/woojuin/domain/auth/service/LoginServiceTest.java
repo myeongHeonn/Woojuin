@@ -8,6 +8,9 @@ import com.ssafy.woojuin.domain.auth.exception.WithdrawnUserException;
 import com.ssafy.woojuin.domain.auth.jwt.JwtTokenProvider;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import com.ssafy.woojuin.domain.auth.security.CustomUserPrincipal;
+import com.ssafy.woojuin.domain.auth.session.UserSession;
+import com.ssafy.woojuin.domain.auth.session.UserSessionStore;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +26,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,7 +41,7 @@ class LoginServiceTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @Mock
-    private RefreshTokenStore refreshTokenStore;
+    private UserSessionStore sessionStore;
 
     @Mock
     private UserRepository userRepository;
@@ -47,7 +51,7 @@ class LoginServiceTest {
     @Test
     @DisplayName("인증에 성공하면 access/refresh 토큰을 발급하고 refresh token을 저장한다")
     void login_validCredentials_returnsTokenPair() {
-        loginService = new LoginService(authenticationManager, jwtTokenProvider, refreshTokenStore, userRepository);
+        loginService = new LoginService(authenticationManager, jwtTokenProvider, sessionStore, userRepository);
         User user = User.builder()
                 .email("test@woojuin.com")
                 .passwordHash("encoded-password")
@@ -60,30 +64,36 @@ class LoginServiceTest {
 
         when(authenticationManager.authenticate(any())).thenReturn(
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-        when(jwtTokenProvider.createAccessToken(1L)).thenReturn("access-token");
-        when(jwtTokenProvider.createRefreshToken(1L)).thenReturn("refresh-token");
+        when(jwtTokenProvider.createAccessToken(any(Long.class), any(String.class))).thenReturn("access-token");
+        when(jwtTokenProvider.createRefreshToken(any(Long.class), any(String.class))).thenReturn("refresh-token");
 
-        TokenResponse response = loginService.login(new LoginRequest("test@woojuin.com", "raw-password"));
+        TokenResponse response = loginService.login(
+                new LoginRequest("test@woojuin.com", "raw-password"), "Mozilla/5.0 (Windows) Chrome/126");
 
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
-        verify(refreshTokenStore).save(1L, "refresh-token");
+        // 로그인 = 세션 "추가". User-Agent 가 함께 저장돼 기기 목록의 이름이 된다
+        ArgumentCaptor<UserSession> saved = ArgumentCaptor.forClass(UserSession.class);
+        verify(sessionStore).save(eq(1L), saved.capture());
+        assertThat(saved.getValue().refreshToken()).isEqualTo("refresh-token");
+        assertThat(saved.getValue().userAgent()).contains("Windows");
+        assertThat(saved.getValue().sid()).isNotBlank();
     }
 
     @Test
     @DisplayName("인증에 실패하면 예외가 그대로 전파된다")
     void login_invalidCredentials_propagatesException() {
-        loginService = new LoginService(authenticationManager, jwtTokenProvider, refreshTokenStore, userRepository);
+        loginService = new LoginService(authenticationManager, jwtTokenProvider, sessionStore, userRepository);
         when(authenticationManager.authenticate(any())).thenThrow(new BadCredentialsException("bad credentials"));
 
-        assertThatThrownBy(() -> loginService.login(new LoginRequest("test@woojuin.com", "wrong-password")))
+        assertThatThrownBy(() -> loginService.login(new LoginRequest("test@woojuin.com", "wrong-password"), null))
                 .isInstanceOf(BadCredentialsException.class);
     }
 
     @Test
     @DisplayName("탈퇴한 LOCAL 회원이면 인증을 시도하지 않고 전용 예외를 던진다")
     void login_withdrawnUser_throwsWithdrawnUserException() {
-        loginService = new LoginService(authenticationManager, jwtTokenProvider, refreshTokenStore, userRepository);
+        loginService = new LoginService(authenticationManager, jwtTokenProvider, sessionStore, userRepository);
         User user = User.builder()
                 .email("withdrawn@woojuin.com")
                 .passwordHash("encoded-password")
@@ -96,7 +106,7 @@ class LoginServiceTest {
                 .thenReturn(Optional.of(user));
 
         assertThatThrownBy(() ->
-                loginService.login(new LoginRequest("withdrawn@woojuin.com", "raw-password")))
+                loginService.login(new LoginRequest("withdrawn@woojuin.com", "raw-password"), null))
                 .isInstanceOf(WithdrawnUserException.class)
                 .hasMessage("탈퇴한 회원입니다.");
         verify(authenticationManager, never()).authenticate(any());

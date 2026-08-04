@@ -17,6 +17,7 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -53,8 +54,10 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ApiResponse<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ApiResponse.success(loginService.login(request));
+    public ApiResponse<TokenResponse> login(@Valid @RequestBody LoginRequest request,
+            // 기기 목록(세션)에 보여줄 이름의 재료 — 없어도 로그인은 된다(이름만 "알 수 없는 기기")
+            @RequestHeader(value = "User-Agent", required = false) String userAgent) {
+        return ApiResponse.success(loginService.login(request, userAgent));
     }
 
     @PostMapping("/token/refresh")
@@ -65,7 +68,8 @@ public class AuthController {
     @AuthenticatedUser
     @PostMapping("/logout")
     public ApiResponse<Void> logout() {
-        logoutService.logout(currentUserResolver.resolveUserId());
+        // sid 는 필터가 access token 에서 꺼내 실어 둔 것 — 그 기기(세션)만 끊는다
+        logoutService.logout(currentUserResolver.resolveUserId(), currentUserResolver.resolveSessionId());
         return ApiResponse.success(null);
     }
 }
