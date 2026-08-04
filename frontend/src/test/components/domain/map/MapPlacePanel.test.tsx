@@ -47,10 +47,26 @@ describe('MapPlacePanel', () => {
     const text = container.textContent ?? '';
 
     expect(text).toContain('저장한 장소');
+    expect(text).toContain('위치 정보가 있는 사진이나');
+    expect(text).toContain('지도 앱에서 공유한 장소 링크를 저장해 보세요.');
     expect(text).toContain('즐겨찾기');
     expect(text).toContain('여행');
     expect(text).toContain('표시할 카테고리를 선택해 주세요.');
     expect(text).not.toContain('아직 지도에 표시할 장소가 없어요');
+  });
+
+  it('장소 저장 안내 버튼을 클릭하면 안내를 열고 닫는다', async () => {
+    const { container } = await renderPanel(false);
+    const button = container.querySelector<HTMLButtonElement>('[aria-label="장소 저장 안내"]');
+
+    expect(button).not.toBeNull();
+    expect(button?.getAttribute('aria-expanded')).toBe('false');
+
+    button?.click();
+    await expect.poll(() => button?.getAttribute('aria-expanded')).toBe('true');
+
+    button?.click();
+    await expect.poll(() => button?.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('전체 상태에서는 전체 칩만 선택 상태로 표시한다', async () => {

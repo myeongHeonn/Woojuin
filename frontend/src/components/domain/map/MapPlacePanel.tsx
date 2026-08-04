@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import spacemanNoBg from '@/assets/spacemans/spaceman_no_bg.png';
 import { MAP_ITEM_TYPES, MAP_ITEM_TYPE_COLOR, MAP_ITEM_TYPE_LABEL } from '@/constants/map';
 import type { Category } from '@/types/category';
@@ -22,6 +22,9 @@ interface MapPlacePanelProps {
   onOpenItem: (itemId: number) => void;
 }
 
+const MAP_LOCATION_HELP_TEXT =
+  '위치 정보가 있는 사진이나\n지도 앱에서 공유한 장소 링크를 저장해 보세요.';
+
 const MapPlacePanel = ({
   categories,
   places,
@@ -39,8 +42,11 @@ const MapPlacePanel = ({
   const dragStartYRef = useRef<number | null>(null);
   const ignoreClickRef = useRef(false);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const helpRef = useRef<HTMLDivElement>(null);
+  const helpId = useId();
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const categoryById = useMemo(
     () => new Map(categories.map((category) => [category.categoryId, category])),
     [categories],
@@ -66,6 +72,29 @@ const MapPlacePanel = ({
       resizeObserver.disconnect();
     };
   }, [isEmpty]);
+
+  useEffect(() => {
+    if (!isHelpOpen) return;
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!helpRef.current?.contains(event.target as Node)) {
+        setIsHelpOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsHelpOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    document.addEventListener('keydown', closeOnEscape);
+
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isHelpOpen]);
 
   const scrollCategories = (direction: -1 | 1) => {
     const element = categoryScrollRef.current;
@@ -166,15 +195,37 @@ const MapPlacePanel = ({
                 collapsed ? 'text-[10px]' : 'text-sm',
               )}
             >
-              위치 정보가 있는 사진이나
-              <br />
-              지도 앱에서 공유한 장소 링크를 저장해 보세요.
+              <span className="whitespace-pre-line">{MAP_LOCATION_HELP_TEXT}</span>
             </p>
           </div>
         </div>
       ) : (
         <>
-          <header className="flex items-center bg-gradient-to-b from-sidebar/35 to-transparent px-4 pb-2 pt-3.5">
+          <header className="relative z-10 flex items-center bg-gradient-to-b from-sidebar/35 to-transparent px-4 pb-2 pt-3.5">
+            <div ref={helpRef} className="group relative mr-1.5">
+              <button
+                type="button"
+                aria-label="장소 저장 안내"
+                aria-describedby={helpId}
+                aria-expanded={isHelpOpen}
+                onClick={() => setIsHelpOpen((open) => !open)}
+                className="flex h-4 w-4 items-center justify-center rounded-full border border-text-3/70 text-[10px] font-extrabold leading-none text-text-3 transition-colors hover:border-text-2 hover:text-text-1 focus-visible:border-accent focus-visible:text-text-1 focus-visible:outline-none"
+              >
+                ?
+              </button>
+              <div
+                id={helpId}
+                role="tooltip"
+                className={classNames(
+                  'absolute left-0 top-[calc(100%+8px)] z-30 w-[245px] max-w-[calc(100vw-56px)] whitespace-pre-line rounded-md border border-border bg-surface-2 px-3 py-2.5 text-[11px] font-medium leading-relaxed text-text-2 shadow-tooltip',
+                  isHelpOpen
+                    ? 'block'
+                    : 'hidden group-hover:block group-focus-within:block pointer-coarse:group-hover:hidden',
+                )}
+              >
+                {MAP_LOCATION_HELP_TEXT}
+              </div>
+            </div>
             <h2 className="text-sm font-extrabold text-text-1">저장한 장소</h2>
             <span className="ml-1.5 text-xs font-semibold text-text-3">{places.length}곳</span>
             <div
