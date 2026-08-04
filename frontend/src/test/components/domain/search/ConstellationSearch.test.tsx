@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { userEvent } from 'vitest/browser';
@@ -26,14 +27,14 @@ const emptyPage = (): ItemAiSearchResponse => ({
   aiPlanned: false,
 });
 
-const renderSearch = () =>
+const renderSearch = (props: { aboveBar?: ReactNode } = {}) =>
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
       <MemoryRouter initialEntries={['/workspaces/3']}>
         <Routes>
-          <Route path="/workspaces/:workspaceId" element={<ConstellationSearch />} />
+          <Route path="/workspaces/:workspaceId" element={<ConstellationSearch {...props} />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -73,5 +74,10 @@ describe('ConstellationSearch', () => {
 
     await userEvent.clear(input(container));
     await expect.poll(() => panelText(container)).not.toContain('검색 결과가 없어요');
+  });
+
+  it('aboveBar 로 넘긴 내용을 검색 바 위에 그대로 보여준다', async () => {
+    const { container } = await renderSearch({ aboveBar: <span>별 만드는 중 · 2개</span> });
+    expect(panelText(container)).toContain('별 만드는 중 · 2개');
   });
 });
