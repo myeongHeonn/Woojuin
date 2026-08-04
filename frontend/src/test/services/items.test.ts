@@ -1,11 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { api } from '@/services/client';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { stubApi } from '@/test/helpers/stubApi';
 import { saveImage, saveMemo, saveUrl } from '@/services/items';
 
-// 공용 mock 사용 — src/services/__mocks__/client.ts (파일별 팩토리는 동시 실행 시 경쟁한다)
-vi.mock('@/services/client');
-
-const post = vi.mocked(api.post);
+const post = stubApi('post');
 
 /** post 로 넘어간 [경로, 본문] */
 const lastCall = () => post.mock.calls[0] as unknown as [string, unknown];

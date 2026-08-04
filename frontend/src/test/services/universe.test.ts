@@ -1,11 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '@/services/client';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { stubApi } from '@/test/helpers/stubApi';
 import { fetchUniverse } from '@/services/universe';
 
-// 공용 mock 사용 — src/services/__mocks__/client.ts (파일별 팩토리는 동시 실행 시 경쟁한다)
-vi.mock('@/services/client');
-
-const get = vi.mocked(api.get);
+const get = stubApi('get');
 
 beforeEach(() => {
   get.mockReset();
