@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useNavigate } from 'react-router-dom';
+import ConnectedAppsCard from '@/components/domain/mypage/ConnectedAppsCard';
+import ConnectedDevicesCard from '@/components/domain/mypage/ConnectedDevicesCard';
 import ProfileCard from '@/components/domain/mypage/ProfileCard';
 import SettingsCard from '@/components/domain/mypage/SettingsCard';
 import ConfirmModal from '@/components/ui/ConfirmModal';
@@ -101,6 +103,19 @@ const MyPage = () => {
     navigate('/');
   };
 
+  /**
+   * 세션이 서버에서 이미 끝난 뒤의 정리(현재 기기 해제·모든 기기 로그아웃).
+   * handleLogout 과 달리 로그아웃 API 를 부르지 않는다 — 세션은 이미 없고,
+   * 폐기된 토큰으로는 어떤 호출도 통과하지 않는다. 로컬만 정리하고 나간다.
+   */
+  const handleSessionEnded = () => {
+    setAccessToken(null);
+    setRefreshToken(null);
+    setFcmToken(null);
+    queryClient.clear();
+    navigate('/');
+  };
+
   const handleNotificationToggle = () => {
     setNotificationEnabled((enabled) => !enabled);
     setToast({
@@ -158,13 +173,13 @@ const MyPage = () => {
           sharedWorkspaceId={teams[0]?.id}
           spacesLoading={spacesLoading}
           onTutorialReplay={handleTutorialReplay}
-          onChatIntegrationError={() =>
-            setToast({
-              message: '연결 코드를 발급하지 못했습니다. 다시 시도해 주세요.',
-              tone: 'error',
-            })
-          }
         />
+
+        <ConnectedDevicesCard
+          onSessionEnded={handleSessionEnded}
+          onError={(message) => setToast({ message, tone: 'error' })}
+        />
+        <ConnectedAppsCard onError={(message) => setToast({ message, tone: 'error' })} />
 
         <div className="mt-[34px] text-center">
           <button

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import Modal from '@/components/ui/Modal';
 import type { AiUsage } from '@/services/auth';
 import TutorialReplayCard from '@/components/domain/mypage/TutorialReplayCard';
-import ChatIntegrationCard from '@/components/domain/mypage/ChatIntegrationCard';
 import type { TutorialReplayType } from '@/stores/tutorialAtoms';
 
 interface SettingsCardProps {
@@ -17,7 +16,6 @@ interface SettingsCardProps {
   sharedWorkspaceId?: number;
   spacesLoading?: boolean;
   onTutorialReplay?: (type: TutorialReplayType, workspaceId: number) => void;
-  onChatIntegrationError?: () => void;
 }
 
 const SettingsCard = ({
@@ -28,7 +26,6 @@ const SettingsCard = ({
   sharedWorkspaceId,
   spacesLoading = false,
   onTutorialReplay = () => undefined,
-  onChatIntegrationError = () => undefined,
 }: SettingsCardProps) => {
   const [helpOpen, setHelpOpen] = useState(false);
   const usagePercent =
@@ -132,14 +129,14 @@ const SettingsCard = ({
         )}
       </section>
 
-      <div className="mb-4 grid grid-cols-2 gap-3">
+      {/* 채팅 앱 연동은 "연결된 앱" 카드(ConnectedAppsCard)로 옮겼다 — 연동 목록·해제와 한곳 */}
+      <div className="mb-4">
         <TutorialReplayCard
           personalSpaceId={personalSpaceId}
           sharedWorkspaceId={sharedWorkspaceId}
           loading={spacesLoading}
           onReplay={onTutorialReplay}
         />
-        <ChatIntegrationCard onError={onChatIntegrationError} />
       </div>
 
       <section className="rounded-[20px] border border-border-soft bg-surface p-1.5">
