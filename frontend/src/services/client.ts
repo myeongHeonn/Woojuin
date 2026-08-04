@@ -14,8 +14,13 @@ interface TokenPair {
   refreshToken: string;
 }
 
+// 개발 서버는 실행 포트가 5173, 5174 등으로 달라질 수 있다. 로컬 백엔드 주소를
+// 브라우저에서 직접 호출하면 백엔드 CORS 허용 포트와 어긋나므로, 개발 중에는 항상
+// 현재 Vite 서버의 /api 프록시를 거친다. 배포 빌드에서만 환경변수의 API 주소를 쓴다.
+const apiBaseUrl = import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_BASE_URL ?? '/api');
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
+  baseURL: apiBaseUrl,
   timeout: 10_000,
 });
 

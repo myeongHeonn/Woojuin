@@ -18,6 +18,8 @@ import { deleteNotificationToken } from '@/services/notifications';
 import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
 import { fcmTokenAtom } from '@/stores/pushAtoms';
 import { useUser } from '@/hooks/useUser';
+import { useSpaces } from '@/hooks/useSpaces';
+import { tutorialReplayAtom, type TutorialReplayType } from '@/stores/tutorialAtoms';
 
 type ConfirmKind = 'logout' | 'withdraw' | null;
 
@@ -29,6 +31,8 @@ const MyPage = () => {
   const setRefreshToken = useSetAtom(refreshTokenAtom);
   const fcmToken = useAtomValue(fcmTokenAtom);
   const setFcmToken = useSetAtom(fcmTokenAtom);
+  const setTutorialReplay = useSetAtom(tutorialReplayAtom);
+  const { personalSpaceId, teams, isLoading: spacesLoading } = useSpaces();
   const [notificationEnabled, setNotificationEnabled] = useState(true);
   const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -105,6 +109,11 @@ const MyPage = () => {
     });
   };
 
+  const handleTutorialReplay = (type: TutorialReplayType, workspaceId: number) => {
+    setTutorialReplay({ type, workspaceId, requestId: Date.now() });
+    navigate(`/workspace/${workspaceId}/universe`);
+  };
+
   return (
     <div className="h-full overflow-y-auto px-4 pb-28 pt-[calc(24px+var(--safe-top))] desktop:px-9 desktop:pb-20">
       <div className="mx-auto w-full max-w-[660px]">
@@ -145,6 +154,10 @@ const MyPage = () => {
           aiUsage={aiUsage}
           aiUsageLoading={isAiUsagePending}
           aiUsageError={isAiUsageError}
+          personalSpaceId={personalSpaceId}
+          sharedWorkspaceId={teams[0]?.id}
+          spacesLoading={spacesLoading}
+          onTutorialReplay={handleTutorialReplay}
         />
 
         <div className="mt-[34px] text-center">
