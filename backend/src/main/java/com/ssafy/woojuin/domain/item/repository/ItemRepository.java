@@ -14,6 +14,9 @@ public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificat
 
     long countByCreatedByAndDeletedAtIsNull(Long createdBy);
 
+    /** 워크스페이스의 마지막 확인 시각 이후 아이템 활동(생성·처리완료·수정·삭제·즐겨찾기·휴지통) 존재 여부 */
+    boolean existsByWorkspaceIdAndUpdatedAtAfter(Long workspaceId, OffsetDateTime updatedAt);
+
     long countByCreatedByAndDeletedAtIsNullAndCreatedAtGreaterThanEqual(
             Long createdBy, OffsetDateTime createdAt);
 

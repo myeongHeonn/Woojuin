@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.domain.workspace.controller;
 
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceCreateRequest;
+import com.ssafy.woojuin.domain.workspace.dto.WorkspacePreviewResponse;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceResponse;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceUpdateRequest;
 import com.ssafy.woojuin.domain.workspace.service.WorkspaceService;
@@ -52,6 +53,13 @@ public class WorkspaceController {
     public ResponseEntity<ApiResponse<WorkspaceResponse>> get(@PathVariable Long workspaceId) {
         Long userId = currentUserResolver.resolveUserId();
         return ResponseEntity.ok(ApiResponse.success(workspaceService.get(workspaceId, userId)));
+    }
+
+    /** 멤버십과 무관하게 이름만 보여준다 — 추방/권한없음 모달이 워크스페이스 이름을 띄울 때 쓴다. */
+    @AuthenticatedUser
+    @GetMapping("/{workspaceId}/preview")
+    public ResponseEntity<ApiResponse<WorkspacePreviewResponse>> preview(@PathVariable Long workspaceId) {
+        return ResponseEntity.ok(ApiResponse.success(workspaceService.preview(workspaceId)));
     }
 
     @AuthenticatedUser

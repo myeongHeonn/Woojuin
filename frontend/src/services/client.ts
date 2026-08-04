@@ -31,9 +31,17 @@ export const api = axios.create({
 export const backendOrigin =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, '') || 'http://localhost:8080';
 
-// refresh 호출 전용. api 인스턴스로 호출하면 인터셉터가 다시 붙어
-// 만료된 access token을 헤더에 실은 채 요청하게 되니 별도 인스턴스를 쓴다.
-const refreshClient = axios.create({
+/**
+ * refresh 호출 전용. api 인스턴스로 호출하면 인터셉터가 다시 붙어
+ * 만료된 access token을 헤더에 실은 채 요청하게 되니 별도 인스턴스를 쓴다.
+ *
+ * export 하는 이유는 테스트다 — refresh 실패 처리를 검증하려면 이 인스턴스의 응답을
+ * 통제해야 하는데, `vi.mock` 은 browser mode 에서 **적용되지 않는 실행**이 있어 간헐
+ * 실패의 원인이 된다(test/helpers/stubApi.ts 주석 참고). 인스턴스 메서드는 일반 속성이라
+ * 테스트가 직접 갈아끼울 수 있으므로, 모듈 mock 없이 통제하려면 이게 밖에서 보여야 한다.
+ * 앱 코드에서는 쓰지 않는다.
+ */
+export const refreshClient = axios.create({
   baseURL: api.defaults.baseURL,
   timeout: 10_000,
 });
@@ -45,6 +53,34 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+/**
+ * 서버가 refresh token 을 **거부한** 응답 코드.
+ *
+ * 이 백엔드는 무효·만료·불일치·탈퇴를 전부 `IllegalArgumentException` 으로 던지고
+ * GlobalExceptionHandler 가 그걸 **400** 으로 매핑한다(TokenRefreshService 참고).
+ * 그래서 401·403 만 보면 진짜로 만료된 사용자가 로그인 화면으로 못 가고, 모든 요청이
+ * 실패하는 상태에 갇힌다. 401·403 은 인증 필터가 앞단에서 막는 경우를 위해 함께 둔다.
+ */
+const REFRESH_REJECTED_STATUSES = [400, 401, 403];
+
+/**
+ * refresh 실패를 "서버가 토큰을 거부했다" 와 "지금은 물어보지도 못했다" 로 가른다.
+ *
+ * 이 구분이 없으면 — 네트워크 실패·타임아웃·5xx 까지 거부로 취급하면 — 모바일에서 앱을
+ * 다시 열 때마다 로그아웃될 수 있다. 복귀 시점에는 (a) access 가 이미 만료돼 있고
+ * (b) 쿼리 여러 개가 한꺼번에 나가고 (c) 셀룰러 복귀·와이파이 전환으로 통신이 불안정하다.
+ * 한 번만 실패해도 토큰이 지워지면 되돌릴 방법이 없다.
+ *
+ * 응답이 아예 없으면(`error.response` 가 undefined) 서버 판단을 받은 적이 없다는 뜻이므로
+ * 거부가 아니다 — 토큰을 남겨 두고 통신이 돌아왔을 때 다시 시도한다.
+ */
+export function isRefreshRejected(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false;
+  const status = error.response?.status;
+  if (status === undefined) return false;
+  return REFRESH_REJECTED_STATUSES.includes(status);
+}
 
 let refreshPromise: Promise<string | null> | null = null;
 
@@ -70,9 +106,14 @@ async function refreshAccessToken(): Promise<string | null> {
     jotaiStore.set(accessTokenAtom, data.data.accessToken);
     jotaiStore.set(refreshTokenAtom, data.data.refreshToken);
     return data.data.accessToken;
-  } catch {
-    jotaiStore.set(accessTokenAtom, null);
-    jotaiStore.set(refreshTokenAtom, null);
+  } catch (error) {
+    // 서버가 거부한 게 아니면 토큰을 남긴다 — 통신이 돌아오면 다시 시도할 수 있다.
+    // (AuthLayout 은 accessToken 이 있으면 화면을 유지하므로, 만료된 토큰이라도 남겨 두면
+    //  로그인 화면으로 튕기지 않고 그 자리에서 재시도가 이어진다)
+    if (isRefreshRejected(error)) {
+      jotaiStore.set(accessTokenAtom, null);
+      jotaiStore.set(refreshTokenAtom, null);
+    }
     return null;
   }
 }

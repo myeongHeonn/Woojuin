@@ -114,6 +114,18 @@ export default defineConfig({
       output: {
         // 무거운 라이브러리를 별도 청크로 분리한다.
         // (1) 성좌·지도에 들어가야만 받아지고 (2) 잘 안 바뀌어 브라우저 캐시가 오래 유지된다.
+        //
+        // 🔴 HEIC 3종(heic-to·exifr·piexifjs)은 **여기 넣지 말 것.**
+        //    `heic: ['heic-to', 'exifr', 'piexifjs']` 로 묶었더니 롤업이 그 청크를 엔트리의
+        //    **정적** 의존으로 끌어올려, 빌드된 index.html 에
+        //    `<link rel="modulepreload" href="/assets/heic-*.js">` 가 박히고 엔트리 코드에도
+        //    `import{...}from"./heic-*.js"` 가 생겼다. 소스가 전부 동적 import 여도 소용없고
+        //    서비스워커 globIgnores 로도 못 막는다(프리캐시가 아니라 HTML preload 라서).
+        //    결과: HEIC 를 쓸 일 없는 로그인 화면부터 3MB 를 받았다.
+        //    실측(2026-08-04, dev): 로그인 전송량 6.1MB · 모바일 FCP 20초 · LCP 21.5초.
+        //    빼고 나서 초기 로드 3,562KB → 537KB. 롤업이 동적 import 지점을 보고 알아서
+        //    쪼개게 두면 된다(heic-to·exifr·piexifjs 가 각각 지연 청크가 된다).
+        //    three·maplibre 는 lazy 라우트 안에서만 쓰여 이 문제가 없다.
         manualChunks: {
           three: ['three'],
           maplibre: ['maplibre-gl'],

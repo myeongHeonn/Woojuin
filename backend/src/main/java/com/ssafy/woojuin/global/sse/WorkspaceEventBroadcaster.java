@@ -28,6 +28,7 @@ public class WorkspaceEventBroadcaster {
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onWorkspaceChanged(WorkspaceChangedEvent event) {
-        sseRegistry.broadcast(event.workspaceId(), WorkspaceEvent.of(event.type(), event.workspaceId()));
+        sseRegistry.broadcast(event.workspaceId(),
+                WorkspaceEvent.of(event.type(), event.workspaceId(), event.memberAction()));
     }
 }

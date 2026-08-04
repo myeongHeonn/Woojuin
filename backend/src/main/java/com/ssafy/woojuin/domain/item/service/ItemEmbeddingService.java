@@ -69,7 +69,10 @@ public class ItemEmbeddingService {
         try {
             embedAndRecompute(client, itemId);
         } catch (Exception e) {
-            log.warn("임베딩·좌표 갱신 실패(무시): itemId={}, cause={}", itemId, e.toString());
+            // 예외 객체를 통째로 넘겨 스택트레이스를 남긴다. e.toString()은 래퍼 예외
+            // (CannotCreateTransactionException 등)만 보여서, 07-31 커넥션 고갈 사고 때
+            // 근본 원인("Connection is not available")이 로그 어디에도 안 남았다.
+            log.warn("임베딩·좌표 갱신 실패(무시): itemId={}", itemId, e);
         }
     }
 

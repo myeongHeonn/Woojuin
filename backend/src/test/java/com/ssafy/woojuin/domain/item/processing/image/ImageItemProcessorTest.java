@@ -3,6 +3,7 @@ package com.ssafy.woojuin.domain.item.processing.image;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -22,6 +23,7 @@ import com.ssafy.woojuin.domain.location.Geocoder;
 import com.ssafy.woojuin.domain.location.LocationResolver;
 import com.ssafy.woojuin.domain.location.MapLinkCoordinateParser;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import com.ssafy.woojuin.global.common.TransactionRunner;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -60,9 +62,10 @@ class ImageItemProcessorTest {
         // 파서는 순수 함수라 실제 구현을 쓰고, 외부 호출이 필요한 지오코더만 목으로 둔다.
         LocationResolver locationResolver = new LocationResolver(
                 new MapLinkCoordinateParser(), geocoder);
+        // 단위 테스트에선 프록시가 없어 람다가 트랜잭션 없이 인라인 실행된다(TransactionRunner javadoc).
         processor = new ImageItemProcessor(itemRepository, s3Uploader, imageTextExtractor,
                 thumbnailGenerator, aiAnalyzer, categoryAssignmentService, eventPublisher,
-                exifGpsReader, locationResolver);
+                exifGpsReader, locationResolver, new TransactionRunner());
     }
 
     @Test
@@ -262,6 +265,27 @@ class ImageItemProcessorTest {
         assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
         assertThat(item.getContent()).isEqualTo("확보한 텍스트");
         assertThat(item.hasCoordinates()).isFalse();
+    }
+
+    @Test
+    void 외부_호출_중_아이템이_삭제되면_아무것도_반영하지_않는다() {
+        // 외부 호출(S3·OCR·LLM)이 트랜잭션 밖으로 나가면서 생기는 경합 — 반영 트랜잭션이
+        // 다시 로드해 가드를 재확인해야 삭제된 아이템에 카테고리를 붙이는 사고가 없다.
+        newProcessor();
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.IMAGE)
+                .s3Key("items/1/abc-photo.png").build();
+        when(itemRepository.findById(any()))
+                .thenReturn(Optional.of(item))    // 1단계: 스냅숏은 살아 있었다
+                .thenReturn(Optional.empty());    // 3단계: 반영 시점엔 삭제됨
+        when(s3Uploader.download(any())).thenReturn(new byte[]{1});
+        when(imageTextExtractor.extract(any())).thenReturn("텍스트");
+        when(aiAnalyzer.analyze(any())).thenReturn(new AiAnalysis(null, "요약문", List.of("문화·콘텐츠")));
+
+        processor.process(message());   // 예외 없이 통과
+
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.PROCESSING);   // 스냅숏은 안 건드렸다
+        verify(categoryAssignmentService, never()).assign(any(), any(), any());
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test

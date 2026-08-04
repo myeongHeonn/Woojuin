@@ -8,6 +8,7 @@ import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredExcep
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceCreateRequest;
+import com.ssafy.woojuin.domain.workspace.dto.WorkspacePreviewResponse;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceResponse;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceUpdateRequest;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
@@ -143,6 +144,28 @@ class WorkspaceServiceTest {
 
         assertThatThrownBy(() -> workspaceService.get(10L, 1L))
                 .isInstanceOf(WorkspaceMemberRequiredException.class);
+    }
+
+    @Test
+    @DisplayName("멤버가 아니어도 이름 미리보기를 조회할 수 있다")
+    void preview_nonMember_returnsName() {
+        User owner = user(1L);
+        Workspace ws = workspace(10L, owner);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+
+        WorkspacePreviewResponse response = workspaceService.preview(10L);
+
+        assertThat(response.id()).isEqualTo(10L);
+        assertThat(response.name()).isEqualTo("우리팀");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 워크스페이스는 미리보기 조회 시 404 예외를 던진다")
+    void preview_nonExistentWorkspace_throwsNotFound() {
+        when(workspaceRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> workspaceService.preview(999L))
+                .isInstanceOf(WorkspaceNotFoundException.class);
     }
 
     @Test
