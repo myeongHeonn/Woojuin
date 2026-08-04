@@ -18,7 +18,9 @@
 
 @theme {
   /* ── 정적 토큰 (테마 무관) ─────────────────────────── */
-  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', sans-serif;
+  --font-sans:
+    'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI',
+    sans-serif;
 
   /*
    * 모바일/데스크톱을 가르는 유일한 분기점 — 여기가 원본이다.

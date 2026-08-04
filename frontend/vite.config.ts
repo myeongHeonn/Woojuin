@@ -62,7 +62,16 @@ export default defineConfig({
         // HEIC 디코더 청크(3MB)는 프리캐시에서 뺀다. 넣으면 앱을 설치하기만 해도 초기
         // 다운로드가 몇 배로 뛰는데, 정작 HEIC 를 올리는 순간에만 필요한 코드다.
         // (워크박스 기본 크기 제한에도 걸려 어차피 빠지지만, 그러면 빌드마다 경고만 남는다.)
-        globIgnores: ['**/heic-*.js'],
+        // 첫 방문에는 앱 셸과 랜딩만 캐시한다. 로그인 뒤에만 쓰는 우주뷰·지도·사진 변환
+        // 청크는 각 화면에 들어갈 때 내려받아 모바일 랜딩의 초기 네트워크 경쟁을 막는다.
+        globPatterns: [
+          'index.html',
+          'registerSW.js',
+          'manifest.webmanifest',
+          'icons/*.png',
+          'assets/index-*.{js,css}',
+          'assets/LandingPage-*.{js,css}',
+        ],
       },
       manifest: {
         name: '우주인 — 올인원 AI 스크랩북',
@@ -112,14 +121,22 @@ export default defineConfig({
           // 연달아 쓰이므로 한 청크로 묶어 요청을 한 번에 끝낸다. 전부 동적 import 라 초기
           // 번들엔 안 들어가고, 사진 탭에서 HEIC 를 고른 사용자만 받는다. 이름을 고정해 두는
           // 건 아래 injectManifest.globIgnores 가 이 청크를 지목할 수 있게 하려는 것이다.
-          heic: ['heic-to', 'exifr', 'piexifjs'],
         },
       },
     },
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:8080',
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        // 브라우저의 localhost:517x Origin을 그대로 넘기면 Spring CORS가 프록시 요청도
+        // 교차 출처 요청으로 판단한다. 브라우저 입장에서는 Vite와 같은 출처로 요청하므로
+        // 개발 프록시가 Origin을 제거하고 백엔드에는 일반 서버 간 요청으로 전달한다.
+        configure(proxy) {
+          proxy.on('proxyReq', (proxyReq) => proxyReq.removeHeader('origin'));
+        },
+      },
     },
   },
 });

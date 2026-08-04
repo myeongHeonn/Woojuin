@@ -1,6 +1,6 @@
 import type { UniverseResponse } from '@/types/universe';
 
-export const tutorialUniverseFixture: UniverseResponse = {
+const tutorialUniverseFixtureBase: UniverseResponse = {
   constellations: [
     {
       categoryId: -101,
@@ -134,6 +134,19 @@ export const tutorialUniverseFixture: UniverseResponse = {
     },
   ],
   unclassified: [],
+};
+
+// 빈 우주뷰에서도 각 성좌가 한곳에 뭉치지 않고 화면 전반에 펼쳐져 보이도록
+// 튜토리얼 전용 좌표만 넓힌다. 실제 사용자 데이터에는 영향을 주지 않는다.
+export const tutorialUniverseFixture: UniverseResponse = {
+  ...tutorialUniverseFixtureBase,
+  constellations: tutorialUniverseFixtureBase.constellations.map((constellation) => ({
+    ...constellation,
+    items: constellation.items.map((item) => ({
+      ...item,
+      position: [item.position[0] * 2.2, item.position[1] * 1.75, item.position[2]],
+    })),
+  })),
 };
 
 export const isUniverseEmpty = (universe: UniverseResponse) =>
