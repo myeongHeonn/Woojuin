@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useNavigate } from 'react-router-dom';
+import ConnectedAppsCard from '@/components/domain/mypage/ConnectedAppsCard';
+import ConnectedDevicesCard from '@/components/domain/mypage/ConnectedDevicesCard';
 import ProfileCard from '@/components/domain/mypage/ProfileCard';
 import SettingsCard from '@/components/domain/mypage/SettingsCard';
 import ConfirmModal from '@/components/ui/ConfirmModal';
@@ -101,6 +103,19 @@ const MyPage = () => {
     navigate('/');
   };
 
+  /**
+   * 세션이 서버에서 이미 끝난 뒤의 정리(현재 기기 해제·모든 기기 로그아웃).
+   * handleLogout 과 달리 로그아웃 API 를 부르지 않는다 — 세션은 이미 없고,
+   * 폐기된 토큰으로는 어떤 호출도 통과하지 않는다. 로컬만 정리하고 나간다.
+   */
+  const handleSessionEnded = () => {
+    setAccessToken(null);
+    setRefreshToken(null);
+    setFcmToken(null);
+    queryClient.clear();
+    navigate('/');
+  };
+
   const handleNotificationToggle = () => {
     setNotificationEnabled((enabled) => !enabled);
     setToast({
@@ -130,23 +145,28 @@ const MyPage = () => {
           onLogout={() => setConfirmKind('logout')}
         />
 
-        <section aria-label="활동 통계" className="mb-4 grid grid-cols-3 gap-3">
+        {/* 상자 없이 숫자만 나란히 — 위계는 타이포 크기가 만든다 */}
+        <section aria-label="활동 통계" className="mb-10 flex gap-10 px-2">
           {[
             [stats?.totalSaved, '전체 저장'],
             [stats?.workspaceCount, '워크스페이스'],
             [stats?.savedThisWeek, '이번 주 저장'],
           ].map(([value, label]) => (
-            <div
-              key={String(label)}
-              className="rounded-lg border border-border-soft bg-surface px-3 py-4 desktop:px-[18px]"
-            >
-              <div className="text-[22px] font-extrabold text-text-1">
+            <div key={String(label)} className="min-w-0">
+              <div className="text-2xl font-extrabold tabular-nums text-text-1">
                 {typeof value === 'number' ? value.toLocaleString('ko-KR') : '—'}
               </div>
-              <div className="mt-0.5 text-xs text-text-3">{label}</div>
+              <div className="mt-1 text-xs text-text-3">{label}</div>
             </div>
           ))}
         </section>
+
+        {/* 계정에 붙어 있는 것들(기기·앱)이 먼저, 사용량·도움말류 설정은 그 아래 */}
+        <ConnectedDevicesCard
+          onSessionEnded={handleSessionEnded}
+          onError={(message) => setToast({ message, tone: 'error' })}
+        />
+        <ConnectedAppsCard onError={(message) => setToast({ message, tone: 'error' })} />
 
         <SettingsCard
           notificationEnabled={notificationEnabled}
@@ -158,12 +178,6 @@ const MyPage = () => {
           sharedWorkspaceId={teams[0]?.id}
           spacesLoading={spacesLoading}
           onTutorialReplay={handleTutorialReplay}
-          onChatIntegrationError={() =>
-            setToast({
-              message: '연결 코드를 발급하지 못했습니다. 다시 시도해 주세요.',
-              tone: 'error',
-            })
-          }
         />
 
         <div className="mt-[34px] text-center">
