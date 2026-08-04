@@ -72,11 +72,21 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+/**
+ * 자격 증명을 제출하는 요청들 — 이들의 401은 "access token이 만료됐다"가 아니라
+ * "이메일·비밀번호가 틀렸다"는 뜻이라 토큰 갱신 대상이 아니다.
+ *
+ * 걸러내지 않으면 로그아웃 뒤 localStorage에 남아 있던 refresh token으로 갱신이 성공해
+ * **로그인에 실패한 화면 뒤에서 이전 사용자로 로그인되는** 상태가 만들어진다.
+ */
+const CREDENTIAL_ENDPOINTS = ['/auth/login', '/auth/signup'];
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
+    const isCredentialRequest = CREDENTIAL_ENDPOINTS.includes(original?.url ?? '');
+    if (error.response?.status === 401 && !original._retry && !isCredentialRequest) {
       original._retry = true;
       const newAccessToken = await requestTokenRefresh();
       if (newAccessToken) {

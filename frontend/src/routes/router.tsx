@@ -20,7 +20,7 @@ const TrashPage = lazy(() => import('@/pages/TrashPage'));
 const MapPage = lazy(() => import('@/pages/MapPage'));
 const CanvasPage = lazy(() => import('@/pages/CanvasPage'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
-// const SignupPage = lazy(() => import('@/pages/SignupPage'));
+const SignupPage = lazy(() => import('@/pages/SignupPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/OAuthCallbackPage'));
 const InvitePage = lazy(() => import('@/pages/InvitePage'));
 const PrivacyPolicyPage = lazy(() => import('@/pages/PrivacyPolicyPage'));
@@ -44,8 +44,9 @@ export const router = createBrowserRouter([
     element: page(<LandingPage />),
   },
   { path: '/login', element: page(<LoginPage />) },
-  // 회원가입 임시 보류
-  // { path: '/signup', element: page(<SignupPage />) },
+  // 구글 로그인이 막혀 있는 동안(LoginForm.GOOGLE_LOGIN_ENABLED 주석 참고) 이메일 가입이
+  // 유일한 가입 경로다. 구글은 첫 로그인이 곧 가입이라 그동안 이 라우트를 닫아뒀었다.
+  { path: '/signup', element: page(<SignupPage />) },
   // 공유 링크 진입점 — 로그인 전에도 미리보기, 참여는 로그인 후(사이드바 없는 단독 화면)
   { path: '/invite/:code', element: page(<InvitePage />) },
   // 개인정보처리방침 — 가입 전에도 읽을 수 있어야 하므로 로그인 없이 접근 가능

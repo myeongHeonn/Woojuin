@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -140,6 +141,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleWorkspaceLastOwner(WorkspaceLastOwnerException e) {
         return ApiResponse.of(400, e.getMessage(), null);
+    }
+
+    /**
+     * 이메일·비밀번호 로그인 실패. LoginService가 AuthenticationManager를 **컨트롤러 안에서**
+     * 직접 부르므로 이 예외는 시큐리티 필터 체인이 아니라 여기로 온다 — 핸들러가 없으면
+     * 500 ServletException이 되고, 그 응답에는 CORS 헤더가 붙지 않아 브라우저가 통째로
+     * 버린다(프론트는 상태코드조차 못 본다).
+     *
+     * 계정이 없는 경우(UsernameNotFoundException)와 비밀번호가 틀린 경우
+     * (BadCredentialsException)에 같은 문구를 쓴다 — 다르게 쓰면 가입 여부를 캐낼 수 있다.
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Void> handleAuthenticationFailure(AuthenticationException e) {
+        return ApiResponse.of(401, "이메일 또는 비밀번호가 올바르지 않습니다", null);
     }
 
     /**
