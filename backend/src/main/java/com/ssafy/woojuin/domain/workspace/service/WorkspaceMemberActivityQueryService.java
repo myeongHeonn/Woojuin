@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.domain.workspace.service;
 
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceMemberActivityResponse;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberActivityRepository;
@@ -26,11 +27,18 @@ public class WorkspaceMemberActivityQueryService {
         this.workspaceMemberActivityRepository = workspaceMemberActivityRepository;
     }
 
+    /**
+     * 조회자가 이 워크스페이스에 참여하기 전의 활동(자신이 없던 시절 다른 사람의
+     * 가입/탈퇴/추방)은 보여주지 않는다 — 본인의 joinedAt 이후 것만 반환한다.
+     */
     @Transactional(readOnly = true)
     public List<WorkspaceMemberActivityResponse> list(Long workspaceId, Long requesterId) {
         findWorkspace(workspaceId);
-        findMembership(workspaceId, requesterId);
-        return workspaceMemberActivityRepository.findByWorkspaceIdOrderByOccurredAtDesc(workspaceId).stream()
+        WorkspaceMember requesterMembership = findMembership(workspaceId, requesterId);
+        return workspaceMemberActivityRepository
+                .findByWorkspaceIdAndOccurredAtGreaterThanEqualOrderByOccurredAtDesc(
+                        workspaceId, requesterMembership.getJoinedAt())
+                .stream()
                 .map(WorkspaceMemberActivityResponse::of)
                 .toList();
     }
@@ -41,9 +49,8 @@ public class WorkspaceMemberActivityQueryService {
         }
     }
 
-    private void findMembership(Long workspaceId, Long userId) {
-        if (workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId).isEmpty()) {
-            throw new WorkspaceMemberRequiredException(workspaceId);
-        }
+    private WorkspaceMember findMembership(Long workspaceId, Long userId) {
+        return workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .orElseThrow(() -> new WorkspaceMemberRequiredException(workspaceId));
     }
 }

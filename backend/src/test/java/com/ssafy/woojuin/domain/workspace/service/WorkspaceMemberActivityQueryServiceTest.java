@@ -22,11 +22,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -75,7 +77,9 @@ class WorkspaceMemberActivityQueryServiceTest {
                 .workspace(ws).user(target).type(WorkspaceMemberActivityType.JOINED).build();
         when(workspaceRepository.existsById(10L)).thenReturn(true);
         when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(ownerMembership));
-        when(workspaceMemberActivityRepository.findByWorkspaceIdOrderByOccurredAtDesc(10L))
+        when(workspaceMemberActivityRepository
+                .findByWorkspaceIdAndOccurredAtGreaterThanEqualOrderByOccurredAtDesc(
+                        any(Long.class), any(OffsetDateTime.class)))
                 .thenReturn(List.of(kicked, joined));
 
         List<WorkspaceMemberActivityResponse> result = workspaceMemberActivityQueryService.list(10L, 1L);
@@ -99,7 +103,10 @@ class WorkspaceMemberActivityQueryServiceTest {
                 .workspace(ws).user(withdrawn).type(WorkspaceMemberActivityType.LEFT).build();
         when(workspaceRepository.existsById(10L)).thenReturn(true);
         when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(ownerMembership));
-        when(workspaceMemberActivityRepository.findByWorkspaceIdOrderByOccurredAtDesc(10L)).thenReturn(List.of(left));
+        when(workspaceMemberActivityRepository
+                .findByWorkspaceIdAndOccurredAtGreaterThanEqualOrderByOccurredAtDesc(
+                        any(Long.class), any(OffsetDateTime.class)))
+                .thenReturn(List.of(left));
 
         List<WorkspaceMemberActivityResponse> result = workspaceMemberActivityQueryService.list(10L, 1L);
 
@@ -124,5 +131,24 @@ class WorkspaceMemberActivityQueryServiceTest {
 
         assertThatThrownBy(() -> workspaceMemberActivityQueryService.list(999L, 1L))
                 .isInstanceOf(WorkspaceNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("본인이 참여하기 전의 활동은 조회 대상에서 제외한다")
+    void list_queriesOnlyActivitiesSinceRequesterJoined() {
+        User owner = user(1L);
+        User late = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember lateMembership = WorkspaceMember.builder().workspace(ws).user(late).role(WorkspaceRole.MEMBER).build();
+        OffsetDateTime lateJoinedAt = lateMembership.getJoinedAt();
+        when(workspaceRepository.existsById(10L)).thenReturn(true);
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(lateMembership));
+        when(workspaceMemberActivityRepository
+                .findByWorkspaceIdAndOccurredAtGreaterThanEqualOrderByOccurredAtDesc(10L, lateJoinedAt))
+                .thenReturn(List.of());
+
+        List<WorkspaceMemberActivityResponse> result = workspaceMemberActivityQueryService.list(10L, 2L);
+
+        assertThat(result).isEmpty();
     }
 }
