@@ -1,8 +1,24 @@
 /**
+ * 설치된 앱으로 실행 중인지 — 브라우저 탭이면 false.
+ *
+ * 히스토리를 건드리는 걸 설치된 앱에만 적용하려고 쓴다. 브라우저 탭에서는 뒤로가기가 사이트를
+ * 벗어나 버리면 안 된다 — 데스크톱 사용자는 뒤로가기로 이전 화면에 돌아가기를 기대한다.
+ */
+export const isInstalledApp = (): boolean => {
+  if (window.matchMedia('(display-mode: standalone)').matches) return true;
+  // iOS 사파리는 display-mode 를 알려주지 않고 이 비표준 값을 쓴다
+  const iosStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone;
+  return iosStandalone === true;
+};
+
+/**
  * 히스토리 항목을 늘리지 않게 만든다 — 뒤로가기가 앱 안을 걷지 않고 곧바로 앱을 벗어난다.
  *
  * 설치된 앱에서 원하는 동작이 그것이기 때문이다. 안드로이드는 뒤로가기 한 번에 앱이 닫히고,
  * iOS 는 엣지 스와이프가 아무 일도 하지 않는다. 화면 사이 이동은 화면 안의 버튼으로만 한다.
+ *
+ * **브라우저 탭에는 걸지 않는다**(isInstalledApp 참고). 웹에서 뒤로가기가 사이트를 벗어나면
+ * 앱 안에서 뒤로 갈 수단이 아예 없어진다 — 실측으로 탭에 사이트가 남지 않는 것을 확인했다.
  *
  * ── 왜 라우터 옵션이 아니라 pushState 를 바꾸는가 ─────────────────────────────
  * React Router v6 에는 "항상 replace" 스위치가 없다. 그래서 대안은 모든 `<Link>`·`<NavLink>`

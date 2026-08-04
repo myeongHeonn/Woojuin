@@ -54,6 +54,8 @@ const LandingPage = () => {
 
       <Link
         to="/login"
+        // 히스토리에 랜딩을 남기지 않는다 — 이유는 LandingHeader 의 같은 링크에 적어 뒀다
+        replace
         className="fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 whitespace-nowrap rounded-full border border-white/10 bg-accent px-6 py-3.5 text-sm font-extrabold tracking-[0.08em] text-white shadow-modal transition hover:-translate-y-1 hover:bg-accent-hover desktop:bottom-7 desktop:px-8"
       >
         WOULD YOU IN?

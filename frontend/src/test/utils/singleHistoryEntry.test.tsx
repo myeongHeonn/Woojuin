@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { keepSingleHistoryEntry } from '@/utils/singleHistoryEntry';
+import { isInstalledApp, keepSingleHistoryEntry } from '@/utils/singleHistoryEntry';
 import { useGoBack } from '@/hooks/useGoBack';
 
 /**
@@ -36,6 +36,29 @@ describe('keepSingleHistoryEntry', () => {
 
     // 재귀로 두 번 불리거나 스택이 터지지 않는다
     expect(replaceSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('isInstalledApp — 브라우저 탭에는 걸지 않는다', () => {
+  it('일반 브라우저 탭에서는 false 다', () => {
+    // 테스트는 브라우저 탭에서 돈다. 여기서 true 면 웹에서도 히스토리를 건드리게 되고,
+    // 그러면 뒤로가기가 사이트를 벗어나 앱 안에서 뒤로 갈 수단이 없어진다
+    expect(isInstalledApp()).toBe(false);
+  });
+
+  it('설치된 앱(display-mode: standalone)이면 true 다', () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) =>
+      ({
+        matches: query.includes('standalone'),
+        media: query,
+      }) as MediaQueryList) as typeof window.matchMedia;
+
+    try {
+      expect(isInstalledApp()).toBe(true);
+    } finally {
+      window.matchMedia = original;
+    }
   });
 });
 
