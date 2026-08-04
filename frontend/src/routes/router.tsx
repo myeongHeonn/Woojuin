@@ -3,6 +3,7 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import Spinner from '@/components/ui/Spinner';
 // 레이아웃은 구조용이라 가볍다 — eager 로 둬 셸이 즉시 뜨게 한다.
 import AuthLayout from '@/layouts/AuthLayout';
+import GuestOnly from '@/layouts/GuestOnly';
 import Layout from '@/layouts/Layout';
 import StageLayout from '@/layouts/StageLayout';
 import WorkspaceLayout from '@/layouts/WorkspaceLayout';
@@ -54,14 +55,22 @@ export const router = createBrowserRouter([
      */
     errorElement: <ErrorPage />,
     children: [
+      /*
+       * 로그인 전 화면들 — 이미 로그인돼 있으면 앱으로 보낸다.
+       *
+       * 특히 `/` 가 중요하다. PWA 는 cold start 마다 manifest 의 start_url(`/`)로 들어오는데,
+       * 가드가 없으면 로그인한 사용자가 앱을 껐다 켤 때마다 랜딩 페이지를 만난다.
+       */
       {
-        path: '/',
-        element: page(<LandingPage />),
+        element: <GuestOnly />,
+        children: [
+          { path: '/', element: page(<LandingPage />) },
+          { path: '/login', element: page(<LoginPage />) },
+          // 구글 로그인이 막혀 있는 동안(LoginForm.GOOGLE_LOGIN_ENABLED 주석 참고) 이메일 가입이
+          // 유일한 가입 경로다. 구글은 첫 로그인이 곧 가입이라 그동안 이 라우트를 닫아뒀었다.
+          { path: '/signup', element: page(<SignupPage />) },
+        ],
       },
-      { path: '/login', element: page(<LoginPage />) },
-      // 구글 로그인이 막혀 있는 동안(LoginForm.GOOGLE_LOGIN_ENABLED 주석 참고) 이메일 가입이
-      // 유일한 가입 경로다. 구글은 첫 로그인이 곧 가입이라 그동안 이 라우트를 닫아뒀었다.
-      { path: '/signup', element: page(<SignupPage />) },
       // 공유 링크 진입점 — 로그인 전에도 미리보기, 참여는 로그인 후(사이드바 없는 단독 화면)
       { path: '/invite/:code', element: page(<InvitePage />) },
       // 개인정보처리방침 — 가입 전에도 읽을 수 있어야 하므로 로그인 없이 접근 가능
