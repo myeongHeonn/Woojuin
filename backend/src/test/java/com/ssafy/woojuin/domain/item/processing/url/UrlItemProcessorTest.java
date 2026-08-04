@@ -21,6 +21,7 @@ import com.ssafy.woojuin.domain.location.Geocoder;
 import com.ssafy.woojuin.domain.location.LocationResolver;
 import com.ssafy.woojuin.domain.location.MapLinkCoordinateParser;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import com.ssafy.woojuin.global.common.TransactionRunner;
 import java.util.List;
 import java.util.Optional;
 import org.jsoup.Jsoup;
@@ -65,9 +66,10 @@ class UrlItemProcessorTest {
         // 파서는 순수 함수라 실제 구현을 쓰고 외부 호출이 필요한 지오코더만 목으로 둔다.
         LocationResolver locationResolver = new LocationResolver(
                 new MapLinkCoordinateParser(), geocoder);
+        // 단위 테스트에선 프록시가 없어 람다가 트랜잭션 없이 인라인 실행된다(TransactionRunner javadoc).
         processor = new UrlItemProcessor(itemRepository, normalizer, oEmbedClient,
                 htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer, categoryAssignmentService,
-                eventPublisher, locationResolver);
+                eventPublisher, locationResolver, new TransactionRunner());
     }
 
     private Item urlItem() {
@@ -218,6 +220,28 @@ class UrlItemProcessorTest {
         verifyNoInteractions(oEmbedClient, htmlFetcher, contentExtractor, aiAnalyzer, categoryAssignmentService);
     }
 
+    @Test
+    void 외부_호출_중_아이템이_삭제되면_아무것도_반영하지_않는다() {
+        // 외부 호출(크롤·LLM)이 트랜잭션 밖으로 나가면서 생기는 경합 — 반영 트랜잭션이
+        // 다시 로드해 가드를 재확인해야 삭제된 아이템에 카테고리를 붙이는 사고가 없다.
+        Item item = urlItem();
+        aiReturnsEmpty();
+        when(itemRepository.findById(any()))
+                .thenReturn(Optional.of(item))    // 1단계: 스냅숏은 살아 있었다
+                .thenReturn(Optional.empty());    // 3단계: 반영 시점엔 삭제됨
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(doc);
+        when(openGraphScraper.scrape(doc)).thenReturn(new UrlPreview("제목", null, null));
+        when(contentExtractor.extract(doc)).thenReturn("본문");
+
+        processor.process(message());   // 예외 없이 통과
+
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.PROCESSING);   // 스냅숏은 안 건드렸다
+        // candidates는 2단계(외부 호출)에서 이미 불렸을 수 있으니 쓰기 경로인 assign만 본다.
+        verify(categoryAssignmentService, never()).assign(any(), any(), any());
+        verifyNoInteractions(eventPublisher);
+    }
+
     // ---------- 위치 확보 (FR-023) ----------
 
     @Test
@@ -292,7 +316,7 @@ class UrlItemProcessorTest {
         processor = new UrlItemProcessor(itemRepository, new UrlNormalizer(), oEmbedClient,
                 htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer,
                 categoryAssignmentService, eventPublisher,
-                new LocationResolver(new MapLinkCoordinateParser(), geocoder));
+                new LocationResolver(new MapLinkCoordinateParser(), geocoder), new TransactionRunner());
 
         Document shell = Jsoup.parse("<html><head><title>네이버 지도</title></head></html>",
                 "https://map.naver.com/p/entry/place/1301934134?placePath=%2Fhome");
@@ -328,7 +352,7 @@ class UrlItemProcessorTest {
         processor = new UrlItemProcessor(itemRepository, new UrlNormalizer(), oEmbedClient,
                 htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer,
                 categoryAssignmentService, eventPublisher,
-                new LocationResolver(new MapLinkCoordinateParser(), geocoder));
+                new LocationResolver(new MapLinkCoordinateParser(), geocoder), new TransactionRunner());
 
         Document shell = Jsoup.parse("<html></html>",
                 "https://map.naver.com/p/entry/place/1301934134");

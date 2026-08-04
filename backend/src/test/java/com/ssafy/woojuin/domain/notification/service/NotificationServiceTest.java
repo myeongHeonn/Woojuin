@@ -61,13 +61,10 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("아이템 DONE 이벤트: 알림을 저장하고, 소유자의 모든 등록 토큰에 발송한다")
-    void onItemDone_savesNotificationAndPushesToAllTokens() {
+    @DisplayName("아이템 DONE 이벤트: 알림함에 저장한다 (푸시는 커밋 후 경로가 따로 한다)")
+    void onItemDone_savesNotification() {
         Item item = itemOf(10L, 1L, "제목");
         when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
-        NotificationToken tokenA = NotificationToken.builder().userId(1L).token("token-a").build();
-        NotificationToken tokenB = NotificationToken.builder().userId(1L).token("token-b").build();
-        when(notificationTokenRepository.findByUserId(1L)).thenReturn(List.of(tokenA, tokenB));
 
         notificationService.onItemDone(new ItemDoneEvent(10L));
 
@@ -76,8 +73,24 @@ class NotificationServiceTest {
         assertThat(captor.getValue().getUserId()).isEqualTo(1L);
         assertThat(captor.getValue().getItemId()).isEqualTo(10L);
 
+        // FCM 발송은 트랜잭션 안에서 하면 안 된다 — 커밋 후 리스너(pushOnItemDone) 몫이다.
+        verify(pushSender, never()).send(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("아이템 DONE 커밋 후: 소유자의 모든 등록 토큰에 발송한다")
+    void pushOnItemDone_pushesToAllTokens() {
+        Item item = itemOf(10L, 1L, "제목");
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
+        NotificationToken tokenA = NotificationToken.builder().userId(1L).token("token-a").build();
+        NotificationToken tokenB = NotificationToken.builder().userId(1L).token("token-b").build();
+        when(notificationTokenRepository.findByUserId(1L)).thenReturn(List.of(tokenA, tokenB));
+
+        notificationService.pushOnItemDone(new ItemDoneEvent(10L));
+
         verify(pushSender).send(eq("token-a"), any(), any());
         verify(pushSender).send(eq("token-b"), any(), any());
+        verify(notificationRepository, never()).save(any());   // 저장은 onItemDone 몫이다
     }
 
     @Test
@@ -86,6 +99,7 @@ class NotificationServiceTest {
         when(itemRepository.findById(10L)).thenReturn(Optional.empty());
 
         notificationService.onItemDone(new ItemDoneEvent(10L));
+        notificationService.pushOnItemDone(new ItemDoneEvent(10L));
 
         verify(notificationRepository, never()).save(any());
         verify(pushSender, never()).send(any(), any(), any());

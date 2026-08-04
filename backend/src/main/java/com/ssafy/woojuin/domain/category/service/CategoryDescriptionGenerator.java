@@ -55,8 +55,7 @@ public class CategoryDescriptionGenerator {
                     .ifPresent(category -> category.applyDescription(truncate(description)));
             log.info("카테고리 설명 생성 완료: categoryId={}", event.categoryId());
         } catch (Exception e) {
-            log.warn("카테고리 설명 생성 실패(무시, 분류는 이름 폴백): categoryId={}, cause={}",
-                    event.categoryId(), e.toString());
+            log.warn("카테고리 설명 생성 실패(무시, 분류는 이름 폴백): categoryId={}", event.categoryId(), e);
         }
     }
 
