@@ -9,7 +9,10 @@ import { accessTokenAtom } from '@/stores/authAtoms';
 
 // 실제 통신은 막는다 — 검증 대상은 신호를 받았을 때의 무효화·재연결 판단이지 SSE 프로토콜이 아니다
 vi.mock('@microsoft/fetch-event-source', () => ({ fetchEventSource: vi.fn() }));
-vi.mock('@/services/client', () => ({ requestTokenRefresh: vi.fn() }));
+// 공용 mock 사용 — src/services/__mocks__/client.ts (파일별 팩토리는 동시 실행 시 경쟁한다.
+// auth.test.ts 등과 같은 모듈을 서로 다른 팩토리로 mock 하면 브라우저 모드에서
+// 실행 순서에 따라 엉뚱한 mock 이 섞여 든다 — __mocks__/client.ts 상단 주석 참고)
+vi.mock('@/services/client');
 
 const mockFetchEventSource = vi.mocked(fetchEventSource);
 const mockRefresh = vi.mocked(requestTokenRefresh);

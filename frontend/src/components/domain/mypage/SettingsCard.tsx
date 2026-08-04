@@ -36,11 +36,16 @@ const SettingsCard = ({
     ? '사용량을 불러오지 못했습니다.'
     : aiUsageLoading
       ? '사용량을 불러오는 중입니다.'
+      : '아이템 1개를 저장할 때마다 AI가 제목·요약·카테고리를 생성해요.';
+  const usageValue = aiUsageLoading
+    ? '—'
+    : aiUsageError
+      ? '확인 불가'
       : aiUsage?.unlimited
-        ? 'AI 정리를 제한 없이 사용할 수 있어요.'
+        ? `${aiUsage.used.toLocaleString('ko-KR')}회`
         : aiUsage?.limitEnabled
-          ? `월 ${aiUsage.limit.toLocaleString('ko-KR')}회 중 ${aiUsage.used.toLocaleString('ko-KR')}회를 사용했어요.`
-          : '현재 월간 사용량 제한이 적용되지 않아요.';
+          ? `${aiUsage.used.toLocaleString('ko-KR')} / ${aiUsage.limit.toLocaleString('ko-KR')}회`
+          : '제한 없음';
 
   return (
     <>
@@ -90,19 +95,16 @@ const SettingsCard = ({
             </h2>
             <p className="mt-2 text-xs text-text-3">{usageDescription}</p>
           </div>
-          <div className="shrink-0 text-right">
-            <span className="text-[24px] font-extrabold text-text-1">
-              {aiUsage ? aiUsage.used.toLocaleString('ko-KR') : '—'}
-            </span>
-            <span className="ml-1 text-xs font-semibold text-text-3">회</span>
-          </div>
+          <span className="shrink-0 text-[18px] font-extrabold tabular-nums text-text-1">
+            {usageValue}
+          </span>
         </div>
 
         {aiUsage?.limitEnabled && !aiUsage.unlimited && (
           <div className="mt-4">
             <div
               role="progressbar"
-              aria-label="월간 AI 사용량"
+              aria-label="이번 달 AI 사용량"
               aria-valuemin={0}
               aria-valuemax={aiUsage.limit}
               aria-valuenow={Math.min(aiUsage.used, aiUsage.limit)}
@@ -114,7 +116,7 @@ const SettingsCard = ({
               />
             </div>
             <div className="mt-1.5 flex justify-between text-[11px] text-text-3">
-              <span>{aiUsage.used.toLocaleString('ko-KR')}회 사용</span>
+              <span>{aiUsage.used.toLocaleString('ko-KR')}회 저장</span>
               <span>{aiUsage.limit.toLocaleString('ko-KR')}회 한도</span>
             </div>
           </div>

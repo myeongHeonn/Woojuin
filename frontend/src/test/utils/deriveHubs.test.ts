@@ -27,4 +27,29 @@ describe('카테고리 허브 생성', () => {
     expect(hub.position).toEqual([3, 6, 8]);
     expect(hub.itemCount).toBe(2);
   });
+
+  it('중심 좌표가 같은 카테고리 허브들은 서로 밀어내어 위치가 겹치지 않는다', () => {
+    const c1: Constellation = {
+      categoryId: 1,
+      categoryName: '여행',
+      color: 0x8fb4ff,
+      items: [star(1, [0, 0, 0]), star(2, [2, 2, 2])],
+    };
+    const c2: Constellation = {
+      categoryId: 2,
+      categoryName: '일상',
+      color: 0xff8fb4,
+      items: [star(3, [0, 0, 0]), star(4, [2, 2, 2])],
+    };
+
+    const [hub1, hub2] = deriveHubs([c1, c2]);
+
+    expect(hub1.position).not.toEqual(hub2.position);
+    const dist = Math.hypot(
+      hub2.position[0] - hub1.position[0],
+      hub2.position[1] - hub1.position[1],
+      hub2.position[2] - hub1.position[2],
+    );
+    expect(dist).toBeGreaterThanOrEqual(3.5);
+  });
 });

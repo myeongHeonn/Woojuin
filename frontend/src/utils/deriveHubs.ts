@@ -27,12 +27,65 @@ function hubRadius(itemCount: number): number {
   return MIN_RADIUS + (MAX_RADIUS - MIN_RADIUS) * t;
 }
 
+/** 허브 간 최소 간격 — 허브 반지름과 여유 마진을 고려해 서로 겹치거나 부딪히지 않는 거리 */
+const MIN_HUB_DISTANCE = 4.0;
+const SEPARATION_ITERATIONS = 8;
+
+/**
+ * 허브 위치가 서로 겹치거나 너무 가까우면(MIN_HUB_DISTANCE 미만),
+ * 결정론적(Deterministic) 3D 오프셋을 적용해 겹치지 않게 서로 밀어낸다.
+ */
+function separateHubs(hubs: Hub[]): void {
+  for (let iter = 0; iter < SEPARATION_ITERATIONS; iter++) {
+    let moved = false;
+    for (let i = 0; i < hubs.length; i++) {
+      for (let j = i + 1; j < hubs.length; j++) {
+        const a = hubs[i];
+        const b = hubs[j];
+        let dx = b.position[0] - a.position[0];
+        let dy = b.position[1] - a.position[1];
+        let dz = b.position[2] - a.position[2];
+        let dist = Math.hypot(dx, dy, dz);
+
+        const requiredDist = Math.max(MIN_HUB_DISTANCE, a.radius + b.radius + 1.2);
+
+        if (dist < requiredDist) {
+          moved = true;
+          // 두 허브 중심점이 완벽히 동일하면 인덱스 기반으로 결정론적 방향 생성
+          if (dist < 0.001) {
+            const angle = (i * 1.37 + j * 2.41) % (2 * Math.PI);
+            dx = Math.cos(angle);
+            dy = Math.sin(angle);
+            dz = Math.cos(i + j);
+            dist = Math.hypot(dx, dy, dz);
+          }
+
+          const overlap = (requiredDist - dist) / 2;
+          const ux = (dx / dist) * overlap;
+          const uy = (dy / dist) * overlap;
+          const uz = (dz / dist) * overlap;
+
+          a.position[0] -= ux;
+          a.position[1] -= uy;
+          a.position[2] -= uz;
+
+          b.position[0] += ux;
+          b.position[1] += uy;
+          b.position[2] += uz;
+        }
+      }
+    }
+    if (!moved) break;
+  }
+}
+
 /**
  * 아이템이 0개면 위치를 정할 수 없고, 1개면 허브가 아이템과 같은 좌표에 겹친다.
  * 따라서 카테고리 허브는 아이템이 2개 이상일 때만 만든다.
+ * 카테고리 중심점이 같거나 가까운 허브는 3D 구면 미세 오프셋(separateHubs)으로 겹침을 방지한다.
  */
 export function deriveHubs(constellations: Constellation[]): Hub[] {
-  return constellations
+  const hubs = constellations
     .filter((c) => c.items.length > 1)
     .map((c) => {
       const sum = c.items.reduce<Vec3>(
@@ -53,6 +106,9 @@ export function deriveHubs(constellations: Constellation[]): Hub[] {
         itemCount: n,
       };
     });
+
+  separateHubs(hubs);
+  return hubs;
 }
 
 function distance(a: Hub, b: Hub): number {

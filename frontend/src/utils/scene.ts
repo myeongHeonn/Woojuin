@@ -51,9 +51,20 @@ export interface SceneCallbacks {
   onDeselect: () => void;
 }
 
+/** 카메라 회전·거리 스냅샷 — 씬을 다시 만들 때 이전 시점을 이어받는 데 쓴다 */
+export interface CameraState {
+  rotX: number;
+  rotY: number;
+  camZ: number;
+}
+
 export interface UniverseScene {
   focusOn: (categoryId: number) => void;
+  setHighlightedItems: (itemIds: number[]) => void;
+  setActiveCategory: (categoryId: number | null) => void;
   setPointerOverTooltip: (over: boolean) => void;
+  /** 지금 카메라 시점 — 씬을 다시 만들기 직전에 불러 다음 씬에 이어준다 */
+  getCameraState: () => CameraState;
   dispose: () => void;
 }
 
@@ -73,12 +84,24 @@ function makeGlowTexture(): THREE.Texture {
   return new THREE.CanvasTexture(c);
 }
 
+const ACCENT_COLOR_HEX = 0x7c6cf0;
+
 interface StarObject extends StarNode {
   glow: THREE.Sprite;
   core: THREE.Sprite;
   hit: THREE.Mesh;
   position: THREE.Vector3;
   baseRadius: number;
+  baseColorHex: number;
+}
+
+interface LineObject {
+  line: THREE.Line;
+  mat: THREE.LineBasicMaterial;
+  categoryId?: number;
+  categoryA?: number;
+  categoryB?: number;
+  baseOpacity: number;
 }
 
 /* ── 씬 생성 ──────────────────────────────────────────── */
@@ -87,6 +110,12 @@ export function createUniverseScene(
   canvas: HTMLCanvasElement,
   callbacks: SceneCallbacks,
   data: UniverseResponse,
+  /**
+   * 이전 씬의 시점(getCameraState) — 있으면 기본 각도 대신 여기서 이어 그린다.
+   * 아이템이 추가돼 데이터가 바뀌어 씬이 통째로 다시 만들어질 때, 보고 있던 방향이
+   * 원점으로 튕기지 않게 한다(SSE 로 우주 데이터가 갱신되는 빈도가 늘면서 더 자주 겪는 문제).
+   */
+  initialCamera?: CameraState,
 ): UniverseScene {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setClearColor(0x000000, 0);
@@ -96,7 +125,7 @@ export function createUniverseScene(
   /** 카메라 거리 범위 — 휠·핀치 줌이 공유한다 */
   const CAM_MIN = 30;
   const CAM_MAX = 120;
-  let camZ = 62;
+  let camZ = initialCamera?.camZ ?? 62;
   camera.position.set(0, 0, camZ);
 
   const universe = new THREE.Group();
@@ -104,6 +133,7 @@ export function createUniverseScene(
 
   const glowTex = makeGlowTexture();
   const disposables: { dispose: () => void }[] = [glowTex, renderer];
+  const lines: LineObject[] = [];
 
   /* 배경 별먼지 — 성좌를 가리지 않도록 반경 135~210 바깥쪽에만 */
   function addStarShell(count: number, radius: number, size: number, opacity: number) {
@@ -212,6 +242,7 @@ export function createUniverseScene(
       hit,
       position: pos,
       baseRadius: radius,
+      baseColorHex: colorHex,
     };
     hit.userData.node = starObject;
     nodes.push(starObject);
@@ -251,7 +282,14 @@ export function createUniverseScene(
           depthWrite: false,
         });
         disposables.push(geo, mat);
-        universe.add(new THREE.Line(geo, mat));
+        const lineMesh = new THREE.Line(geo, mat);
+        universe.add(lineMesh);
+        lines.push({
+          line: lineMesh,
+          mat,
+          categoryId: constellation.categoryId,
+          baseOpacity: 0.13,
+        });
       }
     });
   });
@@ -285,12 +323,20 @@ export function createUniverseScene(
       depthWrite: false,
     });
     disposables.push(geo, mat);
-    universe.add(new THREE.Line(geo, mat));
+    const lineMesh = new THREE.Line(geo, mat);
+    universe.add(lineMesh);
+    lines.push({
+      line: lineMesh,
+      mat,
+      categoryA: a,
+      categoryB: b,
+      baseOpacity: 0.26,
+    });
   });
 
   /* ── 상호작용 ────────────────────────────────────── */
-  const rot = { x: -0.15, y: 0.2 };
-  const targetRot = { x: -0.15, y: 0.2 };
+  const rot = { x: initialCamera?.rotX ?? -0.15, y: initialCamera?.rotY ?? 0.2 };
+  const targetRot = { ...rot };
   let dragging = false;
   let moved = false;
   let last = { x: 0, y: 0 };
@@ -449,6 +495,9 @@ export function createUniverseScene(
   if (canvas.parentElement) resizeObserver.observe(canvas.parentElement);
   resize();
 
+  let highlightedItemIds = new Set<number>();
+  let activeCategoryId: number | null = null;
+
   /* ── 렌더 루프 ───────────────────────────────────── */
   let raf = 0;
   let prev = performance.now();
@@ -465,15 +514,62 @@ export function createUniverseScene(
     universe.rotation.y = rot.y;
     camera.position.z += (camZ - camera.position.z) * 0.1;
 
-    // 별 맥동 — 포커스된 별은 1.5배
+    // 활성화된 카테고리의 이름
+    const activeCategoryName =
+      activeCategoryId !== null ? hubs.find((h) => h.categoryId === activeCategoryId)?.name : null;
+
+    // 별 맥동 — 포커스 / 검색 하이라이트 / 선택 카테고리
     const t = now / 1000;
     nodes.forEach((n, i) => {
-      const focusScale = n === focused ? 1.5 : 1;
-      const pulse = (1 + 0.13 * Math.sin(t * 1.8 + i * 0.7)) * focusScale;
+      const isHighlighted = Boolean(n.star && highlightedItemIds.has(n.star.id));
+      const isCategoryActive = Boolean(
+        activeCategoryId !== null &&
+        ((n.isHub && n.hub?.categoryId === activeCategoryId) ||
+          (!n.isHub && activeCategoryName && n.categoryNames.includes(activeCategoryName))),
+      );
+
+      // 1) 별 자체의 확대 크기 배율 조절 (숫자가 클수록 더 크게 보임)
+      let focusScale = n === focused ? 1.5 : 1; // 일반 포커스(선택) 시 크기 배율 (기본 1.5배)
+      if (isHighlighted)
+        focusScale = 2.0; // 검색 하이라이트 시 크기 배율 (기본 2.0배)
+      else if (isCategoryActive) focusScale = 1.7; // 활성화된 카테고리 내 소속 별의 크기 배율 (기본 1.7배)
+
+      // 2) 별이 반짝이는 속도(pulseFreq)와 진폭(pulseAmp) 조절
+      const pulseFreq = isHighlighted ? 3 : isCategoryActive ? 4 : 1.8; // 반짝이는 빈도/속도
+      const pulseAmp = isHighlighted ? 0.4 : isCategoryActive ? 0.25 : 0.13; // 반짝일 때 크기 변화폭
+      const pulse = (1 + pulseAmp * Math.sin(t * pulseFreq + i * 0.7)) * focusScale;
+
       const cs = n.baseRadius * 1.4 * pulse;
+      const gs = n.baseRadius * 2.3 * pulse;
       n.core.scale.set(cs, cs, 1);
-      n.glow.material.opacity =
-        (n === hovered || n === focused ? 0.95 : 0.6) + 0.05 * Math.sin(t * 2 + i);
+      n.glow.scale.set(gs, gs, 1);
+
+      if (isHighlighted) {
+        n.glow.material.color.setHex(ACCENT_COLOR_HEX);
+        n.glow.material.opacity = 0.9 + 0.1 * Math.sin(t * 8 + i);
+      } else if (isCategoryActive) {
+        n.glow.material.color.setHex(n.baseColorHex);
+        n.glow.material.opacity = 0.9 + 0.1 * Math.sin(t * 4 + i);
+      } else {
+        n.glow.material.color.setHex(n.baseColorHex);
+        n.glow.material.opacity =
+          (n === hovered || n === focused ? 0.95 : 0.6) + 0.05 * Math.sin(t * 2 + i);
+      }
+    });
+
+    // 연결선 (Line) 강조 — 선택된 카테고리 관련 선은 찐하게 (opacity 0.88)
+    lines.forEach((l) => {
+      const isConnectedToActive =
+        activeCategoryId !== null &&
+        (l.categoryId === activeCategoryId ||
+          l.categoryA === activeCategoryId ||
+          l.categoryB === activeCategoryId);
+
+      if (isConnectedToActive) {
+        l.mat.opacity = 0.88;
+      } else {
+        l.mat.opacity = l.baseOpacity;
+      }
     });
 
     renderer.render(scene, camera);
@@ -499,7 +595,7 @@ export function createUniverseScene(
   raf = requestAnimationFrame(animate);
 
   /* ── 외부 API ────────────────────────────────────── */
-  return {
+  const api: UniverseScene = {
     focusOn(categoryId) {
       const star = hubById.get(categoryId);
       if (!star) return;
@@ -508,10 +604,22 @@ export function createUniverseScene(
       targetRot.y = Math.atan2(-p.x, p.z);
       const horizon = Math.hypot(p.x, p.z);
       targetRot.x = Math.max(-1.1, Math.min(1.1, Math.atan2(p.y, horizon)));
-      camZ = 40;
+      camZ = 60; // 3) 포커스 시 카메라 줌인 거리 조절 (값이 작을수록 가깝게 확대됨, 권장 범위: 30 ~ 50)
+    },
+    setHighlightedItems(itemIds) {
+      highlightedItemIds = new Set(itemIds);
+    },
+    setActiveCategory(categoryId) {
+      activeCategoryId = categoryId;
+      if (categoryId !== null) {
+        api.focusOn(categoryId);
+      }
     },
     setPointerOverTooltip(over) {
       overTooltip = over;
+    },
+    getCameraState() {
+      return { rotX: rot.x, rotY: rot.y, camZ };
     },
     dispose() {
       cancelAnimationFrame(raf);
@@ -528,4 +636,6 @@ export function createUniverseScene(
       disposables.forEach((d) => d.dispose());
     },
   };
+
+  return api;
 }

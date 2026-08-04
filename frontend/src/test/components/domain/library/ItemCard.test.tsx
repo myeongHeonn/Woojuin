@@ -39,6 +39,22 @@ describe('ItemCard', () => {
     });
   });
 
+  describe('즐겨찾기 표식', () => {
+    it('즐겨찾기면 제목 옆에 노란 별을 보여준다', async () => {
+      const { container } = await render(
+        <ItemCard item={make({ type: 'URL', status: 'DONE', favorite: true })} />,
+      );
+      expect(container.querySelector('.text-star-yellow')).not.toBeNull();
+    });
+
+    it('즐겨찾기가 아니면 별이 없다', async () => {
+      const { container } = await render(
+        <ItemCard item={make({ type: 'URL', status: 'DONE', favorite: false })} />,
+      );
+      expect(container.querySelector('.text-star-yellow')).toBeNull();
+    });
+  });
+
   describe('PROCESSING', () => {
     it('스피너와 "분석 중…" 을 보여주고 제목은 감춘다', async () => {
       const { container } = await render(

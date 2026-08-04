@@ -30,3 +30,6 @@ export const api = {
 
 /** 구글 로그인 버튼이 읽는 값 — 실제 모듈과 형태를 맞춘다. */
 export const backendOrigin = 'http://localhost:8080';
+
+/** SSE(useWorkspaceEvents) 등이 401 응답 시 부르는 토큰 갱신. */
+export const requestTokenRefresh = vi.fn();

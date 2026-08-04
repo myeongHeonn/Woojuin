@@ -31,35 +31,60 @@ describe('NavItem', () => {
   });
 
   describe('선택 표시 — 소비처가 아니라 현재 URL 이 정한다', () => {
+    /**
+     * 선택 여부는 NavLink 가 붙이는 aria-current 로 본다.
+     *
+     * 펼친 항목에는 점을 그리지 않는다 — 오른쪽 끝은 액션(⋮) 자리이고, 선택은 배경과
+     * 글자색으로 이미 드러난다. aria-current 는 장식이 바뀌어도 흔들리지 않고 스크린리더가
+     * 실제로 읽는 신호라 이 규칙(경로 대조)을 검증할 기준으로 더 알맞다.
+     */
+    const isSelected = (c: HTMLElement) =>
+      c.querySelector('a')?.getAttribute('aria-current') === 'page';
     const dotOf = (c: HTMLElement) => c.querySelector('span.bg-current');
     const item = (
       <NavItem label="몽골 여행" to="/workspace/2" icon={<PlanetIcon />} collapsed={false} />
     );
 
-    it('현재 경로와 맞으면 보라 점이 뜬다', async () => {
+    it('현재 경로와 맞으면 선택으로 표시된다', async () => {
       const { container } = await wrap(item, '/workspace/2');
-      expect(dotOf(container)).not.toBeNull();
+      expect(isSelected(container)).toBe(true);
     });
 
-    it('다른 경로면 점이 없다', async () => {
+    it('다른 경로면 선택이 아니다', async () => {
       const { container } = await wrap(item, '/workspace/3');
-      expect(dotOf(container)).toBeNull();
+      expect(isSelected(container)).toBe(false);
     });
 
     it('id 앞자리만 같은 경로에 반응하지 않는다', async () => {
       // /workspace/2 가 /workspace/20 에서 켜지면 워크스페이스가 늘었을 때 오작동한다
       const { container } = await wrap(item, '/workspace/20');
-      expect(dotOf(container)).toBeNull();
+      expect(isSelected(container)).toBe(false);
     });
 
     it('하위 뷰로 들어가도 선택이 유지된다', async () => {
       // 뷰바로 성좌 → 지도를 오갈 때 사이드바 선택이 깜빡이면 안 된다
       const { container } = await wrap(item, '/workspace/2/map');
+      expect(isSelected(container)).toBe(true);
+    });
+
+    it('펼친 항목에는 점을 그리지 않는다', async () => {
+      const { container } = await wrap(item, '/workspace/2');
+      expect(dotOf(container)).toBeNull();
+    });
+
+    it('접히면 점이 뜬다 — 라벨이 없어 글자색 단서가 사라지므로', async () => {
+      const { container } = await wrap(
+        <NavItem label="몽골 여행" to="/workspace/2" icon={<PlanetIcon />} collapsed />,
+        '/workspace/2',
+      );
       expect(dotOf(container)).not.toBeNull();
     });
 
     it('점은 v3.5 스펙대로 7px 원이다', async () => {
-      const { container } = await wrap(item, '/workspace/2');
+      const { container } = await wrap(
+        <NavItem label="몽골 여행" to="/workspace/2" icon={<PlanetIcon />} collapsed />,
+        '/workspace/2',
+      );
       const rect = dotOf(container)!.getBoundingClientRect();
       expect(rect.width).toBeCloseTo(7, 1);
       expect(rect.height).toBeCloseTo(7, 1);

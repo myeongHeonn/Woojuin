@@ -4,10 +4,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
 import UniverseCanvas from '@/components/domain/universe/UniverseCanvas';
 import ConstellationSearch from '@/components/domain/search/ConstellationSearch';
+import ProcessingBadge from '@/components/domain/stage/ProcessingBadge';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import Spinner from '@/components/ui/Spinner';
 import { useStageMeta } from '@/hooks/useStageMeta';
-import { processingPollInterval, useItems } from '@/hooks/useItems';
+import { processingPollInterval, processingItemCount, useItems } from '@/hooks/useItems';
 import { useCategories } from '@/hooks/useCategories';
 import { universeKey, useUniverse } from '@/hooks/useUniverse';
 import { tutorialActiveAtom, tutorialFixtureVisibleAtom } from '@/stores/tutorialAtoms';
@@ -29,11 +30,14 @@ const UniversePage = () => {
   const [openItemId, setOpenItemId] = useState<number | null>(null);
   const isTutorialActive = useAtomValue(tutorialActiveAtom);
   const setTutorialFixtureVisible = useSetAtom(tutorialFixtureVisibleAtom);
+  const [highlightItemIds, setHighlightItemIds] = useState<number[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
 
   // 헤더 숫자와 PROCESSING 여부는 기존 목록 쿼리를 재사용한다(전용 통계 API 없음).
   const { data: itemsData } = useItems({ workspaceId, size: 20 });
   const { data: categories = [], isSuccess: categoriesLoaded } = useCategories(workspaceId);
   const universePollInterval = processingPollInterval(itemsData?.pages);
+  const processingCount = processingItemCount(itemsData?.pages);
   const {
     data: universe,
     isLoading: isUniverseLoading,
@@ -71,6 +75,11 @@ const UniversePage = () => {
       {displayedUniverse && (
         <UniverseCanvas
           data={displayedUniverse}
+          highlightItemIds={highlightItemIds}
+          activeCategoryId={activeCategoryId}
+          onSelectConstellation={(catId) =>
+            setActiveCategoryId((prev) => (prev === catId ? null : catId))
+          }
           onOpenItem={showTutorialFixture ? undefined : setOpenItemId}
         />
       )}
@@ -96,7 +105,10 @@ const UniversePage = () => {
         </div>
       )}
 
-      <ConstellationSearch />
+      <ConstellationSearch
+        onSearchResults={setHighlightItemIds}
+        aboveBar={<ProcessingBadge count={processingCount} label="별 만드는 중" />}
+      />
       <ItemModal
         workspaceId={workspaceId}
         itemId={openItemId}

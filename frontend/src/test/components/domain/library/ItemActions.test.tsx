@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { userEvent } from 'vitest/browser';
-import ItemActionsMenu from '@/components/domain/library/detail/ItemActionsMenu';
+import ItemActions from '@/components/domain/library/detail/ItemActions';
 import type { ItemDetail } from '@/types/item';
 
 // 뮤테이션은 스파이로 주입 — 검증 대상은 "무엇을 어떤 값으로 부르나"(동작 배선)
@@ -31,48 +31,45 @@ const make = (over: Partial<ItemDetail> = {}): ItemDetail => ({
   ...over,
 });
 
-const openMenu = async (c: HTMLElement) =>
-  userEvent.click(c.querySelector('button[aria-label="더보기"]')!);
-const itemByText = (c: HTMLElement, text: string) =>
-  [...c.querySelectorAll('[role="menuitem"]')].find((b) =>
-    b.textContent?.includes(text),
-  ) as HTMLElement;
+const btn = (c: HTMLElement, label: string) =>
+  c.querySelector(`button[aria-label="${label}"]`) as HTMLElement;
 
 beforeEach(() => {
   favoriteMutate.mockReset();
   deleteMutate.mockReset();
 });
 
-describe('ItemActionsMenu', () => {
-  it('즐겨찾기가 꺼져 있으면 켜는 항목을 보여주고, 누르면 favorite:true 로 수정한다', async () => {
-    const { container } = await render(
-      <ItemActionsMenu item={make({ favorite: false })} onDeleted={() => {}} />,
-    );
-    await openMenu(container);
-    const fav = itemByText(container, '즐겨찾기');
-    expect(fav.textContent).toContain('즐겨찾기');
-    expect(fav.textContent).not.toContain('해제');
+describe('ItemActions', () => {
+  it('즐겨찾기·삭제를 (드롭다운 없이) 바로 눌리는 아이콘 버튼으로 노출한다', async () => {
+    const { container } = await render(<ItemActions item={make()} onDeleted={() => {}} />);
+    // ⋮ 더보기 단계 없이 바로 두 버튼이 보인다 — 닫기(✕)와 같은 도달성
+    expect(container.querySelector('button[aria-label="더보기"]')).toBeNull();
+    expect(btn(container, '즐겨찾기')).not.toBeNull();
+    expect(btn(container, '삭제')).not.toBeNull();
+  });
 
-    await userEvent.click(fav);
+  it('즐겨찾기가 꺼져 있으면 "즐겨찾기" 버튼이고, 누르면 favorite:true 로 수정한다', async () => {
+    const { container } = await render(
+      <ItemActions item={make({ favorite: false })} onDeleted={() => {}} />,
+    );
+    await userEvent.click(btn(container, '즐겨찾기'));
     expect(favoriteMutate).toHaveBeenCalledWith(true);
   });
 
-  it('이미 즐겨찾기면 "해제" 항목이고, 누르면 favorite:false 로 수정한다', async () => {
+  it('이미 즐겨찾기면 "즐겨찾기 해제" 버튼이고, 누르면 favorite:false 로 수정한다', async () => {
     const { container } = await render(
-      <ItemActionsMenu item={make({ favorite: true })} onDeleted={() => {}} />,
+      <ItemActions item={make({ favorite: true })} onDeleted={() => {}} />,
     );
-    await openMenu(container);
-    const fav = itemByText(container, '해제');
-    await userEvent.click(fav);
+    expect(btn(container, '즐겨찾기')).toBeNull();
+    await userEvent.click(btn(container, '즐겨찾기 해제'));
     expect(favoriteMutate).toHaveBeenCalledWith(false);
   });
 
   it('삭제를 누르면 그 아이템 id 로 삭제를 부른다', async () => {
     const { container } = await render(
-      <ItemActionsMenu item={make({ itemId: 42 })} onDeleted={() => {}} />,
+      <ItemActions item={make({ itemId: 42 })} onDeleted={() => {}} />,
     );
-    await openMenu(container);
-    await userEvent.click(itemByText(container, '삭제'));
+    await userEvent.click(btn(container, '삭제'));
     expect(deleteMutate).toHaveBeenCalledWith(42, expect.anything());
   });
 });
