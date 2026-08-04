@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import MapCanvas from '@/components/domain/map/MapCanvas';
 import MapPlacePanel from '@/components/domain/map/MapPlacePanel';
+import ProcessingBadge from '@/components/domain/stage/ProcessingBadge';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import { useCategories } from '@/hooks/useCategories';
-import { useItems, processingPollInterval } from '@/hooks/useItems';
+import { useItems, processingPollInterval, processingItemCount } from '@/hooks/useItems';
 import { useMapPlaces } from '@/hooks/useMapPlaces';
 import { useStageMeta } from '@/hooks/useStageMeta';
 import type { MapCategoryId } from '@/types/map';
@@ -35,6 +36,7 @@ const MapPage = () => {
   const queryClient = useQueryClient();
   const { data: itemsData } = useItems({ workspaceId, size: 20 });
   const mapPollInterval = processingPollInterval(itemsData?.pages);
+  const processingCount = processingItemCount(itemsData?.pages);
   const { data: places = [] } = useMapPlaces(workspaceId, mapPollInterval);
 
   // 처리 완료 직후 위치가 폴링 간격보다 늦게 반영될 수 있어, 처리가 끝나는 순간 한 번 더 새로고침한다.
@@ -131,6 +133,13 @@ const MapPage = () => {
         onSelectPlace={selectPlaceAndCollapsePanel}
         onOpenItem={setOpenItemId}
         onDeselectPlace={() => setSelectedPlaceId(null)}
+      />
+      {/* 헤더(제목·뷰바) 아래, MapPlacePanel(우측/하단)과 안 겹치는 좌상단.
+          top 값은 MapPlacePanel 의 desktop:top-[84px] 관행과 맞춘다 */}
+      <ProcessingBadge
+        count={processingCount}
+        label="장소 찾는 중"
+        className="absolute left-5 top-16 z-[6] desktop:left-[34px] desktop:top-[90px]"
       />
       <MapPlacePanel
         categories={sortedFilterCategories}

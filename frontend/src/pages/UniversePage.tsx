@@ -3,10 +3,11 @@ import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import UniverseCanvas from '@/components/domain/universe/UniverseCanvas';
 import ConstellationSearch from '@/components/domain/search/ConstellationSearch';
+import ProcessingBadge from '@/components/domain/stage/ProcessingBadge';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import Spinner from '@/components/ui/Spinner';
 import { useStageMeta } from '@/hooks/useStageMeta';
-import { processingPollInterval, useItems } from '@/hooks/useItems';
+import { processingPollInterval, processingItemCount, useItems } from '@/hooks/useItems';
 import { useCategories } from '@/hooks/useCategories';
 import { universeKey, useUniverse } from '@/hooks/useUniverse';
 
@@ -28,6 +29,7 @@ const UniversePage = () => {
   const { data: itemsData } = useItems({ workspaceId, size: 20 });
   const { data: categories = [], isSuccess: categoriesLoaded } = useCategories(workspaceId);
   const universePollInterval = processingPollInterval(itemsData?.pages);
+  const processingCount = processingItemCount(itemsData?.pages);
   const {
     data: universe,
     isLoading: isUniverseLoading,
@@ -87,7 +89,10 @@ const UniversePage = () => {
         </div>
       )}
 
-      <ConstellationSearch onSearchResults={setHighlightItemIds} />
+      <ConstellationSearch
+        onSearchResults={setHighlightItemIds}
+        aboveBar={<ProcessingBadge count={processingCount} label="별 만드는 중" />}
+      />
       <ItemModal
         workspaceId={workspaceId}
         itemId={openItemId}

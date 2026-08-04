@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearch, searchKey } from '@/hooks/useSearch';
@@ -15,13 +15,18 @@ import AddBtn from '@/components/domain/header/AddBtn';
 interface ConstellationSearchProps {
   /** 검색 결과 아이템 ID 목록 변경 알림 */
   onSearchResults?: (itemIds: number[]) => void;
+  /**
+   * 검색 바 바로 위에 얹을 내용(예: 처리 중 배지) — 이 컴포넌트는 "무엇을 얹는지" 모른다.
+   * 검색과 무관한 상태를 이 컴포넌트가 알 필요는 없고, 하단 플로팅 스택 배치만 재사용한다.
+   */
+  aboveBar?: ReactNode;
 }
 
 /**
  * 성좌 검색 — 화면 하단 중앙 플로팅 바(v3.5). 검색은 제자리(URL 안 바꿈)로 바 위에 결과 패널이 뜬다.
  * 패널 X → 결과 초기화 + 진행 중 요청 취소(cancelQueries). AI 모드면 해석어를 SearchMeta 로 알린다.
  */
-const ConstellationSearch = ({ onSearchResults }: ConstellationSearchProps) => {
+const ConstellationSearch = ({ onSearchResults, aboveBar }: ConstellationSearchProps) => {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const wsId = Number(workspaceId);
   const qc = useQueryClient();
@@ -122,6 +127,8 @@ const ConstellationSearch = ({ onSearchResults }: ConstellationSearchProps) => {
             )}
           </div>
         )}
+
+        {aboveBar && <div className="mb-1.5 flex justify-center">{aboveBar}</div>}
 
         {/* 입력 바 바로 위 우측. 바가 하단 고정이라 검색해도 바는 안 움직이고 패널이 위로 쌓인다 */}
         <AiModeHint className="mb-1.5 pr-1.5 text-right" />
