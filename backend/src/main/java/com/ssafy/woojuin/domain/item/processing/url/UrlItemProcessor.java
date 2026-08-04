@@ -13,7 +13,9 @@ import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
 import com.ssafy.woojuin.domain.location.LocationResolver;
+import com.ssafy.woojuin.domain.location.ResolvedLocation;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import com.ssafy.woojuin.global.common.TransactionRunner;
 import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
 import com.ssafy.woojuin.global.sse.WorkspaceEventType;
 import java.net.URI;
@@ -25,7 +27,6 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * URL 아이템 가공 오케스트레이터 (묶음 D).
@@ -67,12 +68,13 @@ public class UrlItemProcessor implements ItemProcessor {
     private final CategoryAssignmentService categoryAssignmentService;
     private final ApplicationEventPublisher eventPublisher;
     private final LocationResolver locationResolver;
+    private final TransactionRunner tx;
 
     public UrlItemProcessor(ItemRepository itemRepository, UrlNormalizer urlNormalizer,
             OEmbedClient oEmbedClient, HtmlFetcher htmlFetcher, OpenGraphScraper openGraphScraper,
             ContentExtractor contentExtractor, AiAnalyzer aiAnalyzer,
             CategoryAssignmentService categoryAssignmentService, ApplicationEventPublisher eventPublisher,
-            LocationResolver locationResolver) {
+            LocationResolver locationResolver, TransactionRunner tx) {
         this.itemRepository = itemRepository;
         this.urlNormalizer = urlNormalizer;
         this.oEmbedClient = oEmbedClient;
@@ -83,6 +85,7 @@ public class UrlItemProcessor implements ItemProcessor {
         this.categoryAssignmentService = categoryAssignmentService;
         this.eventPublisher = eventPublisher;
         this.locationResolver = locationResolver;
+        this.tx = tx;
     }
 
     @Override
@@ -90,27 +93,78 @@ public class UrlItemProcessor implements ItemProcessor {
         return type == ItemType.URL;
     }
 
+    /** 2단계(외부 호출)가 모아 온 결과. 3단계(쓰기 트랜잭션)가 한 번에 반영한다. */
+    private record Gathered(UrlPreview preview, String content, ResolvedLocation location, AiAnalysis analysis) {
+    }
+
     /**
-     * @Transactional이라 JPA 더티체킹으로 변경이 flush되고, 미리보기·본문·요약·카테고리가
-     * 한 트랜잭션에서 함께 커밋된다. 아이템이 사라졌으면(저장과 처리 사이 삭제) 조용히
-     * 반환한다 — 재시도해도 다시 생기지 않으므로 예외를 던지지 않는다.
+     * <b>트랜잭션 경계</b>: 이 메서드에 @Transactional을 걸지 않는다 — 크롤링·LLM 호출
+     * (수십 초) 내내 커넥션을 점유해 풀이 마르기 때문이다({@link TransactionRunner} javadoc의
+     * 사고 기록). 외부 호출은 전부 트랜잭션 밖에서 하고, 마지막에 {@code tx.write()} 안에서
+     * 다시 로드해 미리보기·본문·요약·카테고리를 한 트랜잭션으로 함께 커밋한다.
+     *
+     * <p>아이템이 사라졌으면(저장과 처리 사이 삭제) 조용히 반환한다 — 재시도해도 다시
+     * 생기지 않으므로 예외를 던지지 않는다. 외부 호출 동안 삭제·처리됐을 수도 있으므로
+     * 반영 트랜잭션 안에서 가드를 재확인한다.
      */
     @Override
-    @Transactional
     public void process(ItemProcessingMessage message) {
-        Item item = itemRepository.findById(message.itemId()).orElse(null);
-        if (item == null) {
-            log.warn("가공할 아이템이 없음(삭제됨?): itemId={}", message.itemId());
+        // 1단계(짧은 읽기): 스냅숏 확보 + 가드. 이 엔티티는 트랜잭션 밖에서 읽기 전용으로만 쓴다.
+        Item snapshot = loadProcessable(message.itemId());
+        if (snapshot == null) {
             return;
+        }
+
+        // 2단계(트랜잭션 없음): 크롤링·좌표·LLM. 개별 실패는 기존과 동일하게 각자 흡수한다.
+        Gathered gathered = gather(snapshot);
+
+        // 3단계(짧은 쓰기): 다시 로드해 가드를 재확인하고 전부 반영·확정한다.
+        tx.write(() -> {
+            Item item = itemRepository.findById(message.itemId()).orElse(null);
+            if (item == null) {
+                log.warn("반영할 아이템이 없음(외부 호출 중 삭제됨?): itemId={}", message.itemId());
+                return;
+            }
+            if (item.getStatus() != ItemStatus.PROCESSING) {
+                log.info("이미 처리된 아이템, 반영 스킵: itemId={}, status={}", item.getId(), item.getStatus());
+                return;
+            }
+            item.applyPreview(gathered.preview().title(), gathered.preview().thumbnailUrl(),
+                    gathered.preview().description());
+            item.applyContent(gathered.content());   // null이면 무시(엔티티 계약)
+            if (gathered.location() != null) {
+                item.applyLocation(gathered.location().lat(), gathered.location().lng(),
+                        gathered.location().address());
+            }
+            if (gathered.analysis() != null) {
+                item.update(gathered.analysis().title(), null);   // AI가 다듬은 제목(null이면 기존 유지)
+                item.applySummary(gathered.analysis().summary());
+                categoryAssignmentService.assign(item.getId(), item.getWorkspaceId(),
+                        gathered.analysis().categories());
+            }
+            finalizeStatus(item, gathered.preview(), gathered.content() != null);
+        });
+    }
+
+    /** 가공 대상 아이템을 읽는다. 없거나 이미 처리됐으면 null — 외부 호출 전에 거른다. */
+    private Item loadProcessable(Long itemId) {
+        Item item = itemRepository.findById(itemId).orElse(null);
+        if (item == null) {
+            log.warn("가공할 아이템이 없음(삭제됨?): itemId={}", itemId);
+            return null;
         }
         if (item.getStatus() != ItemStatus.PROCESSING) {
             // DB 커밋은 됐는데 큐 ACK 직전에 죽는 등 at-least-once 큐 특성상 이미 끝난
             // 메시지가 재배달될 수 있다. AI를 또 호출하지 않도록 여기서 막는다.
             log.info("이미 처리된 아이템, 재처리 스킵: itemId={}, status={}", item.getId(), item.getStatus());
-            return;
+            return null;
         }
+        return item;
+    }
 
-        String normalizedUrl = urlNormalizer.normalize(item.getUrl());
+    /** 2단계: 네트워크가 필요한 작업 전부. DB 커넥션을 잡지 않은 채 수십 초가 걸려도 된다. */
+    private Gathered gather(Item snapshot) {
+        String normalizedUrl = urlNormalizer.normalize(snapshot.getUrl());
 
         // 트랙 A: 미리보기. OG 스크래핑에 쓴 Document는 트랙 B가 재활용하도록 넘겨받는다.
         Document doc = null;
@@ -123,22 +177,24 @@ public class UrlItemProcessor implements ItemProcessor {
             preview = (doc != null) ? openGraphScraper.scrape(doc) : UrlPreview.empty();
         }
         if (preview.hasNothing()) {
-            preview = new UrlPreview(fallbackTitleOf(item.getUrl()), null, null);
+            preview = new UrlPreview(fallbackTitleOf(snapshot.getUrl()), null, null);
         }
-        item.applyPreview(preview.title(), preview.thumbnailUrl(), preview.description());
 
         // 트랙 B: 본문 확보. Document가 없으면(oEmbed 경로/트랙 A fetch 실패) 본문도 없다.
         String content = (doc != null) ? contentExtractor.extract(doc) : null;
-        boolean contentAcquired = content != null;
-        if (contentAcquired) {
-            item.applyContent(content);
-        }
 
         // 위치 확보(FR-023). 썸네일과 같은 등급의 부가 정보라 상태에는 영향이 없다.
-        tryResolveLocation(item, normalizedUrl, doc);
+        ResolvedLocation location = tryResolveLocation(snapshot, normalizedUrl, doc);
 
-        enrichWithAi(item, content);   // 본문이 없어도 title로 분류 시도(상태에는 영향 없음)
-        finalizeStatus(item, preview, contentAcquired);
+        // AI 분석은 applyPreview가 채웠을 제목을 봐야 한다 — 반영 전이므로 같은 규칙으로 고른다.
+        String effectiveTitle = hasText(snapshot.getTitle()) ? snapshot.getTitle() : preview.title();
+        AiAnalysis analysis = analyzeSafely(snapshot, effectiveTitle, content);
+
+        return new Gathered(preview, content, location, analysis);
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     /**
@@ -167,16 +223,15 @@ public class UrlItemProcessor implements ItemProcessor {
      * 가장 흔한 "장소가 있는 글"이고, 지식·기술 글은 지도를 심지 않으므로 이 신호만으로
      * 두 부류가 갈린다.
      *
-     * <p>모든 실패를 흡수한다. {@code tryGenerateThumbnail}과 같은 이유이면서 여기선 더
-     * 치명적인데, {@code process}가 {@code @Transactional}이라 예외가 새어나가면 트랜잭션이
-     * rollback-only로 찍혀 <b>이미 확보한 미리보기·본문이 전부 버려지고</b> 디스패처가
-     * RETRYABLE로 판단해 AI 호출까지 포함한 파이프라인 전체가 재실행된다. {@code Geocoder}
-     * 계약도 "예외를 던지지 않는다"지만 이중으로 막는다.
+     * <p>모든 실패를 흡수하고 null을 돌려준다 — 위치가 없다고 이미 확보한 미리보기·본문을
+     * 버리면 안 된다(예외가 새어나가면 디스패처가 RETRYABLE로 판단해 AI 호출까지 포함한
+     * 파이프라인 전체가 재실행된다). {@code Geocoder} 계약도 "예외를 던지지 않는다"지만
+     * 이중으로 막는다.
      */
-    private void tryResolveLocation(Item item, String normalizedUrl, Document doc) {
+    private ResolvedLocation tryResolveLocation(Item snapshot, String normalizedUrl, Document doc) {
         try {
             List<String> candidateUrls = Stream.concat(
-                            Stream.of(item.getUrl(), normalizedUrl,
+                            Stream.of(snapshot.getUrl(), normalizedUrl,
                                     doc != null ? doc.location() : null,
                                     metaContent(doc, "meta[name='twitter:image']"),
                                     metaContent(doc, "meta[property='og:image']")),
@@ -184,10 +239,10 @@ public class UrlItemProcessor implements ItemProcessor {
                     .filter(url -> url != null && !url.isBlank())
                     .toList();
 
-            locationResolver.resolveForUrlItem(candidateUrls).ifPresent(location ->
-                    item.applyLocation(location.lat(), location.lng(), location.address()));
+            return locationResolver.resolveForUrlItem(candidateUrls).orElse(null);
         } catch (Exception e) {
-            log.warn("위치 확보 실패(무시): itemId={}, cause={}", item.getId(), e.toString());
+            log.warn("위치 확보 실패(무시): itemId={}, cause={}", snapshot.getId(), e.toString());
+            return null;
         }
     }
 
@@ -281,20 +336,18 @@ public class UrlItemProcessor implements ItemProcessor {
     }
 
     /**
-     * AI 요약·분류를 반영한다. 후보 카테고리(그 워크스페이스의 현재 목록)를 넘기고, 결과
-     * 요약을 저장하며, 분류된 카테고리를 아이템에 연결한다. 어떤 실패도 이미 확보한 본문·
-     * 미리보기를 무효화하면 안 되므로 조용히 흡수한다.
+     * AI 요약·분류를 수행한다. 후보 카테고리(그 워크스페이스의 현재 목록)를 넘긴다 —
+     * 본문이 없어도 title로 분류를 시도한다(상태에는 영향 없음). 어떤 실패도 이미 확보한
+     * 본문·미리보기를 무효화하면 안 되므로 조용히 흡수하고 null을 돌려준다.
      */
-    private void enrichWithAi(Item item, String content) {
+    private AiAnalysis analyzeSafely(Item snapshot, String effectiveTitle, String content) {
         try {
-            List<CategoryCandidate> candidates = categoryAssignmentService.candidates(item.getWorkspaceId());
-            AiAnalysis analysis = aiAnalyzer.analyze(
-                    new AiAnalysisRequest(AiSourceType.URL, item.getTitle(), content, candidates));
-            item.update(analysis.title(), null);   // AI가 다듬은 제목(null이면 기존 유지)
-            item.applySummary(analysis.summary());
-            categoryAssignmentService.assign(item.getId(), item.getWorkspaceId(), analysis.categories());
+            List<CategoryCandidate> candidates = categoryAssignmentService.candidates(snapshot.getWorkspaceId());
+            return aiAnalyzer.analyze(
+                    new AiAnalysisRequest(AiSourceType.URL, effectiveTitle, content, candidates));
         } catch (Exception e) {
-            log.warn("AI 보강 실패(무시): itemId={}, cause={}", item.getId(), e.toString());
+            log.warn("AI 보강 실패(무시): itemId={}, cause={}", snapshot.getId(), e.toString());
+            return null;
         }
     }
 
