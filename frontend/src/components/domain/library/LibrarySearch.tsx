@@ -26,7 +26,7 @@ const LibrarySearch = () => {
     e.preventDefault();
     const query = text.trim();
     if (!query) {
-      setParams({}, { replace: true });
+      setParams(localAi ? { ai: '1' } : {}, { replace: true });
       return;
     }
     setParams(localAi ? { q: query, ai: '1' } : { q: query });
@@ -35,7 +35,7 @@ const LibrarySearch = () => {
   const onChange = (value: string) => {
     setText(value);
     // 다 지우면 검색을 풀고 전체를 다시 불러온다
-    if (value.trim() === '' && q) setParams({}, { replace: true });
+    if (value.trim() === '' && q) setParams(localAi ? { ai: '1' } : {}, { replace: true });
   };
 
   return (

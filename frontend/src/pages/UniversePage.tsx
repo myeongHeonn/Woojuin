@@ -29,6 +29,8 @@ const UniversePage = () => {
   const [openItemId, setOpenItemId] = useState<number | null>(null);
   const isTutorialActive = useAtomValue(tutorialActiveAtom);
   const setTutorialFixtureVisible = useSetAtom(tutorialFixtureVisibleAtom);
+  const [highlightItemIds, setHighlightItemIds] = useState<number[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
 
   // 헤더 숫자와 PROCESSING 여부는 기존 목록 쿼리를 재사용한다(전용 통계 API 없음).
   const { data: itemsData } = useItems({ workspaceId, size: 20 });
@@ -71,6 +73,11 @@ const UniversePage = () => {
       {displayedUniverse && (
         <UniverseCanvas
           data={displayedUniverse}
+          highlightItemIds={highlightItemIds}
+          activeCategoryId={activeCategoryId}
+          onSelectConstellation={(catId) =>
+            setActiveCategoryId((prev) => (prev === catId ? null : catId))
+          }
           onOpenItem={showTutorialFixture ? undefined : setOpenItemId}
         />
       )}
@@ -96,7 +103,7 @@ const UniversePage = () => {
         </div>
       )}
 
-      <ConstellationSearch />
+      <ConstellationSearch onSearchResults={setHighlightItemIds} />
       <ItemModal
         workspaceId={workspaceId}
         itemId={openItemId}
