@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchMyWorkspaces, updateWorkspace } from '@/services/workspaces';
+import { fetchMyWorkspaces, updateWorkspace, fetchWorkspacePreview } from '@/services/workspaces';
 
 /**
  * 내가 속한 워크스페이스 목록 — 사이드바 등에서 쓰는 서버 상태 진입점.
@@ -14,6 +14,18 @@ export function useWorkspaces() {
     queryKey: ['workspaces'],
     queryFn: fetchMyWorkspaces,
     refetchOnWindowFocus: 'always',
+  });
+}
+
+/**
+ * 멤버가 아니어도 이름만 조회 — 추방/권한없음 모달에서만 쓴다.
+ * enabled로 그 상황일 때만 호출한다(평소 워크스페이스 화면에서는 불필요한 요청).
+ */
+export function useWorkspacePreview(workspaceId: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ['workspace-preview', workspaceId],
+    queryFn: () => fetchWorkspacePreview(workspaceId),
+    enabled,
   });
 }
 

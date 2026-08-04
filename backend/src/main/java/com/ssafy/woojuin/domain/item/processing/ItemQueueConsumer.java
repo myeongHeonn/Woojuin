@@ -30,9 +30,10 @@ import org.springframework.stereotype.Component;
  * {@link ItemProcessor} javadoc 참조 — consumer group의 임의 분배 때문에 URL 메시지가
  * 이미지 전용 워커에게 갈 수 있어, 모든 컨슈머가 동일하게 디스패처로 분기한다.
  *
- * <p>개수를 늘릴 땐 <b>DB 커넥션 풀부터 볼 것</b> — 프로세서가 @Transactional이라 컨슈머
- * 하나가 크롤·LLM 호출 내내 커넥션 하나를 점유한다. 풀 기본값 10에서 컨슈머 3 + 회수기 1이면
- * 장기 점유가 최대 4, 나머지가 웹 요청 몫이다.
+ * <p>컨슈머는 크롤·LLM 호출 동안 DB 커넥션을 잡지 않는다 — 프로세서가 외부 호출을
+ * 트랜잭션 밖에서 하고 DB 반영만 짧게 감싸기 때문이다(TransactionRunner javadoc의
+ * 2026-07-31 커넥션 고갈 사고 기록 참고). 그래도 개수를 크게 늘리면 반영 트랜잭션이
+ * 동시에 몰릴 수 있으니 풀 크기와 함께 볼 것.
  *
  * <p>이 컨슈머들은 <b>새 메시지(never-delivered)만</b> 처리한다. 처리에 실패해 pending에
  * 남은 메시지의 재시도·최종 포기는 {@link PendingMessageReclaimer}가 맡는다.

@@ -115,7 +115,7 @@ const MyPage = () => {
   };
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-28 pt-6 desktop:px-9 desktop:pb-20">
+    <div className="h-full overflow-y-auto px-4 pb-28 pt-[calc(24px+var(--safe-top))] desktop:px-9 desktop:pb-20">
       <div className="mx-auto w-full max-w-[660px]">
         <h1 className="mb-[26px] text-base font-bold text-text-1">마이페이지</h1>
 

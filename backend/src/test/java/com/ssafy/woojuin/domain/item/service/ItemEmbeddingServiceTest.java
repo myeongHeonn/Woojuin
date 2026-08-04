@@ -22,6 +22,8 @@ import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.repository.ItemEmbeddingJdbcRepository;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceEventType;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +43,7 @@ class ItemEmbeddingServiceTest {
     @Mock ItemCategoryRepository itemCategoryRepository;
     @Mock CategoryRepository categoryRepository;
     @Mock ItemEmbeddingJdbcRepository embeddingRepository;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     private ItemEmbeddingService service;
 
@@ -49,7 +53,7 @@ class ItemEmbeddingServiceTest {
         ObjectProvider<AiMixClient> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(client);
         service = new ItemEmbeddingService(provider, itemRepository, itemCategoryRepository,
-                categoryRepository, embeddingRepository);
+                categoryRepository, embeddingRepository, eventPublisher);
     }
 
     private Item item(long id, String summary) {
@@ -84,6 +88,8 @@ class ItemEmbeddingServiceTest {
 
         verify(embeddingRepository).upsert(anyLong(), anyLong(), any(), anyString(), anyString());
         verify(embeddingRepository).updateCoordinates(anyList());
+        // 좌표가 준비된 시점에 ITEM 신호를 한 번 더 쏴야 프론트가 새 별을 받는다(SSE 타이밍 버그 수정)
+        verify(eventPublisher).publishEvent(WorkspaceChangedEvent.of(1L, WorkspaceEventType.ITEM));
     }
 
     /** at-least-once 재배달·무변경 재처리 시 임베딩·UMAP을 다시 돌리지 않는다. */
@@ -99,6 +105,7 @@ class ItemEmbeddingServiceTest {
 
         verify(embeddingRepository, never()).upsert(anyLong(), anyLong(), any(), anyString(), anyString());
         verify(client, never()).reduceCoordinates(anyList());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     /** 임베딩 입력 계약(제목+요약)상 요약이 없으면 보낼 것이 없다. */

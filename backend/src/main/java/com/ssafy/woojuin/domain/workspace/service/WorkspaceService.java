@@ -4,6 +4,7 @@ import com.ssafy.woojuin.domain.auth.entity.User;
 import com.ssafy.woojuin.domain.auth.event.UserSignedUpEvent;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceCreateRequest;
+import com.ssafy.woojuin.domain.workspace.dto.WorkspacePreviewResponse;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceResponse;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceUpdateRequest;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
@@ -79,6 +80,17 @@ public class WorkspaceService {
         Workspace workspace = findWorkspace(workspaceId);
         WorkspaceMember member = findMembership(workspaceId, userId);
         return WorkspaceResponse.of(workspace, member.getRole());
+    }
+
+    /**
+     * 멤버가 아니어도 볼 수 있는 최소 정보(이름) — 초대 미리보기와 같은 신뢰 수준이다.
+     * 추방/권한없음 모달에 워크스페이스 이름을 띄우려면 멤버십 없이도 조회할 방법이
+     * 필요해서 둔다(get()은 멤버십을 요구해 이 용도로 못 쓴다).
+     */
+    @Transactional(readOnly = true)
+    public WorkspacePreviewResponse preview(Long workspaceId) {
+        Workspace workspace = findWorkspace(workspaceId);
+        return new WorkspacePreviewResponse(workspace.getId(), workspace.getName());
     }
 
     @Transactional

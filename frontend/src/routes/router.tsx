@@ -2,11 +2,6 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { lazy, Suspense, type ReactNode } from 'react';
 import Spinner from '@/components/ui/Spinner';
 // 레이아웃은 구조용이라 가볍다 — eager 로 둬 셸이 즉시 뜨게 한다.
-import AuthLayout from '@/layouts/AuthLayout';
-import Layout from '@/layouts/Layout';
-import StageLayout from '@/layouts/StageLayout';
-import WorkspaceLayout from '@/layouts/WorkspaceLayout';
-import DesktopOnly from '@/layouts/DesktopOnly';
 // 에러 화면은 lazy 로 두지 않는다 — 청크를 못 받아서 생긴 에러를 보여주려고
 // 또 청크를 받아야 하면 그 화면도 같이 실패한다.
 import ErrorPage from '@/pages/ErrorPage';
@@ -28,6 +23,12 @@ const SignupPage = lazy(() => import('@/pages/SignupPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/OAuthCallbackPage'));
 const InvitePage = lazy(() => import('@/pages/InvitePage'));
 const PrivacyPolicyPage = lazy(() => import('@/pages/PrivacyPolicyPage'));
+const AuthLayout = lazy(() => import('@/layouts/AuthLayout'));
+const GuestOnly = lazy(() => import('@/layouts/GuestOnly'));
+const Layout = lazy(() => import('@/layouts/Layout'));
+const StageLayout = lazy(() => import('@/layouts/StageLayout'));
+const WorkspaceLayout = lazy(() => import('@/layouts/WorkspaceLayout'));
+const DesktopOnly = lazy(() => import('@/layouts/DesktopOnly'));
 
 /** lazy 페이지가 청크를 받아오는 동안 보여줄 로딩 자리 */
 const page = (node: ReactNode) => (
@@ -54,14 +55,22 @@ export const router = createBrowserRouter([
      */
     errorElement: <ErrorPage />,
     children: [
+      /*
+       * 로그인 전 화면들 — 이미 로그인돼 있으면 앱으로 보낸다.
+       *
+       * 특히 `/` 가 중요하다. PWA 는 cold start 마다 manifest 의 start_url(`/`)로 들어오는데,
+       * 가드가 없으면 로그인한 사용자가 앱을 껐다 켤 때마다 랜딩 페이지를 만난다.
+       */
       {
-        path: '/',
-        element: page(<LandingPage />),
+        element: <GuestOnly />,
+        children: [
+          { path: '/', element: page(<LandingPage />) },
+          { path: '/login', element: page(<LoginPage />) },
+          // 구글 로그인이 막혀 있는 동안(LoginForm.GOOGLE_LOGIN_ENABLED 주석 참고) 이메일 가입이
+          // 유일한 가입 경로다. 구글은 첫 로그인이 곧 가입이라 그동안 이 라우트를 닫아뒀었다.
+          { path: '/signup', element: page(<SignupPage />) },
+        ],
       },
-      { path: '/login', element: page(<LoginPage />) },
-      // 구글 로그인이 막혀 있는 동안(LoginForm.GOOGLE_LOGIN_ENABLED 주석 참고) 이메일 가입이
-      // 유일한 가입 경로다. 구글은 첫 로그인이 곧 가입이라 그동안 이 라우트를 닫아뒀었다.
-      { path: '/signup', element: page(<SignupPage />) },
       // 공유 링크 진입점 — 로그인 전에도 미리보기, 참여는 로그인 후(사이드바 없는 단독 화면)
       { path: '/invite/:code', element: page(<InvitePage />) },
       // 개인정보처리방침 — 가입 전에도 읽을 수 있어야 하므로 로그인 없이 접근 가능
@@ -70,10 +79,10 @@ export const router = createBrowserRouter([
       { path: '/oauth/callback', element: page(<OAuthCallbackPage />) },
       // 로그인해야 들어갈 수 있는 앱 화면들 (사이드바 포함)
       {
-        element: <AuthLayout />,
+        element: page(<AuthLayout />),
         children: [
           {
-            element: <Layout />,
+            element: page(<Layout />),
             children: [
               // 로그인 직후 도착지 — 개인 워크스페이스 성좌로 넘긴다
               { path: '/home', element: page(<PersonalSpacePage />) },
@@ -82,7 +91,7 @@ export const router = createBrowserRouter([
               {
                 path: '/workspace/:workspaceId',
                 // 화면은 안 그리고 변경 신호(SSE) 구독만 한다 — 휴지통까지 한 연결로 덮는다
-                element: <WorkspaceLayout />,
+                element: page(<WorkspaceLayout />),
                 children: [
                   // 뷰 없이 들어오면 성좌가 기본
                   { index: true, element: <Navigate to="universe" replace /> },
@@ -90,14 +99,14 @@ export const router = createBrowserRouter([
                   { path: 'trash', element: page(<TrashPage />) },
                   // 같은 워크스페이스를 다르게 보는 네 화면 — 상단 헤더(제목·뷰바)를 공유한다
                   {
-                    element: <StageLayout />,
+                    element: page(<StageLayout />),
                     children: [
                       { path: 'universe', element: page(<UniversePage />) },
                       { path: 'library', element: page(<LibraryPage />) },
                       { path: 'map', element: page(<MapPage />) },
                       // 한눈에 보기는 넓은 화면이 전제라 모바일에서는 성좌로 돌려보낸다
                       {
-                        element: <DesktopOnly />,
+                        element: page(<DesktopOnly />),
                         children: [{ path: 'canvas', element: page(<CanvasPage />) }],
                       },
                     ],

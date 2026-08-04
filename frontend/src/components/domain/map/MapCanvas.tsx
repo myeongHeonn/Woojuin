@@ -99,7 +99,7 @@ const MapCanvas = ({
         <div ref={containerRef} className="h-full w-full" />
       </div>
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(14,16,23,.14),transparent_38%,rgba(14,16,23,.08))]" />
-      <div className="pointer-events-none absolute bottom-[calc(88px+env(safe-area-inset-bottom))] left-4 rounded-pill border border-border/70 bg-sidebar/65 px-3 py-1.5 text-[11px] font-semibold text-text-2 backdrop-blur-md desktop:bottom-5 desktop:left-5">
+      <div className="pointer-events-none absolute bottom-above-tabbar left-4 rounded-pill border border-border/70 bg-sidebar/65 px-3 py-1.5 text-[11px] font-semibold text-text-2 backdrop-blur-md desktop:bottom-5 desktop:left-5">
         OpenFreeMap · 장소 {places.length}곳
       </div>
     </section>

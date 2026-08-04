@@ -435,7 +435,11 @@ const OnboardingTutorial = () => {
               ? `개인 스페이스는 내 정보를 모아 관리하는 기본 공간이에요.${
                   isTutorialFixtureVisible ? '\n※ 현재는 예시 데이터를 넣은 화면이에요.' : ''
                 }`
-              : step.description}
+              : `${step.description}${
+                  isSharedWorkspace && stepIndex === 0 && isTutorialFixtureVisible
+                    ? '\n※ 현재는 예시 데이터를 넣은 화면이에요.'
+                    : ''
+                }`}
           </p>
 
           <div className="mt-5 flex items-center">

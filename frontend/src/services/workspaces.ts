@@ -32,6 +32,24 @@ export interface Invitation {
   expiresAt: string;
 }
 
+/** 멤버 활동 이력 한 건 — 가입/탈퇴/추방. 백엔드 WorkspaceMemberActivityType 과 같은 값을 쓴다 */
+export interface MemberActivity {
+  userId: number;
+  nickname: string;
+  avatarColor: string;
+  withdrawn: boolean;
+  type: 'JOINED' | 'LEFT' | 'KICKED';
+  occurredAt: string;
+}
+
+/** 멤버가 아니어도 볼 수 있는 이름만 — 추방/권한없음 모달용 */
+export async function fetchWorkspacePreview(workspaceId: number) {
+  const res = await api.get<ApiResponse<{ id: number; name: string }>>(
+    `/workspaces/${workspaceId}/preview`,
+  );
+  return res.data.data;
+}
+
 export async function fetchMyWorkspaces() {
   const res = await api.get<ApiResponse<Workspace[]>>('/workspaces');
   return res.data.data;
@@ -70,6 +88,14 @@ export async function createInvitation(workspaceId: number) {
 // 멤버 제거 — 본인 userId 면 탈퇴, 다른 사람이면 OWNER 의 강퇴(서버가 구분)
 export async function removeMember(workspaceId: number, userId: number) {
   await api.delete<ApiResponse<null>>(`/workspaces/${workspaceId}/members/${userId}`);
+}
+
+// 멤버 활동 이력(가입/탈퇴/추방) — 최신순
+export async function fetchMemberActivities(workspaceId: number) {
+  const res = await api.get<ApiResponse<MemberActivity[]>>(
+    `/workspaces/${workspaceId}/member-activities`,
+  );
+  return res.data.data;
 }
 
 // 초대 정보 조회 — 링크(코드)로 워크스페이스 이름 등을 미리 본다(로그인 전에도)

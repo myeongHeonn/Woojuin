@@ -11,9 +11,12 @@ import com.ssafy.woojuin.domain.category.repository.ItemCategoryRepository;
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.repository.ItemEmbeddingJdbcRepository;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceEventType;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 /**
@@ -43,15 +46,18 @@ public class ItemEmbeddingService {
     private final ItemCategoryRepository itemCategoryRepository;
     private final CategoryRepository categoryRepository;
     private final ItemEmbeddingJdbcRepository embeddingRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ItemEmbeddingService(ObjectProvider<AiMixClient> aiMixClientProvider,
             ItemRepository itemRepository, ItemCategoryRepository itemCategoryRepository,
-            CategoryRepository categoryRepository, ItemEmbeddingJdbcRepository embeddingRepository) {
+            CategoryRepository categoryRepository, ItemEmbeddingJdbcRepository embeddingRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.aiMixClientProvider = aiMixClientProvider;
         this.itemRepository = itemRepository;
         this.itemCategoryRepository = itemCategoryRepository;
         this.categoryRepository = categoryRepository;
         this.embeddingRepository = embeddingRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     /** 아이템 가공 완료 직후 호출된다. 어떤 실패도 밖으로 새지 않는다. */
@@ -63,7 +69,10 @@ public class ItemEmbeddingService {
         try {
             embedAndRecompute(client, itemId);
         } catch (Exception e) {
-            log.warn("임베딩·좌표 갱신 실패(무시): itemId={}, cause={}", itemId, e.toString());
+            // 예외 객체를 통째로 넘겨 스택트레이스를 남긴다. e.toString()은 래퍼 예외
+            // (CannotCreateTransactionException 등)만 보여서, 07-31 커넥션 고갈 사고 때
+            // 근본 원인("Connection is not available")이 로그 어디에도 안 남았다.
+            log.warn("임베딩·좌표 갱신 실패(무시): itemId={}", itemId, e);
         }
     }
 
@@ -96,6 +105,11 @@ public class ItemEmbeddingService {
         embeddingRepository.upsert(itemId, item.getWorkspaceId(),
                 result.embedding(), result.model(), result.inputHash());
         recomputeCoordinates(client, item.getWorkspaceId());
+        // 좌표가 준비된 지금이 우주 뷰 입장에서 진짜 "바뀐" 시점이다. processor.process()
+        // 단계에서 이미 ITEM 신호가 한 번 나갔지만(가공 완료 알림), 그때는 아직 이 아이템의
+        // 좌표가 없어 프론트가 재조회해도 별이 안 보인다 — 여기서 한 번 더 알려야 한다.
+        eventPublisher.publishEvent(
+                WorkspaceChangedEvent.of(item.getWorkspaceId(), WorkspaceEventType.ITEM));
         log.info("임베딩·좌표 갱신 완료: itemId={}, workspaceId={}", itemId, item.getWorkspaceId());
     }
 
