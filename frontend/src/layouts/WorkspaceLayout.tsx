@@ -13,6 +13,9 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
  * 추방 감지: 이미 이 워크스페이스 화면에 있던 사람이 강퇴당하면, 그 사실을 알 방법이
  * 없어 API 호출들이 조용히 403으로 깨지기만 했다(S15P11C105-435). member SSE 신호로
  * 멤버 목록이 다시 로드된 뒤 내가 그 안에 없으면 확인 모달을 띄우고 /home으로 보낸다.
+ *
+ * 같은 403이라도 초대 링크 없이 남의 워크스페이스 URL로 바로 들어온 경우엔 "추방"이
+ * 아니라 "권한 없음"으로 안내한다(구분 로직은 useWorkspaceEvictionGuard 참고).
  */
 const WorkspaceLayout = () => {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -20,7 +23,7 @@ const WorkspaceLayout = () => {
   const id = Number(workspaceId);
 
   useWorkspaceEvents(id);
-  const { evicted } = useWorkspaceEvictionGuard(id);
+  const { evicted, accessDenied } = useWorkspaceEvictionGuard(id);
 
   return (
     <>
@@ -29,6 +32,15 @@ const WorkspaceLayout = () => {
         open={evicted}
         title="워크스페이스에서 추방되었어요"
         description="이 워크스페이스에 더 이상 접근할 수 없어요."
+        confirmLabel="확인"
+        showCancel={false}
+        onConfirm={() => navigate('/home')}
+        onCancel={() => navigate('/home')}
+      />
+      <ConfirmModal
+        open={accessDenied}
+        title="접근 권한이 없어요"
+        description="이 워크스페이스에 접근할 권한이 없어요."
         confirmLabel="확인"
         showCancel={false}
         onConfirm={() => navigate('/home')}
