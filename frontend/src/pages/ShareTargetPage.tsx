@@ -5,7 +5,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import axios from 'axios';
 import BrandMark from '@/components/ui/BrandMark';
 import Spinner from '@/components/ui/Spinner';
-import SpacePicker from '@/components/domain/share/SpacePicker';
+import SpacePicker from '@/components/domain/shareTarget/SpacePicker';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { saveMemo, saveUrl } from '@/services/items';
 import { accessTokenAtom, postLoginRedirectAtom } from '@/stores/authAtoms';

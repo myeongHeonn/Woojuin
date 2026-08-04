@@ -72,7 +72,13 @@ const ErrorScreen = ({ code, title, description, actions, detail }: ErrorScreenP
               draggable={false}
               // 코드와 **같은 비율로** 줄어들어야 한다 — 높이를 px 로 박으면 좁은 화면에서
               // 코드만 작아져(clamp) 우주인이 0 을 덮어 숫자가 안 읽힌다(실측)
-              className="error-spaceman h-[clamp(58px,15vw,112px)] w-auto select-none"
+              //
+              // max-w-none 이 필요한 이유: Tailwind preflight 가 img 에 max-width:100% 를 건다.
+              // anchor 가 absolute left-1/2 라 그 100% 는 **부모(코드 마크) 폭 기준**인데,
+              // 코드가 없는 에러(런타임 예외)에서는 부모가 링 하나 폭뿐이라 가용 폭이 절반으로
+              // 줄고 높이는 고정이라 우주인이 눌린다 — 모바일에서 30x60 으로 찌그러졌다(실측).
+              // 원본이 288x288 정사각형이므로 상한만 풀면 비율이 그대로 유지된다.
+              className="error-spaceman h-[clamp(58px,15vw,112px)] w-auto max-w-none select-none"
             />
           </div>
         </div>
