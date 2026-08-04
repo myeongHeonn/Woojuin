@@ -48,9 +48,7 @@ describe('NotFoundPage', () => {
     expect(home?.getAttribute('href')).toBe('/');
   });
 
-  it('뒤로가기를 누르면 홈으로 보낸다', async () => {
-    // 히스토리를 되짚지 않는다 — 앱이 히스토리 항목을 늘리지 않아 뒤가 비어 있고,
-    // navigate(-1) 은 앱을 벗어나 버린다 (utils/singleHistoryEntry, hooks/useGoBack)
+  it('뒤로가기로 직전 화면으로 돌아간다', async () => {
     const { container, router } = await renderAt('/없는곳');
 
     const back = [...container.querySelectorAll('button')].find(
@@ -64,9 +62,9 @@ describe('NotFoundPage', () => {
     });
   });
 
-  it('첫 진입(공유 링크·북마크)이라도 뒤로가기가 막히지 않는다', async () => {
-    // 이동 없이 곧바로 없는 주소에서 시작 — 되짚을 뒤가 아예 없는 상태.
-    // 목적지를 직접 지정하므로 이 경우에도 사용자가 빠져나갈 수 있다.
+  it('첫 진입(공유 링크·북마크)이라도 뒤로가기가 막히지 않고 홈으로 보낸다', async () => {
+    // 이동 없이 곧바로 없는 주소에서 시작 — location.key 가 'default' 인 상태.
+    // 이때 navigate(-1) 은 앱 밖으로 나가거나 아무 일도 일어나지 않으므로 폴백이 필요하다.
     const router = createMemoryRouter(
       [
         { path: '/', element: <div>랜딩</div> },

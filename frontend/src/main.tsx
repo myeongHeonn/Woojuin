@@ -5,17 +5,7 @@ import { Provider as JotaiProvider } from 'jotai';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './routes/router';
 import { jotaiStore } from './stores/jotaiStore';
-import { isInstalledApp, keepSingleHistoryEntry } from './utils/singleHistoryEntry';
 import './styles/index.css';
-
-// 설치된 앱에서만 — 뒤로가기가 앱 안을 걷지 않고 곧바로 앱을 벗어나게 한다.
-// 브라우저 탭에는 걸지 않는다. 웹에서 뒤로가기가 사이트를 벗어나면 앱 안에서 뒤로 갈 수단이
-// 없어진다(실측: 탭에 사이트가 남지 않았다).
-//
-// import 는 호이스팅되므로 이 줄은 router 모듈(createBrowserRouter)이 이미 평가된 뒤에 돈다.
-// 그래도 되는 이유: 라우터는 이동할 때마다 window.history 에서 pushState 를 찾아 부르지,
-// 생성 시점에 잡아 두지 않는다. (히스토리가 늘지 않는지는 테스트로 확인한다)
-if (isInstalledApp()) keepSingleHistoryEntry();
 
 // 배포가 새 빌드를 올리면, 열려 있던 탭은 자기(옛) index.html 이 가리키는 옛 해시 청크를
 // 계속 요청한다. 파이프라인이 옛 청크를 7일간 남겨 두므로 대부분은 그대로 동작하지만,
