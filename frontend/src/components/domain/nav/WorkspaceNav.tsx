@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import NavItem from '@/components/ui/nav/NavItem';
 import CreateWorkspaceModal from '@/components/domain/nav/CreateWorkspaceModal';
+import WorkspaceActionsMenu from '@/components/domain/nav/WorkspaceActionsMenu';
 import { PlanetIcon, WorkspacesIcon } from '@/assets/icons';
 import { useSpaces } from '@/hooks/useSpaces';
 import { classNames } from '@/utils/classNames';
@@ -59,6 +60,9 @@ const WorkspaceNav = () => {
                 label={ws.name}
                 to={`/workspace/${ws.id}`}
                 collapsed={sideBarClosed}
+                // 이름 변경·삭제는 OWNER 전용(서버가 MEMBER 를 403 으로 막는다) —
+                // 보여 주고 실패시키는 대신 아예 그리지 않는다
+                actions={ws.role === 'OWNER' ? <WorkspaceActionsMenu workspace={ws} /> : undefined}
               />
             ))}
             <NavItem

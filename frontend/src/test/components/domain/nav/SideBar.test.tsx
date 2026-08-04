@@ -57,7 +57,14 @@ const renderSideBar = (path = '/workspace/1') => {
 const aside = (c: HTMLElement) => c.querySelector('aside') as HTMLElement;
 const rowByText = (c: HTMLElement, text: string) =>
   [...c.querySelectorAll('a,button')].find((e) => e.textContent?.includes(text)) as HTMLElement;
-const dotIn = (row: HTMLElement) => row.querySelector('span.bg-current');
+/**
+ * 선택 여부는 점이 아니라 aria-current 로 본다.
+ *
+ * 펼친 사이드바에서는 점을 그리지 않는다(배경·글자색이 이미 알려 주고, 오른쪽 끝은 ⋮ 자리다).
+ * aria-current="page" 는 NavLink 가 활성일 때 붙이는 값이라 화면 장식이 바뀌어도 흔들리지
+ * 않고, 스크린리더가 실제로 읽는 신호이기도 하다.
+ */
+const isSelected = (row: HTMLElement) => row.getAttribute('aria-current') === 'page';
 const toggleBtn = (c: HTMLElement) =>
   [...c.querySelectorAll('button')].find((b) =>
     /사이드바/.test(b.getAttribute('aria-label') ?? ''),
@@ -87,25 +94,25 @@ describe('SideBar (통합)', () => {
     it('개인 스페이스에 있으면 Personal Space 가 선택돼 보인다', async () => {
       // 선택은 클릭이 아니라 현재 URL 이 정한다 — /workspace/1 이 개인 스페이스다
       const { container } = await renderSideBar('/workspace/1');
-      expect(dotIn(rowByText(container, 'Personal Space'))).not.toBeNull();
-      expect(dotIn(rowByText(container, '몽골 여행'))).toBeNull();
+      expect(isSelected(rowByText(container, 'Personal Space'))).toBe(true);
+      expect(isSelected(rowByText(container, '몽골 여행'))).toBe(false);
     });
 
     it('워크스페이스를 누르면 고정 네비의 선택이 해제된다', async () => {
       // FixedNav 와 WorkspaceNav 는 서로 다른 컴포넌트 — Context 로 상태를 공유한다
       const { container } = await renderSideBar();
       await userEvent.click(rowByText(container, '몽골 여행'));
-      expect(dotIn(rowByText(container, '몽골 여행'))).not.toBeNull();
-      expect(dotIn(rowByText(container, 'Personal Space'))).toBeNull();
+      expect(isSelected(rowByText(container, '몽골 여행'))).toBe(true);
+      expect(isSelected(rowByText(container, 'Personal Space'))).toBe(false);
     });
 
     it('선택 표시는 항상 하나뿐이다', async () => {
       // 이동해도 점이 늘어나면 안 된다 (휴지통은 아직 경로가 없어 점 대상이 아니다)
       const { container } = await renderSideBar('/workspace/1');
-      expect(aside(container).querySelectorAll('span.bg-current')).toHaveLength(1);
+      expect(aside(container).querySelectorAll("[aria-current='page']")).toHaveLength(1);
 
       await userEvent.click(rowByText(container, '몽골 여행'));
-      expect(aside(container).querySelectorAll('span.bg-current')).toHaveLength(1);
+      expect(aside(container).querySelectorAll("[aria-current='page']")).toHaveLength(1);
     });
   });
 
