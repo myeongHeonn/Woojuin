@@ -40,12 +40,23 @@ public class WorkspaceItemActivityService {
     @Transactional(readOnly = true)
     public boolean hasNewActivity(Long workspaceId, Long userId) {
         verifyAccess(workspaceId, userId);
-        return false;
+        OffsetDateTime since = workspaceMemberLastSeenRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .map(WorkspaceMemberLastSeen::getLastSeenAt)
+                .orElse(OffsetDateTime.MIN);
+        return itemActivityService.hasActivitySince(workspaceId, since);
     }
 
     @Transactional
     public void updateLastSeen(Long workspaceId, Long userId) {
         verifyAccess(workspaceId, userId);
+        workspaceMemberLastSeenRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .ifPresentOrElse(
+                        existing -> existing.updateLastSeenAt(OffsetDateTime.now()),
+                        () -> workspaceMemberLastSeenRepository.save(WorkspaceMemberLastSeen.builder()
+                                .workspace(workspaceRepository.getReferenceById(workspaceId))
+                                .user(userRepository.getReferenceById(userId))
+                                .lastSeenAt(OffsetDateTime.now())
+                                .build()));
     }
 
     /** 403(멤버 아님)과 404(워크스페이스 없음)를 구분한다. */
