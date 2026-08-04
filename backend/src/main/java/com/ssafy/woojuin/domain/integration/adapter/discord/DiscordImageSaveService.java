@@ -99,12 +99,12 @@ public class DiscordImageSaveService {
                     .map(Workspace::getName)
                     .orElse("워크스페이스 " + workspaceId);
             String count = saved == 1 ? "이미지" : "이미지 " + saved + "개";
-            StringBuilder message = new StringBuilder("🖼️ ").append(count).append("를 우주인으로 보냈어요.")
-                    .append("\n저장 공간: ").append(workspaceName)
-                    .append("\n종류: 이미지");
+            StringBuilder message = new StringBuilder("**우주인으로 보냈어요 🚀**")
+                    .append("\n\n저장 공간: `").append(workspaceName).append('`')
+                    .append("\n종류: `").append(count).append('`');
             for (int i = 0; i < itemIds.size(); i++) {
                 String label = itemIds.size() == 1 ? "우주인에서 열기" : "이미지 " + (i + 1) + " 열기";
-                message.append("\n[").append(label).append("](")
+                message.append(i == 0 ? "\n\n" : "\n").append('[').append(label).append("](")
                         .append(frontendBaseUrl).append("/workspace/").append(workspaceId)
                         .append("/library?item=").append(itemIds.get(i)).append(')');
             }

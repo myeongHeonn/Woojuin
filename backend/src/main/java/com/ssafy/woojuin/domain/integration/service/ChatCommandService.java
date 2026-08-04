@@ -137,15 +137,17 @@ public class ChatCommandService {
             if (memberships.isEmpty()) {
                 return ChatCommandResult.of("접근할 수 있는 워크스페이스가 없어요.");
             }
-            StringBuilder message = new StringBuilder("접근 가능한 워크스페이스예요:\n");
+            StringBuilder message = new StringBuilder("**접근 가능한 워크스페이스**\n\n");
             for (WorkspaceMember member : memberships) {
                 Workspace workspace = member.getWorkspace();
                 boolean selected = connection.getDefaultWorkspace() != null
                         && connection.getDefaultWorkspace().getId().equals(workspace.getId());
-                message.append(selected ? "- ✅ " : "- ")
-                        .append(workspace.getId()).append(": ").append(workspace.getName()).append('\n');
+                message.append(selected ? "`[✓]` " : "`[ ]` ")
+                        .append(markdownLabel(workspace.getName()));
+                if (selected) message.append("  (기본 저장 공간)");
+                message.append('\n');
             }
-            message.append("`/woojuin workspace set <ID>`로 기본 공간을 변경할 수 있어요.");
+            message.append("\n변경하려면 `/woojuin workspace set <ID>`를 입력하세요.");
             return ChatCommandResult.of(message.toString());
         }
         if (arguments.toLowerCase(Locale.ROOT).startsWith("set ")) {
@@ -177,7 +179,7 @@ public class ChatCommandService {
                     workspaceId,
                     connection.getUser().getId(),
                     new ItemCreateRequest(ItemType.URL, parsed.url(), null));
-            return savedMessage("🔗", "링크", workspaceId, item.itemId());
+            return savedMessage("링크", workspaceId, item.itemId());
         } catch (WorkspaceAccessDeniedException e) {
             return ChatCommandResult.of("해당 워크스페이스에 접근할 권한이 없어요.");
         } catch (AiUsageLimitExceededException e) {
@@ -200,21 +202,18 @@ public class ChatCommandService {
                 .filter(item -> item.type() == ItemType.MEMO)
                 .map(ItemSummaryResponse::itemId)
                 .toList());
-        StringBuilder message = new StringBuilder("🔎 `").append(query).append("` 검색 결과\n");
+        StringBuilder message = new StringBuilder("🔎 **‘").append(markdownLabel(query))
+                .append("’ 검색 결과**\n\n");
         int index = 1;
         for (ItemSummaryResponse item : response.content()) {
             String label = item.type() == ItemType.MEMO
                     ? originalMemoLabel(memoItems, item.itemId())
                     : fallbackTitle(item);
-            String icon = switch (item.type()) {
-                case URL -> "🔗";
-                case IMAGE -> "📷";
-                case MEMO -> "📝";
-            };
             String deepLink = frontendBaseUrl + "/workspace/" + workspaceId
                     + "/library?item=" + item.itemId();
-            message.append(index++).append(". ").append(icon).append(" [")
-                    .append(markdownLabel(label)).append("](").append(deepLink).append(')');
+            message.append(index++).append(". [")
+                    .append(markdownLabel(label)).append("](").append(deepLink).append(") · ")
+                    .append('`').append(itemTypeLabel(item.type())).append('`');
             if (item.type() == ItemType.URL && item.url() != null) {
                 message.append(" · [원문](").append(item.url()).append(')');
             }
@@ -259,7 +258,7 @@ public class ChatCommandService {
                     workspaceId,
                     connection.getUser().getId(),
                     new ItemCreateRequest(ItemType.MEMO, null, content));
-            return savedMessage("📝", "메모", workspaceId, item.itemId());
+            return savedMessage("메모", workspaceId, item.itemId());
         } catch (WorkspaceAccessDeniedException e) {
             return ChatCommandResult.of("해당 워크스페이스에 접근할 권한이 없어요.");
         } catch (AiUsageLimitExceededException e) {
@@ -272,8 +271,9 @@ public class ChatCommandService {
         String workspace = connection.getDefaultWorkspace() == null
                 ? "미지정"
                 : connection.getDefaultWorkspace().getName();
-        return ChatCommandResult.of("연결된 우주인 계정: `" + connection.getUser().getEmail()
-                + "`\n기본 저장 공간: `" + workspace + "`");
+        return ChatCommandResult.of("**연결 정보**\n\n"
+                + "계정  `" + connection.getUser().getEmail() + "`\n"
+                + "기본 저장 공간  `" + workspace + "`");
     }
 
     private ChatCommandResult disconnect(ChatCommand command) {
@@ -338,31 +338,40 @@ public class ChatCommandService {
     }
 
     private ChatCommandResult help(ChatPlatform platform) {
-        String common = """
-                우주인 명령어
-                `/woojuin help` 명령어 도움말
-                `/woojuin connect <연결코드>` 계정 연결
-                `/woojuin account` 연결 계정 확인
-                `/woojuin disconnect` 계정 연동 해제
-                `/woojuin workspace list` 워크스페이스 목록
-                `/woojuin workspace set <ID>` 기본 공간 변경
-                `/woojuin save <URL> [--workspace <ID>]` 링크 저장
-                `/woojuin memo <내용>` 메모 저장
-                `/woojuin search <검색어>` 기본 공간 검색
+        String title = platform == ChatPlatform.MATTERMOST
+                ? ":woojuin_white1: **우주인 명령어**"
+                : "**우주인 명령어**";
+        String common = title + "\n\n" + """
+
+                - `/woojuin save <URL>` 링크 저장
+                - `/woojuin memo <내용>` 메모 저장
+                - `/woojuin search <검색어>` 정보 검색
+                - `/woojuin workspace list` 워크스페이스 목록
+                - `/woojuin workspace set <ID>` 워크스페이스 변경
+                - `/woojuin account` 연결 계정 확인
+                - `/woojuin disconnect` 연결 계정 해제
                 """.trim();
         if (platform == ChatPlatform.DISCORD) {
-            common += "\n`/woojuin image attachment:<이미지>` 이미지 저장"
-                    + "\n메시지 우클릭 → `앱` → `우주인에 저장`";
+            common += "\n- `/woojuin image attachment:<이미지>` 이미지 저장"
+                    + "\n- 메시지 우클릭 → `앱` → `우주인에 저장`";
         }
         return ChatCommandResult.of(common);
     }
 
-    private ChatCommandResult savedMessage(String icon, String type, Long workspaceId, Long itemId) {
+    private ChatCommandResult savedMessage(String type, Long workspaceId, Long itemId) {
         String deepLink = frontendBaseUrl + "/workspace/" + workspaceId + "/library?item=" + itemId;
-        return ChatCommandResult.of(icon + " 우주인으로 보냈어요."
-                + "\n저장 공간: " + workspaceName(workspaceId)
-                + "\n종류: " + type
-                + "\n[우주인에서 열기](" + deepLink + ")");
+        return ChatCommandResult.of("**우주인으로 보냈어요 🚀**"
+                + "\n\n저장 공간: `" + markdownLabel(workspaceName(workspaceId)) + "`"
+                + "\n종류: `" + type + "`"
+                + "\n\n[우주인에서 열기](" + deepLink + ")");
+    }
+
+    private String itemTypeLabel(ItemType type) {
+        return switch (type) {
+            case URL -> "링크";
+            case IMAGE -> "이미지";
+            case MEMO -> "메모";
+        };
     }
 
     private record SaveArguments(String url, Long workspaceId) {
