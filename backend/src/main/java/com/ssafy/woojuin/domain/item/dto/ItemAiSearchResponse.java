@@ -15,6 +15,9 @@ import java.util.List;
  *                         (키워드 검색과 동일한 의미).
  * @param semanticMatch    문자 일치가 아예 없어 의미(임베딩) 기반으로 폴백했음
  *                         (키워드 검색과 동일한 의미 — {@link ItemSearchResponse} 참고).
+ * @param semanticSupplementCount content 끝에서부터 이 개수만큼은 의미 검색 보충.
+ *                         화면용이 아니라 관측용 필드다
+ *                         (키워드 검색과 동일한 의미 — {@link ItemSearchResponse} 참고).
  */
 public record ItemAiSearchResponse(
         List<ItemSummaryResponse> content,
@@ -24,18 +27,20 @@ public record ItemAiSearchResponse(
         String interpretedQuery,
         boolean aiPlanned,
         boolean partialMatch,
-        boolean semanticMatch) {
+        boolean semanticMatch,
+        int semanticSupplementCount) {
 
     public static ItemAiSearchResponse from(ItemSearchResponse search, String interpretedQuery,
             boolean aiPlanned) {
         return new ItemAiSearchResponse(
                 search.content(), search.page(), search.size(), search.totalElements(),
-                interpretedQuery, aiPlanned, search.partialMatch(), search.semanticMatch());
+                interpretedQuery, aiPlanned, search.partialMatch(), search.semanticMatch(),
+                search.semanticSupplementCount());
     }
 
     public static ItemAiSearchResponse empty(int page, int size, String interpretedQuery,
             boolean aiPlanned) {
         return new ItemAiSearchResponse(List.of(), page, size, 0, interpretedQuery, aiPlanned,
-                false, false);
+                false, false, 0);
     }
 }

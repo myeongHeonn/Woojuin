@@ -165,11 +165,12 @@ def embedding_input(item_id=101) -> EmbeddingInput:
     )
 
 
-def test_embedding_text_is_category_title_summary_and_sorted():
+def test_embedding_text_is_plain_and_categories_sorted():
+    # 라벨("카테고리:/제목:/요약:") 없는 평문 — 검색어 임베딩과 형태를 맞춘다(v2).
     assert build_embedding_text(embedding_input()) == (
-        "카테고리: 음식·맛집, 여행·장소\n"
-        "제목: 소바 국물면\n"
-        "요약: 참깨와 파가 올라간 국물 소바다."
+        "소바 국물면\n"
+        "참깨와 파가 올라간 국물 소바다.\n"
+        "음식·맛집, 여행·장소"
     )
 
 
@@ -189,7 +190,7 @@ def test_query_embedding_sends_raw_text():
     result = AiMixService(client, settings()).embed_query(
         QueryEmbeddingInput(text="일식 코스 요리")
     )
-    # 아이템 임베딩과 달리 "카테고리:/제목:/요약:" 틀 없이 검색어 원문 그대로 보낸다.
+    # 검색어는 원문 그대로 — 아이템 임베딩도 평문(v2)이라 양쪽 형태가 대칭이다.
     assert client.texts == ["일식 코스 요리"]
     assert result.embedding_model == "openai/text-embedding-3-small"
     assert result.dimensions == 3

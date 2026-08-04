@@ -111,6 +111,46 @@ class ItemEmbeddingServiceTest {
         verify(client, never()).createEmbedding(anyLong(), anyString(), anyString(), anyList());
     }
 
+    /**
+     * 본문·미리보기 설명이 모두 비면 요약은 제목만 보고 지어낸 문장이다 — 그 임베딩은
+     * 아무 검색어에나 걸리는 오탐원이라 만들지 않는다(크롤링 실패 URL 아이템 실측).
+     */
+    @Test
+    void 본문과_미리보기가_모두_비면_임베딩하지_않는다() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.URL)
+                .title("smartstore.naver.com/whatever").build();
+        ReflectionTestUtils.setField(item, "id", 10L);
+        ReflectionTestUtils.setField(item, "summary", "제공된 본문과 설명이 없어 추가 정보가 없습니다.");
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
+
+        service.onItemProcessed(10L);
+
+        verify(client, never()).createEmbedding(anyLong(), anyString(), anyString(), anyList());
+    }
+
+    /** 본문이 없어도 미리보기 설명이 있으면 임베딩 신호로 충분하다(지도 공유 링크류). */
+    @Test
+    void 미리보기_설명만_있어도_임베딩한다() {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.URL)
+                .title("투썸플레이스").build();
+        ReflectionTestUtils.setField(item, "id", 10L);
+        ReflectionTestUtils.setField(item, "summary", "광주 하남3지구의 투썸플레이스 지점.");
+        ReflectionTestUtils.setField(item, "previewDescription", "카페 · 광주 광산구");
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
+        givenCategories(10L);
+        when(client.createEmbedding(anyLong(), anyString(), anyString(), anyList()))
+                .thenReturn(new EmbeddingResult("model", "sha256:abc", new float[] {0.1f}));
+        when(embeddingRepository.findInputHash(10L)).thenReturn(Optional.empty());
+        when(embeddingRepository.findActiveVectors(1L))
+                .thenReturn(List.of(new ItemVector(10L, new float[] {0.1f})));
+        when(client.reduceCoordinates(anyList()))
+                .thenReturn(List.of(new ItemPoint(10L, 1.0, 2.0, 3.0)));
+
+        service.onItemProcessed(10L);
+
+        verify(embeddingRepository).upsert(anyLong(), anyLong(), any(), anyString(), anyString());
+    }
+
     /** 임베딩·좌표는 부가 정보 — 실패가 가공 완료(ACK)를 뒤집으면 안 된다. */
     @Test
     void 어떤_실패도_밖으로_새지_않는다() {

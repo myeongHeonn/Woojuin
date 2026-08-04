@@ -26,7 +26,7 @@ interface StageHeaderProps {
 const StageHeader = ({ title, meta, actions }: StageHeaderProps) => (
   <header
     className={classNames(
-      'pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 pt-5 desktop:pt-[26px]',
+      'pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-4 pt-5 desktop:pt-[26px]',
       STAGE_PX,
     )}
   >
