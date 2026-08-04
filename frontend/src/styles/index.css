@@ -3,11 +3,11 @@
 
 @media (max-width: 639px) {
   [data-map-panel-collapsed='false'] .woojuin-open-free-map .maplibregl-ctrl-bottom-right {
-    bottom: calc(50% + 100px + env(safe-area-inset-bottom));
+    bottom: calc(50% + 100px + var(--safe-bottom));
   }
 
   [data-map-panel-collapsed='true'] .woojuin-open-free-map .maplibregl-ctrl-bottom-right {
-    bottom: calc(212px + env(safe-area-inset-bottom));
+    bottom: calc(212px + var(--safe-bottom));
   }
 
   .woojuin-open-free-map .maplibregl-ctrl-bottom-right {

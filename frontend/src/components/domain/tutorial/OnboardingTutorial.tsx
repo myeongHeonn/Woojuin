@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useMatch, useNavigate } from 'react-router-dom';
+import { useAtomValue, useSetAtom } from 'jotai';
 import {
   completeTutorial,
   fetchMyProfile,
@@ -8,6 +9,11 @@ import {
   type UserProfile,
 } from '@/services/auth';
 import { useSpaces } from '@/hooks/useSpaces';
+import {
+  tutorialActiveAtom,
+  tutorialFixtureVisibleAtom,
+  tutorialReplayAtom,
+} from '@/stores/tutorialAtoms';
 
 interface TutorialStep {
   selector: string;
@@ -145,6 +151,10 @@ const OnboardingTutorial = () => {
   const [dismissedForCurrentVisit, setDismissedForCurrentVisit] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState<HighlightRect | null>(null);
+  const replayRequest = useAtomValue(tutorialReplayAtom);
+  const isTutorialFixtureVisible = useAtomValue(tutorialFixtureVisibleAtom);
+  const setReplayRequest = useSetAtom(tutorialReplayAtom);
+  const setTutorialActive = useSetAtom(tutorialActiveAtom);
   const match = useMatch('/workspace/:workspaceId/*');
   const { personalSpaceId } = useSpaces();
 
@@ -152,13 +162,24 @@ const OnboardingTutorial = () => {
   const isPersonalSpace = personalSpaceId !== undefined && workspaceId === personalSpaceId;
   const isSharedWorkspace =
     personalSpaceId !== undefined && workspaceId !== undefined && workspaceId !== personalSpaceId;
+  const isReplay = Boolean(
+    replayRequest?.workspaceId === workspaceId &&
+    ((replayRequest?.type === 'PERSONAL' && isPersonalSpace) ||
+      (replayRequest?.type === 'SHARED_WORKSPACE' && isSharedWorkspace)),
+  );
   const isOpen =
     isProfileLoaded &&
     !dismissedForCurrentVisit &&
-    ((isPersonalSpace && !profile.personalTutorialCompleted) ||
+    (isReplay ||
+      (isPersonalSpace && !profile.personalTutorialCompleted) ||
       (isSharedWorkspace && !profile.sharedWorkspaceTutorialCompleted));
   const steps = isSharedWorkspace ? sharedWorkspaceSteps : personalSteps;
   const step = steps[stepIndex];
+
+  useEffect(() => {
+    setTutorialActive(isOpen);
+    return () => setTutorialActive(false);
+  }, [isOpen, setTutorialActive]);
 
   useEffect(() => {
     if (!isOpen || stepIndex !== 0 || workspaceId === undefined) return;
@@ -170,12 +191,11 @@ const OnboardingTutorial = () => {
   useEffect(() => {
     if (!isOpen || !step.actionView) return;
     if (location.pathname.endsWith(`/${step.actionView}`)) {
-      setRect(null);
       setStepIndex((index) => index + 1);
     }
   }, [isOpen, location.pathname, step.actionView]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setDismissedForCurrentVisit(false);
     setStepIndex(0);
   }, [workspaceId]);
@@ -194,16 +214,16 @@ const OnboardingTutorial = () => {
         (step.fallbackSelector ? findVisible(step.fallbackSelector) : undefined);
 
       if (!target) {
-        setRect(null);
         return;
       }
 
       const bounds = target.getBoundingClientRect();
       const padding = 8;
+      const left = Math.max(8, bounds.left - padding);
       setRect({
         top: Math.max(8, bounds.top - padding),
-        left: Math.max(8, bounds.left - padding),
-        width: Math.min(window.innerWidth - 16, bounds.width + padding * 2),
+        left,
+        width: Math.min(window.innerWidth - left - 8, bounds.width + padding * 2),
         height: bounds.height + padding * 2,
       });
     };
@@ -246,13 +266,13 @@ const OnboardingTutorial = () => {
   }, [rect]);
 
   const actionBubbleStyle = useMemo(() => {
-    const width = Math.min(320, window.innerWidth - 24);
+    const width = Math.min(Math.max(168, step.title.length * 15 + 32), window.innerWidth - 24);
     if (!rect) {
       return { width, left: 12, top: 12, direction: 'none' as const, arrowLeft: width / 2 };
     }
 
-    const bubbleHeight = 64;
-    const gap = 38;
+    const bubbleHeight = 48;
+    const gap = 24;
     const placeBelow = rect.top + rect.height + gap + bubbleHeight < window.innerHeight;
     const left = Math.min(
       window.innerWidth - width - 12,
@@ -261,7 +281,7 @@ const OnboardingTutorial = () => {
     const top = placeBelow
       ? rect.top + rect.height + gap
       : Math.max(12, rect.top - bubbleHeight - gap);
-    const arrowLeft = Math.min(width - 26, Math.max(26, rect.left + rect.width / 2 - left));
+    const arrowLeft = Math.min(width - 22, Math.max(22, rect.left + rect.width / 2 - left - 1));
 
     return {
       width,
@@ -270,13 +290,21 @@ const OnboardingTutorial = () => {
       direction: placeBelow ? ('up' as const) : ('down' as const),
       arrowLeft,
     };
-  }, [rect]);
+  }, [rect, step.title]);
+
+  const numberedSteps = steps.filter((tutorialStep) => !tutorialStep.actionView);
+  const numberedStepIndex = numberedSteps.findIndex((tutorialStep) => tutorialStep === step);
 
   if (!isOpen) return null;
 
   const finish = (moveToUniverse = false) => {
     const tutorialType: TutorialType = isSharedWorkspace ? 'SHARED_WORKSPACE' : 'PERSONAL';
-    completeMutation.mutate(tutorialType);
+    if (isReplay) {
+      setReplayRequest(null);
+    } else {
+      completeMutation.mutate(tutorialType);
+    }
+    setTutorialActive(false);
     setDismissedForCurrentVisit(true);
     setStepIndex(0);
     if (moveToUniverse && workspaceId !== undefined) {
@@ -288,7 +316,6 @@ const OnboardingTutorial = () => {
     const nextStep = steps[nextIndex];
     if (!nextStep) return;
 
-    setRect(null);
     setStepIndex(nextIndex);
 
     if (
@@ -345,7 +372,7 @@ const OnboardingTutorial = () => {
 
       {step.actionView && rect && (
         <div
-          className="pointer-events-none fixed z-20 rounded-lg border border-border bg-surface p-5 text-left shadow-modal"
+          className="pointer-events-none fixed z-20 rounded-lg border border-border bg-surface px-4 py-3 text-left shadow-modal"
           style={{
             width: actionBubbleStyle.width,
             left: actionBubbleStyle.left,
@@ -353,18 +380,34 @@ const OnboardingTutorial = () => {
           }}
         >
           <span
-            className={`absolute text-3xl leading-none text-accent ${
-              actionBubbleStyle.direction === 'up'
-                ? '-top-9 animate-bounce'
-                : '-bottom-9 animate-bounce'
-            }`}
-            style={{ left: actionBubbleStyle.arrowLeft, transform: 'translateX(-50%)' }}
+            className={`absolute ${actionBubbleStyle.direction === 'up' ? '-top-5' : '-bottom-5'}`}
+            style={{
+              left: actionBubbleStyle.arrowLeft,
+              transform: 'translateX(-50%)',
+            }}
             aria-hidden="true"
           >
-            {actionBubbleStyle.direction === 'up' ? '↑' : '↓'}
+            <span className="block animate-bounce">
+              <svg
+                viewBox="0 0 20 28"
+                className="h-5 w-4 overflow-visible text-accent"
+                style={{
+                  transform: actionBubbleStyle.direction === 'up' ? undefined : 'rotate(180deg)',
+                }}
+              >
+                <path
+                  d="M10 27V3M3 10l7-7 7 7"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
           </span>
 
-          <h2 className="whitespace-nowrap text-center text-lg font-extrabold">{step.title}</h2>
+          <h2 className="whitespace-nowrap text-center text-sm font-bold">{step.title}</h2>
         </div>
       )}
 
@@ -373,16 +416,6 @@ const OnboardingTutorial = () => {
           className="pointer-events-auto fixed z-20 rounded-lg border border-border bg-surface p-5 text-left shadow-modal"
           style={{ width: bubbleStyle.width, left: bubbleStyle.left, top: bubbleStyle.top }}
         >
-          {bubbleStyle.direction !== 'none' && (
-            <span
-              className={`absolute left-1/2 h-0 w-0 -translate-x-1/2 border-x-[10px] border-x-transparent ${
-                bubbleStyle.direction === 'top'
-                  ? '-top-[10px] border-b-[10px] border-b-surface'
-                  : '-bottom-[10px] border-t-[10px] border-t-surface'
-              }`}
-            />
-          )}
-
           <div className="flex items-start gap-3">
             <div className="min-w-0">
               <p className="text-xs font-bold text-accent">{step.label}</p>
@@ -398,12 +431,20 @@ const OnboardingTutorial = () => {
           </div>
 
           <p className="mt-3 whitespace-pre-line break-keep text-sm leading-6 text-text-2">
-            {step.description}
+            {isPersonalSpace && stepIndex === 0
+              ? `개인 스페이스는 내 정보를 모아 관리하는 기본 공간이에요.${
+                  isTutorialFixtureVisible ? '\n※ 현재는 예시 데이터를 넣은 화면이에요.' : ''
+                }`
+              : `${step.description}${
+                  isSharedWorkspace && stepIndex === 0 && isTutorialFixtureVisible
+                    ? '\n※ 현재는 예시 데이터를 넣은 화면이에요.'
+                    : ''
+                }`}
           </p>
 
           <div className="mt-5 flex items-center">
             <span className="text-xs font-semibold text-text-3">
-              {stepIndex + 1} / {steps.length}
+              {numberedStepIndex + 1} / {numberedSteps.length}
             </span>
             <div className="ml-auto flex">
               <button

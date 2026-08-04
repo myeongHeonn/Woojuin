@@ -102,8 +102,7 @@ public class ItemEmbeddingBackfillRunner {
                 updatedTotal += backfillWorkspace(client, workspaceId);
             } catch (Exception e) {
                 failedWorkspaces++;
-                log.warn("임베딩 백필 실패(다음 워크스페이스 계속): workspaceId={}, cause={}",
-                        workspaceId, e.toString());
+                log.warn("임베딩 백필 실패(다음 워크스페이스 계속): workspaceId={}", workspaceId, e);
             }
         }
         log.info("임베딩 백필 완료: {}개 워크스페이스(실패 {}), 총 {}건 갱신",

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import mainIcon from '@/assets/mainIcon.svg';
-import astronaut from '@/assets/landing/astronaut.png';
+import astronaut from '@/assets/landing/astronaut.webp';
 import discordImage from '@/assets/landing/coming-soon/discord-cutout.png';
-import galaxyWatchImage from '@/assets/landing/coming-soon/galaxy-watch-clean.png';
+import galaxyWatchImage from '@/assets/landing/coming-soon/galaxy-watch-clean.webp';
 import kakaoTalkImage from '@/assets/landing/coming-soon/kakaotalk.png';
 import mattermostImage from '@/assets/landing/coming-soon/mattermost-cutout.png';
 import { LinkArrowIcon, PlanetIcon, UserPlusIcon } from '@/assets/icons';
@@ -25,13 +25,6 @@ const TextIcon = ({ className = '' }: { className?: string }) => (
       strokeWidth="1.8"
       strokeLinecap="round"
     />
-  </svg>
-);
-
-const ShareIcon = ({ className = '' }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
-    <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" stroke="currentColor" strokeWidth="1.8" />
-    <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="1.8" />
   </svg>
 );
 
@@ -78,16 +71,14 @@ const SavePreview = () => (
       <img
         src={astronaut}
         alt="정보를 모으는 우주인"
+        width="256"
+        height="335"
+        loading="lazy"
+        decoding="async"
         className="relative h-28 w-28 object-contain"
       />
     </div>
   </div>
-);
-
-const ChromeIcon = () => (
-  <span className="relative block h-9 w-9 rounded-full bg-[conic-gradient(#e65a4f_0_33%,#e8c64a_0_66%,#54a76c_0)]">
-    <span className="absolute inset-[8px] rounded-full border-[3px] border-white/80 bg-[#6aa5e8]" />
-  </span>
 );
 
 const HeartIcon = () => (
@@ -215,7 +206,15 @@ const MessengerVisual = () => (
 
 const GalaxyWatchVisual = () => (
   <div className="landing-watch-visual">
-    <img src={galaxyWatchImage} alt="Galaxy Watch" className="landing-galaxy-watch-image" />
+    <img
+      src={galaxyWatchImage}
+      alt="Galaxy Watch"
+      width="220"
+      height="257"
+      loading="lazy"
+      decoding="async"
+      className="landing-galaxy-watch-image"
+    />
     <div className="landing-watch-voice" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none">
         <rect x="8" y="3" width="8" height="12" rx="4" fill="currentColor" />
@@ -250,68 +249,7 @@ const SaveMethodsPreview = () => {
 
   return (
     <div ref={containerRef} className={`landing-method-grid ${isVisible ? 'is-visible' : ''}`}>
-      <div className="grid gap-3 min-[760px]:grid-cols-3">
-        {[
-          {
-            title: '우주인에서',
-            description: (
-              <>
-                서비스 안에서 바로
-                <br />
-                저장해요.
-              </>
-            ),
-            icon: <img src={mainIcon} alt="" className="h-10 w-10" />,
-          },
-          {
-            title: '웹에서',
-            description: (
-              <>
-                보고 있는 페이지를
-                <br />
-                바로 담아요.
-              </>
-            ),
-            icon: <ChromeIcon />,
-          },
-          {
-            title: '휴대폰에서',
-            description: (
-              <>
-                우주인으로 보내기로
-                <br />
-                간편하게 보내요.
-              </>
-            ),
-            icon: <ShareIcon className="h-9 w-9" />,
-          },
-        ].map((method, index) => (
-          <div
-            key={method.title}
-            className="landing-method-card"
-            style={{ animationDelay: `${index * 0.14}s` }}
-          >
-            <div className="flex items-start">
-              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-surface-2 text-text-1">
-                {method.icon}
-              </span>
-            </div>
-            <h3 className="mt-8 text-lg font-extrabold">{method.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-text-2">{method.description}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const ComingSoonSection = () => (
-  <section className="landing-coming-soon-section px-6 py-24 text-center desktop:py-32">
-    <div className="mx-auto max-w-5xl">
-      <h2 className="landing-coming-soon-title">COMING SOON</h2>
-      <p className="landing-coming-soon-date">2026. 08. 07</p>
-
-      <div className="landing-coming-soon-grid">
+      <div className="landing-save-channel-grid">
         {[
           {
             title: 'Chrome 확장',
@@ -333,17 +271,21 @@ const ComingSoonSection = () => (
             description: 'Galaxy Watch에서 음성으로 빠르게 저장',
             visual: <GalaxyWatchVisual />,
           },
-        ].map((feature) => (
-          <article key={feature.title} className="landing-coming-soon-card">
-            <div className="landing-coming-soon-art">{feature.visual}</div>
+        ].map((feature, index) => (
+          <article
+            key={feature.title}
+            className="landing-method-card landing-save-channel-card"
+            style={{ animationDelay: `${(index + 1) * 0.11}s` }}
+          >
+            <div className="landing-save-channel-art">{feature.visual}</div>
             <h3>{feature.title}</h3>
             <p>{feature.description}</p>
           </article>
         ))}
       </div>
     </div>
-  </section>
-);
+  );
+};
 
 const UniversePreview = () => (
   <div className="landing-visual relative min-h-[390px] overflow-hidden">
@@ -512,23 +454,43 @@ const sections = [
 
 const LandingFeatureSections = () => (
   <div className="border-t border-border-soft">
-    {sections.map((section, index) => (
-      <section
-        key={section.eyebrow}
-        className={`px-6 py-24 desktop:py-32 ${index % 2 === 1 ? 'bg-sidebar/35' : ''}`}
-      >
-        <div className="mx-auto grid max-w-6xl items-center gap-12 min-[1100px]:grid-cols-2 min-[1100px]:gap-20">
-          <div className={index % 2 === 1 ? 'min-[1100px]:order-2' : ''}>
-            <p className="text-label font-bold tracking-[0.16em] text-accent">{section.eyebrow}</p>
-            <h2 className="mt-4 break-keep text-3xl font-extrabold leading-tight tracking-tight desktop:text-[42px]">
-              {section.title}
-            </h2>
-          </div>
-          <div className={index % 2 === 1 ? 'min-[1100px]:order-1' : ''}>{section.visual}</div>
-        </div>
-      </section>
-    ))}
-    <ComingSoonSection />
+    {sections.map((section, index) => {
+      const isTextOnRight = index === 2 || index === 4;
+
+      return (
+        <section
+          key={section.eyebrow}
+          className={`px-6 py-24 desktop:py-32 ${index % 2 === 1 ? 'bg-sidebar/35' : ''}`}
+        >
+          {index === 1 ? (
+            <div className="mx-auto max-w-6xl">
+              <div className="landing-save-heading text-center">
+                <p className="text-label font-bold tracking-[0.16em] text-accent">
+                  {section.eyebrow}
+                </p>
+                <h2 className="mt-4 break-keep text-3xl font-extrabold leading-tight tracking-tight desktop:text-[42px]">
+                  {section.title}
+                </h2>
+              </div>
+              <div className="mt-12">{section.visual}</div>
+            </div>
+          ) : (
+            <div className="mx-auto grid max-w-6xl items-center gap-12 min-[1100px]:grid-cols-2 min-[1100px]:gap-20">
+              <div className={isTextOnRight ? 'min-[1100px]:order-2' : ''}>
+                <p className="text-label font-bold tracking-[0.16em] text-accent">
+                  {section.eyebrow}
+                </p>
+                <h2 className="mt-4 break-keep text-3xl font-extrabold leading-tight tracking-tight desktop:text-[42px]">
+                  {section.title}
+                </h2>
+              </div>
+              <div className={isTextOnRight ? 'min-[1100px]:order-1' : ''}>{section.visual}</div>
+            </div>
+          )}
+        </section>
+      );
+    })}
+    <div className="h-[12vh] min-h-[96px]" aria-hidden="true" />
   </div>
 );
 

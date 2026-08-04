@@ -23,6 +23,7 @@ export function useCreateItem<TInput>(
     mutationFn: (input: TInput) => save(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items', id] });
+      queryClient.invalidateQueries({ queryKey: ['user', 'me', 'ai-usage'] });
       onDone();
     },
   });

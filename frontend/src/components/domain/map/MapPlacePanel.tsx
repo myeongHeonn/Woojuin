@@ -138,7 +138,7 @@ const MapPlacePanel = ({
       className={classNames(
         'absolute z-[4] flex flex-col overflow-hidden border border-border/55 shadow-float',
         'bg-sidebar/84 backdrop-blur-[14px] desktop:bg-sidebar/42 desktop:backdrop-blur-[8px]',
-        'inset-x-3 bottom-[calc(88px+env(safe-area-inset-bottom))] rounded-lg transition-[height] duration-200 ease-out',
+        'inset-x-3 bottom-above-tabbar rounded-lg transition-[height] duration-200 ease-out',
         collapsed ? 'h-[112px]' : 'h-[50%]',
         'desktop:inset-x-auto desktop:bottom-[26px] desktop:right-[26px] desktop:top-[84px] desktop:h-auto desktop:max-h-none desktop:w-[320px] desktop:rounded-lg',
       )}

@@ -62,7 +62,16 @@ export default defineConfig({
         // HEIC 디코더 청크(3MB)는 프리캐시에서 뺀다. 넣으면 앱을 설치하기만 해도 초기
         // 다운로드가 몇 배로 뛰는데, 정작 HEIC 를 올리는 순간에만 필요한 코드다.
         // (워크박스 기본 크기 제한에도 걸려 어차피 빠지지만, 그러면 빌드마다 경고만 남는다.)
-        globIgnores: ['**/heic-*.js'],
+        // 첫 방문에는 앱 셸과 랜딩만 캐시한다. 로그인 뒤에만 쓰는 우주뷰·지도·사진 변환
+        // 청크는 각 화면에 들어갈 때 내려받아 모바일 랜딩의 초기 네트워크 경쟁을 막는다.
+        globPatterns: [
+          'index.html',
+          'registerSW.js',
+          'manifest.webmanifest',
+          'icons/*.png',
+          'assets/index-*.{js,css}',
+          'assets/LandingPage-*.{js,css}',
+        ],
       },
       manifest: {
         name: '우주인 — 올인원 AI 스크랩북',
@@ -105,6 +114,18 @@ export default defineConfig({
       output: {
         // 무거운 라이브러리를 별도 청크로 분리한다.
         // (1) 성좌·지도에 들어가야만 받아지고 (2) 잘 안 바뀌어 브라우저 캐시가 오래 유지된다.
+        //
+        // 🔴 HEIC 3종(heic-to·exifr·piexifjs)은 **여기 넣지 말 것.**
+        //    `heic: ['heic-to', 'exifr', 'piexifjs']` 로 묶었더니 롤업이 그 청크를 엔트리의
+        //    **정적** 의존으로 끌어올려, 빌드된 index.html 에
+        //    `<link rel="modulepreload" href="/assets/heic-*.js">` 가 박히고 엔트리 코드에도
+        //    `import{...}from"./heic-*.js"` 가 생겼다. 소스가 전부 동적 import 여도 소용없고
+        //    서비스워커 globIgnores 로도 못 막는다(프리캐시가 아니라 HTML preload 라서).
+        //    결과: HEIC 를 쓸 일 없는 로그인 화면부터 3MB 를 받았다.
+        //    실측(2026-08-04, dev): 로그인 전송량 6.1MB · 모바일 FCP 20초 · LCP 21.5초.
+        //    빼고 나서 초기 로드 3,562KB → 537KB. 롤업이 동적 import 지점을 보고 알아서
+        //    쪼개게 두면 된다(heic-to·exifr·piexifjs 가 각각 지연 청크가 된다).
+        //    three·maplibre 는 lazy 라우트 안에서만 쓰여 이 문제가 없다.
         manualChunks: {
           three: ['three'],
           maplibre: ['maplibre-gl'],
@@ -112,14 +133,22 @@ export default defineConfig({
           // 연달아 쓰이므로 한 청크로 묶어 요청을 한 번에 끝낸다. 전부 동적 import 라 초기
           // 번들엔 안 들어가고, 사진 탭에서 HEIC 를 고른 사용자만 받는다. 이름을 고정해 두는
           // 건 아래 injectManifest.globIgnores 가 이 청크를 지목할 수 있게 하려는 것이다.
-          heic: ['heic-to', 'exifr', 'piexifjs'],
         },
       },
     },
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:8080',
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        // 브라우저의 localhost:517x Origin을 그대로 넘기면 Spring CORS가 프록시 요청도
+        // 교차 출처 요청으로 판단한다. 브라우저 입장에서는 Vite와 같은 출처로 요청하므로
+        // 개발 프록시가 Origin을 제거하고 백엔드에는 일반 서버 간 요청으로 전달한다.
+        configure(proxy) {
+          proxy.on('proxyReq', (proxyReq) => proxyReq.removeHeader('origin'));
+        },
+      },
     },
   },
 });

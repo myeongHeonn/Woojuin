@@ -71,11 +71,18 @@ export function useWorkspaceEvents(workspaceId: number) {
 
     // 같은 종류 신호가 몰려오면 무효화를 한 번으로 합친다(INVALIDATE_DEBOUNCE_MS 참고)
     const pendingTypes = new Set<WorkspaceEventType>();
+    // member 신호 중 가입/탈퇴/추방(memberAction 있음)일 때만 활동 피드도 갱신한다.
+    // 역할 변경(memberAction 없음)은 멤버 목록만 바뀌지 피드에는 안 남으므로 제외한다.
+    let pendingMemberActivity = false;
     let flushTimer: ReturnType<typeof setTimeout> | undefined;
     const flush = () => {
       flushTimer = undefined;
       pendingTypes.forEach((type) => invalidate(queryClient, type));
       pendingTypes.clear();
+      if (pendingMemberActivity) {
+        queryClient.invalidateQueries({ queryKey: ['member-activities', workspaceId] });
+        pendingMemberActivity = false;
+      }
     };
     const scheduleInvalidate = (type: WorkspaceEventType) => {
       pendingTypes.add(type);
@@ -111,8 +118,20 @@ export function useWorkspaceEvents(workspaceId: number) {
 
       onmessage(event) {
         // 연결 확인용(connected)은 무시하고 실제 변경 신호만 처리한다
-        if (event.event in INVALIDATION_TARGETS) {
-          scheduleInvalidate(event.event as WorkspaceEventType);
+        if (!(event.event in INVALIDATION_TARGETS)) return;
+        scheduleInvalidate(event.event as WorkspaceEventType);
+
+        if (event.event === 'member') {
+          // 서버는 신호만 보내지만, member 신호에 한해 가입/탈퇴/추방 구분(memberAction)을
+          // 함께 싣는다(백엔드 WorkspaceEvent 참고) — 역할 변경과 구분하는 용도로만 읽는다.
+          try {
+            const payload = JSON.parse(event.data) as { memberAction?: string | null };
+            if (payload.memberAction) {
+              pendingMemberActivity = true;
+            }
+          } catch {
+            // 데이터가 없거나 파싱 실패 — 멤버 목록 무효화는 이미 예약됐으니 활동 피드만 건너뛴다
+          }
         }
       },
 

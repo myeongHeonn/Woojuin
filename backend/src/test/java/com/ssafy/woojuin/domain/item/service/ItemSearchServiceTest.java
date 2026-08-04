@@ -275,14 +275,79 @@ class ItemSearchServiceTest {
 
     @Test
     void 토큰_개수는_상한을_넘지_않는다() {
-        assertThat(ItemSearchService.toLikePatterns("가 나 다 라 마 바 사")).hasSize(5);
+        assertThat(ItemSearchService.tokenize("가 나 다 라 마 바 사")).hasSize(5);
     }
 
     @Test
     void 지나치게_긴_검색어는_잘라서_쓴다() {
-        List<String> patterns = ItemSearchService.toLikePatterns("가".repeat(500));
+        assertThat(ItemSearchService.tokenize("가".repeat(500)))
+                .containsExactly("가".repeat(200));
+    }
 
-        assertThat(patterns).containsExactly("%" + "가".repeat(200) + "%");
+    /** "짱구 사진"의 "사진"은 찾는 대상이 아니라 형식이다 — 매칭 조건에 남으면 폴백에서 노이즈가 된다. */
+    @Test
+    void 형식_단어는_내용_단어가_남으면_버린다() {
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("짱구", "사진"))).containsExactly("짱구");
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("을지로", "카페", "링크")))
+                .containsExactly("을지로", "카페");
+    }
+
+    /** 조사가 붙은 채로 들어와도 형식 단어를 알아본다. */
+    @Test
+    void 조사가_붙은_형식_단어도_버린다() {
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("짱구", "사진을"))).containsExactly("짱구");
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("짱구", "스크린샷들"))).containsExactly("짱구");
+    }
+
+    /** "사진"만 친 사용자는 사진 아이템을 훑고 싶은 것이다 — 빈 검색어로 만들면 안 된다. */
+    @Test
+    void 전부_형식_단어면_그대로_둔다() {
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("사진"))).containsExactly("사진");
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("사진", "이미지")))
+                .containsExactly("사진", "이미지");
+    }
+
+    /** 형식 단어로 끝나는 내용 단어("한글"의 "글")를 잘못 자르면 안 된다 — 조사를 뗀 나머지가 형식 단어일 때만 버린다. */
+    @Test
+    void 형식_단어를_품은_내용_단어는_버리지_않는다() {
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("한글", "포스터", "구이")))
+                .containsExactly("한글", "포스터", "구이");
+    }
+
+    /** 1단계(원문 ALL)가 0건이면 형식 단어를 빼고 다시 ALL — "사진" 노이즈가 ANY로 새지 않는다. */
+    @Test
+    void ALL이_0건이면_형식_단어를_빼고_다시_ALL로_찾는다() {
+        when(itemSearchRepository.search(eq(1L), eq(List.of("%짱구%", "%사진%")), eq(MatchMode.ALL),
+                any(Pageable.class))).thenReturn(emptyPage());
+        when(itemSearchRepository.search(eq(1L), eq(List.of("%짱구%")), eq(MatchMode.ALL),
+                any(Pageable.class))).thenReturn(pageOf(7L));
+
+        ItemSearchResponse response = itemSearchService.search(1L, 1L, "짱구 사진", 0, 20);
+
+        assertThat(response.content().get(0).itemId()).isEqualTo(7L);
+        assertThat(response.partialMatch()).isFalse();   // 내용 단어는 전부 일치했다
+        verify(itemSearchRepository, never()).search(any(), anyList(), eq(MatchMode.ANY), any(Pageable.class));
+    }
+
+    /** 의미 검색 폴백의 임베딩도 형식 단어를 뺀 문구로 — "사진"이 벡터를 끌고 가면 안 된다. */
+    @Test
+    void 의미_검색에는_형식_단어를_뺀_검색어를_쓴다() {
+        when(itemSearchRepository.search(any(), anyList(), any(), any(Pageable.class))).thenReturn(emptyPage());
+
+        itemSearchService.search(1L, 1L, "짱구 사진", 0, 20);
+
+        verify(itemSemanticSearchService).search(eq(1L), eq("짱구"), any(Pageable.class));
+    }
+
+    /** 보충 검색의 임베딩도 마찬가지다. */
+    @Test
+    void 보충_검색에도_형식_단어를_뺀_검색어를_쓴다() {
+        when(itemSearchRepository.search(eq(1L), anyList(), eq(MatchMode.ALL), any(Pageable.class)))
+                .thenReturn(pageOf(7L));
+
+        itemSearchService.search(1L, 1L, "짱구 사진", 0, 20);
+
+        verify(itemSemanticSearchService).supplement(eq(1L), eq("짱구"), eq(List.of(7L)), eq(19), eq(0));
     }
 
     @Test

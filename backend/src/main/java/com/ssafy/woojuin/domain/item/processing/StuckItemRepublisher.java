@@ -63,8 +63,10 @@ public class StuckItemRepublisher {
             stuck = itemRepository.findByStatusAndCreatedAtBeforeOrderByCreatedAtAsc(
                     ItemStatus.PROCESSING, cutoff, Limit.of(batchSize));
         } catch (Exception e) {
-            // DB 일시 장애 — 다음 주기에 다시 시도한다.
-            log.debug("재발행 대상 조회 실패, 다음 주기 재시도: {}", e.toString());
+            // 다음 주기에 다시 시도한다. DEBUG가 아니라 WARN + 스택트레이스인 이유:
+            // 이 조회 실패는 대부분 DB 이상(커넥션 고갈·다운) 신호인데, 07-31 사고 때
+            // 스케줄러 쪽 실패가 로그에 전혀 안 남아 원인 추적이 막혔다.
+            log.warn("재발행 대상 조회 실패, 다음 주기 재시도", e);
             return;
         }
         if (stuck.isEmpty()) {

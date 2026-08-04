@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SideBar from '@/components/domain/nav/SideBar';
 import { getSidebarExpandedSize } from '@/constants/breakpoints';
 import type { Workspace } from '@/services/workspaces';
-import type { UserProfile } from '@/services/auth';
+import type { AiUsage, UserProfile } from '@/services/auth';
 
 const PROFILE: UserProfile = {
   id: 1,
@@ -31,6 +31,16 @@ const WORKSPACES: Workspace[] = [
   { id: 3, name: '팀 프로젝트', type: 'TEAM', role: 'MEMBER' },
 ];
 
+const AI_USAGE: AiUsage = {
+  period: '2026-08',
+  used: 2,
+  limit: 500,
+  remaining: 498,
+  unlimited: false,
+  limitEnabled: true,
+  resetAt: '2026-09-01T00:00:00+09:00',
+};
+
 /**
  * useUser·useSpaces 가 서버 상태(useQuery)를 쓰므로 QueryClientProvider 가 필요하다.
  *
@@ -44,6 +54,7 @@ const renderSideBar = (path = '/workspace/1') => {
   });
   queryClient.setQueryData(['workspaces'], WORKSPACES);
   queryClient.setQueryData(['user', 'me'], PROFILE);
+  queryClient.setQueryData(['user', 'me', 'ai-usage'], AI_USAGE);
 
   return render(
     <QueryClientProvider client={queryClient}>
@@ -169,6 +180,22 @@ describe('SideBar (통합)', () => {
   });
 
   describe('사용자 프로필 이동', () => {
+    it('펼친 사이드바에 AI 사용량과 차감 안내를 표시한다', async () => {
+      const { container } = await renderSideBar();
+      const text = aside(container).textContent ?? '';
+
+      expect(text).toContain('이번 달 AI 사용량');
+      expect(text).toContain('2 / 500회');
+      expect(text).toContain('아이템을 저장할 때마다 AI 사용량이 1회 차감돼요.');
+    });
+
+    it('접힌 사이드바에서는 AI 사용량을 숨긴다', async () => {
+      const { container } = await renderSideBar();
+      await userEvent.click(toggleBtn(container));
+
+      expect(aside(container).textContent).not.toContain('이번 달 AI 사용량');
+    });
+
     it('사용자 영역은 마이페이지 링크다', async () => {
       const { container } = await renderSideBar();
       const myPageLink = container.querySelector(

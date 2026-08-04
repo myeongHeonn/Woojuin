@@ -87,7 +87,10 @@ const LoginForm = () => {
 
       <p className="text-center text-sm text-text-3">
         계정이 없으신가요?{' '}
-        <Link to="/signup" className="font-semibold text-accent hover:text-accent-hover">
+        {/* replace — 로그인·가입은 서로 오가는 관문이라 히스토리에 쌓을 이유가 없고, 남으면
+            로그인 뒤 뒤로가기가 GuestOnly 에 되돌려져 "눌러도 아무 일이 없는" 상태가 된다.
+            돌아올 길은 반대쪽 화면의 같은 링크가 맡는다. */}
+        <Link to="/signup" replace className="font-semibold text-accent hover:text-accent-hover">
           회원가입
         </Link>
       </p>

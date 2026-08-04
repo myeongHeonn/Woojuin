@@ -1,14 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAtomValue, useSetAtom } from 'jotai';
 import UniverseCanvas from '@/components/domain/universe/UniverseCanvas';
 import ConstellationSearch from '@/components/domain/search/ConstellationSearch';
+import ProcessingBadge from '@/components/domain/stage/ProcessingBadge';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
 import Spinner from '@/components/ui/Spinner';
 import { useStageMeta } from '@/hooks/useStageMeta';
-import { processingPollInterval, useItems } from '@/hooks/useItems';
+import { processingPollInterval, processingItemCount, useItems } from '@/hooks/useItems';
 import { useCategories } from '@/hooks/useCategories';
 import { universeKey, useUniverse } from '@/hooks/useUniverse';
+import { tutorialActiveAtom, tutorialFixtureVisibleAtom } from '@/stores/tutorialAtoms';
+import {
+  isUniverseEmpty,
+  tutorialUniverseFixture,
+} from '@/components/domain/tutorial/tutorialUniverseFixture';
 
 /**
  * 성좌 뷰.
@@ -21,6 +28,8 @@ const UniversePage = () => {
   const workspaceId = Number(workspaceIdParam);
   const queryClient = useQueryClient();
   const [openItemId, setOpenItemId] = useState<number | null>(null);
+  const isTutorialActive = useAtomValue(tutorialActiveAtom);
+  const setTutorialFixtureVisible = useSetAtom(tutorialFixtureVisibleAtom);
   const [highlightItemIds, setHighlightItemIds] = useState<number[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
 
@@ -28,6 +37,7 @@ const UniversePage = () => {
   const { data: itemsData } = useItems({ workspaceId, size: 20 });
   const { data: categories = [], isSuccess: categoriesLoaded } = useCategories(workspaceId);
   const universePollInterval = processingPollInterval(itemsData?.pages);
+  const processingCount = processingItemCount(itemsData?.pages);
   const {
     data: universe,
     isLoading: isUniverseLoading,
@@ -52,17 +62,25 @@ const UniversePage = () => {
       : undefined,
   );
 
+  const showTutorialFixture = Boolean(isTutorialActive && universe && isUniverseEmpty(universe));
+  const displayedUniverse = showTutorialFixture ? tutorialUniverseFixture : universe;
+
+  useEffect(() => {
+    setTutorialFixtureVisible(showTutorialFixture);
+    return () => setTutorialFixtureVisible(false);
+  }, [setTutorialFixtureVisible, showTutorialFixture]);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-space">
-      {universe && (
+      {displayedUniverse && (
         <UniverseCanvas
-          data={universe}
+          data={displayedUniverse}
           highlightItemIds={highlightItemIds}
           activeCategoryId={activeCategoryId}
           onSelectConstellation={(catId) =>
             setActiveCategoryId((prev) => (prev === catId ? null : catId))
           }
-          onOpenItem={setOpenItemId}
+          onOpenItem={showTutorialFixture ? undefined : setOpenItemId}
         />
       )}
 
@@ -87,7 +105,10 @@ const UniversePage = () => {
         </div>
       )}
 
-      <ConstellationSearch onSearchResults={setHighlightItemIds} />
+      <ConstellationSearch
+        onSearchResults={setHighlightItemIds}
+        aboveBar={<ProcessingBadge count={processingCount} label="별 만드는 중" />}
+      />
       <ItemModal
         workspaceId={workspaceId}
         itemId={openItemId}

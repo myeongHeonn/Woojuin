@@ -51,11 +51,20 @@ export interface SceneCallbacks {
   onDeselect: () => void;
 }
 
+/** 카메라 회전·거리 스냅샷 — 씬을 다시 만들 때 이전 시점을 이어받는 데 쓴다 */
+export interface CameraState {
+  rotX: number;
+  rotY: number;
+  camZ: number;
+}
+
 export interface UniverseScene {
   focusOn: (categoryId: number) => void;
   setHighlightedItems: (itemIds: number[]) => void;
   setActiveCategory: (categoryId: number | null) => void;
   setPointerOverTooltip: (over: boolean) => void;
+  /** 지금 카메라 시점 — 씬을 다시 만들기 직전에 불러 다음 씬에 이어준다 */
+  getCameraState: () => CameraState;
   dispose: () => void;
 }
 
@@ -101,6 +110,12 @@ export function createUniverseScene(
   canvas: HTMLCanvasElement,
   callbacks: SceneCallbacks,
   data: UniverseResponse,
+  /**
+   * 이전 씬의 시점(getCameraState) — 있으면 기본 각도 대신 여기서 이어 그린다.
+   * 아이템이 추가돼 데이터가 바뀌어 씬이 통째로 다시 만들어질 때, 보고 있던 방향이
+   * 원점으로 튕기지 않게 한다(SSE 로 우주 데이터가 갱신되는 빈도가 늘면서 더 자주 겪는 문제).
+   */
+  initialCamera?: CameraState,
 ): UniverseScene {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setClearColor(0x000000, 0);
@@ -110,7 +125,7 @@ export function createUniverseScene(
   /** 카메라 거리 범위 — 휠·핀치 줌이 공유한다 */
   const CAM_MIN = 30;
   const CAM_MAX = 120;
-  let camZ = 62;
+  let camZ = initialCamera?.camZ ?? 62;
   camera.position.set(0, 0, camZ);
 
   const universe = new THREE.Group();
@@ -320,8 +335,8 @@ export function createUniverseScene(
   });
 
   /* ── 상호작용 ────────────────────────────────────── */
-  const rot = { x: -0.15, y: 0.2 };
-  const targetRot = { x: -0.15, y: 0.2 };
+  const rot = { x: initialCamera?.rotX ?? -0.15, y: initialCamera?.rotY ?? 0.2 };
+  const targetRot = { ...rot };
   let dragging = false;
   let moved = false;
   let last = { x: 0, y: 0 };
@@ -602,6 +617,9 @@ export function createUniverseScene(
     },
     setPointerOverTooltip(over) {
       overTooltip = over;
+    },
+    getCameraState() {
+      return { rotX: rot.x, rotY: rot.y, camZ };
     },
     dispose() {
       cancelAnimationFrame(raf);

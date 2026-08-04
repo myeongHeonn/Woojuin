@@ -7,6 +7,8 @@ import com.ssafy.woojuin.domain.workspace.dto.WorkspaceResponse;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceInvitation;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivity;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivityType;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
@@ -18,10 +20,11 @@ import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceBanRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceInvitationRepository;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberActivityRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
-import com.ssafy.woojuin.global.sse.WorkspaceEventType;
+import com.ssafy.woojuin.global.sse.WorkspaceMemberAction;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +47,7 @@ public class WorkspaceInvitationService {
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final WorkspaceInvitationRepository workspaceInvitationRepository;
     private final WorkspaceBanRepository workspaceBanRepository;
+    private final WorkspaceMemberActivityRepository workspaceMemberActivityRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -51,11 +55,13 @@ public class WorkspaceInvitationService {
                                        WorkspaceMemberRepository workspaceMemberRepository,
                                        WorkspaceInvitationRepository workspaceInvitationRepository,
                                        WorkspaceBanRepository workspaceBanRepository,
+                                       WorkspaceMemberActivityRepository workspaceMemberActivityRepository,
                                        UserRepository userRepository, ApplicationEventPublisher eventPublisher) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.workspaceInvitationRepository = workspaceInvitationRepository;
         this.workspaceBanRepository = workspaceBanRepository;
+        this.workspaceMemberActivityRepository = workspaceMemberActivityRepository;
         this.userRepository = userRepository;
         this.eventPublisher = eventPublisher;
     }
@@ -85,6 +91,10 @@ public class WorkspaceInvitationService {
         return WorkspaceInvitationResponse.of(findValidInvitation(code));
     }
 
+    /**
+     * 활동 이력 저장은 멤버십 생성과 같은 트랜잭션 안에서 실행된다 — 저장에 실패하면
+     * 예외를 여기서 잡지 않고 그대로 전파해 멤버십 생성까지 함께 롤백되도록 한다.
+     */
     @Transactional
     public WorkspaceResponse accept(String code, Long userId) {
         WorkspaceInvitation invitation = findValidInvitation(code);
@@ -101,7 +111,9 @@ public class WorkspaceInvitationService {
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
         workspaceMemberRepository.save(
                 WorkspaceMember.builder().workspace(workspace).user(joiner).role(WorkspaceRole.MEMBER).build());
-        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspace.getId(), WorkspaceEventType.MEMBER));
+        workspaceMemberActivityRepository.save(WorkspaceMemberActivity.builder()
+                .workspace(workspace).user(joiner).type(WorkspaceMemberActivityType.JOINED).build());
+        eventPublisher.publishEvent(WorkspaceChangedEvent.ofMemberAction(workspace.getId(), WorkspaceMemberAction.JOINED));
 
         return WorkspaceResponse.of(workspace, WorkspaceRole.MEMBER);
     }
