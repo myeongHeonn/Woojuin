@@ -8,12 +8,17 @@ package com.ssafy.woojuin.global.sse;
  * 알리고, 실제 조회는 클라이언트가 평소 쓰던 REST로 다시 하게 둔다
  * (react-query invalidateQueries → 자동 refetch).
  *
- * @param type        무엇이 바뀌었는지 — 클라이언트는 이걸로 무효화할 캐시를 고른다
- * @param workspaceId 어느 워크스페이스인지
+ * @param type         무엇이 바뀌었는지 — 클라이언트는 이걸로 무효화할 캐시를 고른다
+ * @param workspaceId  어느 워크스페이스인지
+ * @param memberAction type이 MEMBER일 때만 값이 있다 — 가입/탈퇴/추방 구분(역할 변경은 null)
  */
-public record WorkspaceEvent(WorkspaceEventType type, Long workspaceId) {
+public record WorkspaceEvent(WorkspaceEventType type, Long workspaceId, WorkspaceMemberAction memberAction) {
 
     public static WorkspaceEvent of(WorkspaceEventType type, Long workspaceId) {
-        return new WorkspaceEvent(type, workspaceId);
+        return new WorkspaceEvent(type, workspaceId, null);
+    }
+
+    public static WorkspaceEvent of(WorkspaceEventType type, Long workspaceId, WorkspaceMemberAction memberAction) {
+        return new WorkspaceEvent(type, workspaceId, memberAction);
     }
 }
