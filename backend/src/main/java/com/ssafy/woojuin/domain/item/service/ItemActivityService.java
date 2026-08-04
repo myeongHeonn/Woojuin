@@ -21,6 +21,6 @@ public class ItemActivityService {
 
     @Transactional(readOnly = true)
     public boolean hasActivitySince(Long workspaceId, OffsetDateTime since) {
-        return false;
+        return itemRepository.existsByWorkspaceIdAndUpdatedAtAfter(workspaceId, since);
     }
 }
