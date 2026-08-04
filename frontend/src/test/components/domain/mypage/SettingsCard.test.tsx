@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { userEvent } from 'vitest/browser';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SettingsCard from '@/components/domain/mypage/SettingsCard';
 import type { AiUsage } from '@/services/auth';
 
@@ -15,18 +16,24 @@ const limitedUsage: AiUsage = {
   resetAt: '2026-08-01T00:00:00+09:00',
 };
 
-const renderSettingsCard = (aiUsage: AiUsage) =>
-  render(
-    <MemoryRouter>
-      <SettingsCard
-        notificationEnabled
-        onNotificationToggle={vi.fn()}
-        aiUsage={aiUsage}
-        aiUsageLoading={false}
-        aiUsageError={false}
-      />
-    </MemoryRouter>,
+// QueryClientProvider 가 필요한 이유: 카드 안의 ChatIntegrationCard 가 useMutation(연동
+// 코드 발급)을 쓴다 — 없으면 "No QueryClient set" 으로 렌더 자체가 죽는다
+const renderSettingsCard = (aiUsage: AiUsage) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <SettingsCard
+          notificationEnabled
+          onNotificationToggle={vi.fn()}
+          aiUsage={aiUsage}
+          aiUsageLoading={false}
+          aiUsageError={false}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
+};
 
 describe('마이페이지 설정 카드', () => {
   it('이번 달 AI 사용량과 AI 생성 안내를 표시한다', async () => {
