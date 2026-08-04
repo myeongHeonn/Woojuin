@@ -17,6 +17,10 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
  *
  * 같은 403이라도 초대 링크 없이 남의 워크스페이스 URL로 바로 들어온 경우엔 "추방"이
  * 아니라 "권한 없음"으로 안내한다(구분 로직은 useWorkspaceEvictionGuard 참고).
+ *
+ * 이름 노출은 추방 모달에만 한다 — 추방된 사람은 원래 멤버였으니 자기가 어디서
+ * 쫓겨났는지 아는 게 자연스럽지만, 권한 없음(애초에 멤버였던 적 없음)은 멤버가 아닌
+ * 사람에게 그 워크스페이스가 뭔지 알려주는 셈이라 이름을 보여주지 않는다.
  */
 const WorkspaceLayout = () => {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -25,17 +29,17 @@ const WorkspaceLayout = () => {
 
   useWorkspaceEvents(id);
   const { evicted, accessDenied } = useWorkspaceEvictionGuard(id);
-  // 멤버가 아니어서 뜨는 모달이니 이름은 별도(멤버십 무관) 미리보기 API로 가져온다.
+  // 추방 모달에만 쓰므로 evicted일 때만 조회한다(accessDenied면 아예 호출하지 않는다).
   // 로딩 중이라 아직 이름이 없으면 워크스페이스라는 일반 표현으로 대체한다.
-  const { data: preview } = useWorkspacePreview(id, evicted || accessDenied);
-  const workspaceLabel = preview?.name ? `'${preview.name}'` : '워크스페이스';
+  const { data: preview } = useWorkspacePreview(id, evicted);
+  const evictedWorkspaceLabel = preview?.name ? `'${preview.name}'` : '워크스페이스';
 
   return (
     <>
       <Outlet />
       <ConfirmModal
         open={evicted}
-        title={`${workspaceLabel}에서 추방되었어요`}
+        title={`${evictedWorkspaceLabel}에서 추방되었어요`}
         description="이 워크스페이스에 더 이상 접근할 수 없어요."
         confirmLabel="확인"
         showCancel={false}
@@ -44,7 +48,7 @@ const WorkspaceLayout = () => {
       />
       <ConfirmModal
         open={accessDenied}
-        title={`${workspaceLabel}에 접근 권한이 없어요`}
+        title="접근 권한이 없어요"
         description="이 워크스페이스에 접근할 권한이 없어요."
         confirmLabel="확인"
         showCancel={false}

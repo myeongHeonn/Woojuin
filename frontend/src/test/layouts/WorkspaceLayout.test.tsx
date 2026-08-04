@@ -19,10 +19,12 @@ vi.mock('@/hooks/useWorkspaceEvictionGuard', () => ({
 }));
 
 let mockPreviewName: string | undefined = '우리팀';
+const mockUseWorkspacePreview = vi.fn((_workspaceId: number, enabled: boolean) => ({
+  data: enabled && mockPreviewName ? { id: 10, name: mockPreviewName } : undefined,
+}));
 vi.mock('@/hooks/useWorkspaces', () => ({
-  useWorkspacePreview: () => ({
-    data: mockPreviewName ? { id: 10, name: mockPreviewName } : undefined,
-  }),
+  useWorkspacePreview: (workspaceId: number, enabled: boolean) =>
+    mockUseWorkspacePreview(workspaceId, enabled),
 }));
 
 const renderLayout = () =>
@@ -92,15 +94,28 @@ describe('WorkspaceLayout — 추방 감지', () => {
 });
 
 describe('WorkspaceLayout — 접근 권한 없음 감지', () => {
-  it('초대 없이 남의 워크스페이스 URL로 바로 들어오면 권한 없음 모달을 보여준다(추방 문구 아님)', async () => {
+  it('초대 없이 남의 워크스페이스 URL로 바로 들어오면 권한 없음 모달을 보여준다(추방 문구도 이름도 없음)', async () => {
     mockEvicted = false;
     mockAccessDenied = true;
+    mockUseWorkspacePreview.mockClear();
 
     const screen = await renderLayout();
 
     await expect.element(screen.getByRole('alertdialog')).toBeInTheDocument();
-    await expect.element(screen.getByText("'우리팀'에 접근 권한이 없어요")).toBeInTheDocument();
+    await expect.element(screen.getByText('접근 권한이 없어요')).toBeInTheDocument();
     expect(screen.getByText(/추방/).elements()).toHaveLength(0);
+    expect(screen.getByText(/우리팀/).elements()).toHaveLength(0);
+  });
+
+  it('애초에 멤버였던 적 없는 워크스페이스의 이름은 조회하지 않는다(정보 노출 방지)', async () => {
+    mockEvicted = false;
+    mockAccessDenied = true;
+    mockUseWorkspacePreview.mockClear();
+
+    await renderLayout();
+
+    // enabled=evicted로 호출되므로, evicted가 false인 이상 훅 내부에서 실제 조회는 비활성 상태다
+    expect(mockUseWorkspacePreview).toHaveBeenCalledWith(10, false);
   });
 
   it('확인 버튼을 누르면 /home으로 이동한다', async () => {
