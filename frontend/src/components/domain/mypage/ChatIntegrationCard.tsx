@@ -21,11 +21,11 @@ const ChatIntegrationCard = ({ onError }: ChatIntegrationCardProps) => {
 
   return (
     <>
-      {/* 연결된 앱 카드의 한 행 — 상자는 부모(ConnectedAppsCard)가 친다 */}
+      {/* 연결된 앱 섹션의 한 행 — 상자 없이 호버 필로만 눌림을 알린다 */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center px-5 py-[15px] text-left hover:bg-surface-2"
+        className="flex w-full items-center rounded-[10px] px-2 py-3 text-left hover:bg-surface-2"
       >
         <span className="flex-1 text-sm font-semibold text-text-1">채팅 앱 연동</span>
         <span aria-hidden="true" className="text-lg leading-none text-text-3">

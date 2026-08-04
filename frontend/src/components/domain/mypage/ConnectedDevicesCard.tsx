@@ -69,24 +69,27 @@ const ConnectedDevicesCard = ({ onSessionEnded, onError }: ConnectedDevicesCardP
   const busy = revokeOneMutation.isPending || revokeAllMutation.isPending;
 
   return (
-    <section
-      aria-labelledby="connected-devices-title"
-      className="mb-4 rounded-[20px] border border-border-soft bg-surface px-5 py-[18px]"
-    >
-      <h2 id="connected-devices-title" className="text-xs font-bold tracking-[0.1em] text-text-3">
+    // 상자 없는 섹션 — 라벨 + 헤어라인 리스트, 구획은 여백이 만든다
+    <section aria-labelledby="connected-devices-title" className="mb-10">
+      <h2
+        id="connected-devices-title"
+        className="px-2 text-xs font-bold tracking-[0.1em] text-text-3"
+      >
         연결된 기기
       </h2>
 
-      {isPending && <p className="mt-3 text-[13px] text-text-3">기기 목록을 불러오는 중입니다…</p>}
+      {isPending && (
+        <p className="mt-3 px-2 text-[13px] text-text-3">기기 목록을 불러오는 중입니다…</p>
+      )}
 
       {/* 통신이 안 될 때 빈 목록으로 보여주면 사용자가 "기기가 없다"고 오판한다 — 오류임을 밝히고 재시도를 준다 */}
       {isError && (
-        <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="mt-3 flex items-center justify-between gap-3 px-2">
           <p className="text-[13px] text-text-2">기기 목록을 불러오지 못했습니다.</p>
           <button
             type="button"
             onClick={() => refetch()}
-            className="shrink-0 rounded-lg border border-border-soft px-3 py-1.5 text-xs font-bold text-text-1 hover:bg-surface-2"
+            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold text-accent hover:bg-surface-2"
           >
             다시 시도
           </button>
@@ -95,11 +98,11 @@ const ConnectedDevicesCard = ({ onSessionEnded, onError }: ConnectedDevicesCardP
 
       {sessions && (
         <>
-          <ul className="mt-2">
+          <ul className="mt-1">
             {sessions.map((session) => (
               <li
                 key={session.sessionId}
-                className="flex items-center gap-3 border-b border-border-soft py-3 last:border-b-0"
+                className="flex items-center gap-3 border-b border-border-soft px-2 py-3.5 last:border-b-0"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -120,7 +123,7 @@ const ConnectedDevicesCard = ({ onSessionEnded, onError }: ConnectedDevicesCardP
                   type="button"
                   disabled={busy}
                   onClick={() => setPending({ kind: 'one', session })}
-                  className="shrink-0 rounded-lg border border-border-soft px-3 py-1.5 text-xs font-bold text-text-2 hover:bg-surface-2 disabled:opacity-50"
+                  className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-bold text-text-3 hover:bg-surface-2 hover:text-text-1 disabled:opacity-50"
                 >
                   로그아웃
                 </button>
@@ -128,11 +131,12 @@ const ConnectedDevicesCard = ({ onSessionEnded, onError }: ConnectedDevicesCardP
             ))}
           </ul>
 
+          {/* 위험 동작은 테두리 통짜 버튼 대신 조용한 텍스트 액션 — 색이 무게를 다 말한다 */}
           <button
             type="button"
             disabled={busy}
             onClick={() => setPending({ kind: 'all' })}
-            className="mt-3 w-full rounded-lg border border-[#B3423F]/40 px-4 py-2.5 text-[13px] font-bold text-[#C74E4B] hover:bg-[#B3423F]/10 disabled:opacity-50"
+            className="mt-2 rounded-lg px-2 py-2 text-[13px] font-bold text-[#C74E4B] hover:bg-[#B3423F]/10 disabled:opacity-50"
           >
             모든 기기에서 로그아웃
           </button>

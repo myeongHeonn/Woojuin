@@ -50,25 +50,23 @@ const ConnectedAppsCard = ({ onError }: ConnectedAppsCardProps) => {
   });
 
   return (
-    <section
-      aria-labelledby="connected-apps-title"
-      className="mb-4 overflow-hidden rounded-[20px] border border-border-soft bg-surface pt-[18px]"
-    >
-      <h2 id="connected-apps-title" className="px-5 text-xs font-bold tracking-[0.1em] text-text-3">
+    // 상자 없는 섹션 — 기기 목록과 같은 문법(라벨 + 헤어라인 리스트)
+    <section aria-labelledby="connected-apps-title" className="mb-10">
+      <h2 id="connected-apps-title" className="px-2 text-xs font-bold tracking-[0.1em] text-text-3">
         연결된 앱
       </h2>
 
       {isPending && (
-        <p className="mt-3 px-5 pb-4 text-[13px] text-text-3">연동 목록을 불러오는 중입니다…</p>
+        <p className="mt-3 px-2 text-[13px] text-text-3">연동 목록을 불러오는 중입니다…</p>
       )}
 
       {isError && (
-        <div className="mt-3 flex items-center justify-between gap-3 px-5 pb-4">
+        <div className="mt-3 flex items-center justify-between gap-3 px-2">
           <p className="text-[13px] text-text-2">연동 목록을 불러오지 못했습니다.</p>
           <button
             type="button"
             onClick={() => refetch()}
-            className="shrink-0 rounded-lg border border-border-soft px-3 py-1.5 text-xs font-bold text-text-1 hover:bg-surface-2"
+            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold text-accent hover:bg-surface-2"
           >
             다시 시도
           </button>
@@ -76,18 +74,18 @@ const ConnectedAppsCard = ({ onError }: ConnectedAppsCardProps) => {
       )}
 
       {connections && connections.length === 0 && (
-        <p className="mt-3 px-5 pb-4 text-[13px] leading-relaxed text-text-3">
+        <p className="mt-3 px-2 text-[13px] leading-relaxed text-text-3">
           연결된 채팅 앱이 없습니다. 아래에서 Mattermost·Discord를 연결하면 채팅에서 바로 저장할 수
           있습니다.
         </p>
       )}
 
       {connections && connections.length > 0 && (
-        <ul className="mt-2 px-5">
+        <ul className="mt-1">
           {connections.map((connection) => (
             <li
               key={connection.id}
-              className="flex items-center gap-3 border-b border-border-soft py-3 last:border-b-0"
+              className="flex items-center gap-3 border-b border-border-soft px-2 py-3.5 last:border-b-0"
             >
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-text-1">
@@ -102,7 +100,7 @@ const ConnectedAppsCard = ({ onError }: ConnectedAppsCardProps) => {
                 type="button"
                 disabled={disconnectMutation.isPending}
                 onClick={() => setPendingDisconnect(connection)}
-                className="shrink-0 rounded-lg border border-border-soft px-3 py-1.5 text-xs font-bold text-text-2 hover:bg-surface-2 disabled:opacity-50"
+                className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-bold text-text-3 hover:bg-surface-2 hover:text-text-1 disabled:opacity-50"
               >
                 연결 해제
               </button>
@@ -112,7 +110,7 @@ const ConnectedAppsCard = ({ onError }: ConnectedAppsCardProps) => {
       )}
 
       {/* 연결하는 길 — 링크 코드 발급·Discord 설치·연동 안내 모달이 이 안에 있다 */}
-      <div className="border-t border-border-soft">
+      <div className="mt-1">
         <ChatIntegrationCard
           onError={() => onError('연결 코드를 발급하지 못했습니다. 다시 시도해 주세요.')}
         />

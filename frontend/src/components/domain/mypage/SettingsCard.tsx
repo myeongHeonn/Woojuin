@@ -81,9 +81,9 @@ const SettingsCard = ({
           </div>
         </section>
       */}
-      {/* AI 사용량·튜토리얼·도움말을 상자 하나에 행으로 묶는다 — 상자 남발이 "블록" 인상을 만든다 */}
-      <section className="mb-4 overflow-hidden rounded-[20px] border border-border-soft bg-surface">
-        <div aria-labelledby="monthly-ai-usage-title" className="px-5 py-[18px]">
+      {/* 상자 없는 섹션 — 사용량 블록 + 행 두 개, 구획은 여백이 만든다 */}
+      <section className="mb-10">
+        <div aria-labelledby="monthly-ai-usage-title" className="px-2">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h2
@@ -128,21 +128,18 @@ const SettingsCard = ({
           )}
         </div>
 
-        <div className="border-t border-border-soft">
-          {/* 채팅 앱 연동은 "연결된 앱" 카드(ConnectedAppsCard)로 옮겼다 — 연동 목록·해제와 한곳 */}
+        <div className="mt-5">
+          {/* 채팅 앱 연동은 "연결된 앱" 섹션으로 옮겼다 — 연동 목록·해제와 한곳 */}
           <TutorialReplayCard
             personalSpaceId={personalSpaceId}
             sharedWorkspaceId={sharedWorkspaceId}
             loading={spacesLoading}
             onReplay={onTutorialReplay}
           />
-        </div>
-
-        <div className="border-t border-border-soft">
           <button
             type="button"
             onClick={() => setHelpOpen(true)}
-            className="flex w-full items-center px-5 py-[15px] text-left hover:bg-surface-2"
+            className="flex w-full items-center rounded-[10px] px-2 py-3 text-left hover:bg-surface-2"
           >
             <span className="flex-1 text-sm font-semibold text-text-1">도움말 및 고객센터</span>
             <span aria-hidden="true" className="text-lg leading-none text-text-3">

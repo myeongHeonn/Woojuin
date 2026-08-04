@@ -30,7 +30,7 @@ const AvatarColorPicker = ({ value, disabled, onChange }: AvatarColorPickerProps
 
   return (
     // 프로필 히어로에 붙는 꾸미기 영역 — 상자 없이 히어로의 일부로 읽히게 한다
-    <section className="mt-5 px-1">
+    <section className="mt-6 px-2">
       <h2 className="mb-3 text-xs font-bold tracking-[0.1em] text-text-3">우주인 색상</h2>
       <div className="flex flex-wrap items-center gap-4">
         <div role="radiogroup" aria-label="우주인 색상" className="flex flex-wrap gap-[11px]">

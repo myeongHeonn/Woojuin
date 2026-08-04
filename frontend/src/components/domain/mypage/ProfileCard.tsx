@@ -50,9 +50,9 @@ const ProfileCard = ({
   };
 
   return (
-    // 카드가 아니라 페이지의 머리(히어로)다 — 테두리 상자 없이 여백과 구분선만으로 나눈다
-    <div className="mb-6 border-b border-border-soft pb-6">
-      <section className="flex items-center gap-4 px-1 desktop:gap-[18px]">
+    // 카드가 아니라 페이지의 머리(히어로)다 — 구획은 상자가 아니라 여백이 만든다
+    <div className="mb-10">
+      <section className="flex items-center gap-4 px-2 desktop:gap-[18px]">
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full bg-surface-3">
           <img
             src={getSpacemanImage(avatarColor)}

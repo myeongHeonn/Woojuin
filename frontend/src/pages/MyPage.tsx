@@ -145,21 +145,18 @@ const MyPage = () => {
           onLogout={() => setConfirmKind('logout')}
         />
 
-        {/* 상자 세 개 대신 구분선 있는 스트립 하나 — 숫자가 나란히 읽힌다 */}
-        <section
-          aria-label="활동 통계"
-          className="mb-4 flex divide-x divide-border-soft rounded-[20px] border border-border-soft bg-surface py-4"
-        >
+        {/* 상자 없이 숫자만 나란히 — 위계는 타이포 크기가 만든다 */}
+        <section aria-label="활동 통계" className="mb-10 flex gap-10 px-2">
           {[
             [stats?.totalSaved, '전체 저장'],
             [stats?.workspaceCount, '워크스페이스'],
             [stats?.savedThisWeek, '이번 주 저장'],
           ].map(([value, label]) => (
-            <div key={String(label)} className="min-w-0 flex-1 px-4 text-center desktop:px-[18px]">
-              <div className="text-[22px] font-extrabold text-text-1">
+            <div key={String(label)} className="min-w-0">
+              <div className="text-2xl font-extrabold tabular-nums text-text-1">
                 {typeof value === 'number' ? value.toLocaleString('ko-KR') : '—'}
               </div>
-              <div className="mt-0.5 text-xs text-text-3">{label}</div>
+              <div className="mt-1 text-xs text-text-3">{label}</div>
             </div>
           ))}
         </section>
