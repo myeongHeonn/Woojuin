@@ -1,4 +1,5 @@
 import { TYPE_LABEL, type Item } from '@/types/item';
+import { StarIcon } from '@/assets/icons';
 import ItemSquare from './ItemSquare';
 
 interface ItemCardProps {
@@ -29,13 +30,17 @@ const ItemCard = ({ item, onClick }: ItemCardProps) => {
         <ItemSquare item={item} />
       </div>
 
-      <p className="mt-[7px] truncate text-[13px] font-semibold text-text-1">
-        {processing ? (
-          <span className="font-medium text-text-3">분석 중…</span>
-        ) : (
-          (item.title ?? '제목 없음')
-        )}
-      </p>
+      <div className="mt-[7px] flex items-center justify-center gap-1">
+        {/* 즐겨찾기면 제목 옆에 노란 별 — 상세 모달과 같은 표식으로 한눈에 구분된다 */}
+        {item.favorite && <StarIcon className="h-3 w-3 shrink-0 fill-current text-star-yellow" />}
+        <p className="min-w-0 truncate text-[13px] font-semibold text-text-1">
+          {processing ? (
+            <span className="font-medium text-text-3">분석 중…</span>
+          ) : (
+            (item.title ?? '제목 없음')
+          )}
+        </p>
+      </div>
       <p className="mt-px text-[11.5px] text-text-3">{TYPE_LABEL[item.type]}</p>
     </button>
   );

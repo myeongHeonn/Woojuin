@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
+import { LOGO_ORBIT_PATH, LOGO_SPARKLE_HOME } from '@/constants/logoGeometry';
 
 interface InteractiveLogoProps {
   /** 로고 한 변 (px) */
@@ -71,7 +72,7 @@ const InteractiveLogo = ({ size = 28, hovered = false, className }: InteractiveL
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // 궤도 위 좌표. HOME = 우상단 십자 광채의 정위치(스파클 원본 좌표와 일치해야 translate 0 이 홈이다)
-    const HOME_POINT = { x: 46.5, y: 16.5 };
+    const HOME_POINT = LOGO_SPARKLE_HOME;
     const INTRO_POINT = { x: 13.502, y: 42.6794 };
 
     const NORMAL_FILL_R = 15;
@@ -359,7 +360,7 @@ const InteractiveLogo = ({ size = 28, hovered = false, className }: InteractiveL
           (평소 은은하게, 호버 시 진하게). 굵기는 화면 픽셀 기준 역산(orbitStrokeWidth) */}
       <path
         ref={orbitPathRef}
-        d="M26.8904 25.2747C31.5656 21.7491 36.1933 19.0839 39.8947 17.6243C41.7456 16.8944 43.3628 16.4672 44.6365 16.3833C45.9128 16.2992 46.831 16.5603 47.3045 17.1881C47.7777 17.816 47.7759 18.7701 47.3442 19.9738C46.9133 21.1754 46.058 22.6128 44.8473 24.1917C42.4263 27.3492 38.5915 31.0657 33.9163 34.5914C29.2409 38.1172 24.6127 40.7828 20.9112 42.2425C19.0602 42.9724 17.4431 43.3995 16.1693 43.4835C14.8933 43.5676 13.9755 43.3069 13.502 42.6794C13.0285 42.0515 13.0299 41.0969 13.4616 39.893C13.8926 38.6913 14.7478 37.254 15.9585 35.675C18.3797 32.5175 22.215 28.8006 26.8904 25.2747Z"
+        d={LOGO_ORBIT_PATH}
         stroke="white"
         strokeWidth={orbitStrokeWidth}
         style={{ opacity: hovered ? 0.55 : 0.28, transition: 'opacity 0.3s' }}

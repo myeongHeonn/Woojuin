@@ -129,52 +129,81 @@ public class AiMixClient {
     }
 
     /**
-     * 아이템 임베딩 생성. 입력 텍스트("카테고리+제목+요약")는 ai-mix가 조립한다 —
-     * 백엔드가 텍스트를 직접 만들면 해시 버전 관리가 두 곳으로 갈라진다.
+     * 아이템 임베딩 생성. 입력 텍스트(제목·요약·카테고리명을 라벨 없이 개행으로 이은 평문)는
+     * ai-mix가 조립한다 — 백엔드가 텍스트를 직접 만들면 해시 버전 관리가 두 곳으로 갈라진다.
      */
     public EmbeddingResult createEmbedding(Long itemId, String title, String summary,
+            List<EmbeddingCategory> categories) {
+        JsonNode data = post("/v1/embeddings", embeddingPayload(itemId, title, summary, categories));
+        return new EmbeddingResult(
+                textOrNull(data.path("embeddingModel")),
+                textOrNull(data.path("inputHash")),
+                parseEmbedding(data, "ai-mix 임베딩 응답에 벡터가 없음"));
+    }
+
+    /** 배치 임베딩 결과(아이템 하나). {@link EmbeddingResult}에 itemId가 붙은 형태. */
+    public record ItemEmbeddingResult(Long itemId, String model, String inputHash, float[] embedding) {
+    }
+
+    /** 배치 임베딩 입력(아이템 하나). */
+    public record EmbeddingSource(Long itemId, String title, String summary,
+            List<EmbeddingCategory> categories) {
+    }
+
+    /**
+     * 아이템 임베딩 배치 생성({@code /v1/embeddings/batch}, ai-mix 계약상 한 번에 최대
+     * 100건) — 백필처럼 여러 아이템을 다시 임베딩할 때 건별 HTTP 왕복을 아낀다.
+     * OpenRouter 호출도 ai-mix가 한 번에 묶는다.
+     */
+    public List<ItemEmbeddingResult> createEmbeddings(List<EmbeddingSource> sources) {
+        List<Map<String, Object>> itemsPayload = sources.stream()
+                .map(source -> embeddingPayload(
+                        source.itemId(), source.title(), source.summary(), source.categories()))
+                .toList();
+        JsonNode data = post("/v1/embeddings/batch", Map.of("items", itemsPayload));
+
+        List<ItemEmbeddingResult> results = new ArrayList<>();
+        data.path("items").forEach(node -> results.add(new ItemEmbeddingResult(
+                node.path("itemId").asLong(),
+                textOrNull(node.path("embeddingModel")),
+                textOrNull(node.path("inputHash")),
+                parseEmbedding(node, "ai-mix 배치 임베딩 응답에 벡터가 없음"))));
+        return results;
+    }
+
+    private static Map<String, Object> embeddingPayload(Long itemId, String title, String summary,
             List<EmbeddingCategory> categories) {
         List<Map<String, Object>> categoryPayload = categories.stream()
                 .map(category -> Map.<String, Object>of(
                         "categoryId", category.id(),
                         "name", truncate(category.name(), 100)))
                 .toList();
-        JsonNode data = post("/v1/embeddings", Map.of(
+        return Map.of(
                 "itemId", itemId,
                 "title", truncate(firstNonBlank(title, "제목 없음"), 100),
                 "summary", truncate(firstNonBlank(summary, title), 1_000),
-                "categories", categoryPayload));
-
-        JsonNode vector = data.path("embedding");
-        if (!vector.isArray() || vector.isEmpty()) {
-            throw new IllegalStateException("ai-mix 임베딩 응답에 벡터가 없음");
-        }
-        float[] embedding = new float[vector.size()];
-        for (int i = 0; i < vector.size(); i++) {
-            embedding[i] = (float) vector.get(i).asDouble();
-        }
-        return new EmbeddingResult(
-                textOrNull(data.path("embeddingModel")),
-                textOrNull(data.path("inputHash")),
-                embedding);
+                "categories", categoryPayload);
     }
 
-    /**
-     * 검색어 임베딩. 아이템 임베딩과 달리 생 문장 그대로 보낸다 — 검색어에는 카테고리·제목
-     * 구조가 없고, 같은 모델(text-embedding-3-small)이라 아이템 벡터와 같은 공간에 떨어진다.
-     */
-    public float[] embedQuery(String text) {
-        JsonNode data = post("/v1/embeddings/query", Map.of("text", truncate(text, 500)));
-
-        JsonNode vector = data.path("embedding");
+    private static float[] parseEmbedding(JsonNode node, String emptyMessage) {
+        JsonNode vector = node.path("embedding");
         if (!vector.isArray() || vector.isEmpty()) {
-            throw new IllegalStateException("ai-mix 검색어 임베딩 응답에 벡터가 없음");
+            throw new IllegalStateException(emptyMessage);
         }
         float[] embedding = new float[vector.size()];
         for (int i = 0; i < vector.size(); i++) {
             embedding[i] = (float) vector.get(i).asDouble();
         }
         return embedding;
+    }
+
+    /**
+     * 검색어 임베딩. 생 문장 그대로 보낸다 — 아이템 임베딩 텍스트도 라벨 없는 평문이라
+     * 양쪽이 같은 형태로 비교되고, 같은 모델(text-embedding-3-small)이라 같은 공간에 떨어진다.
+     */
+    public float[] embedQuery(String text) {
+        JsonNode data = post("/v1/embeddings/query", Map.of("text", truncate(text, 500)));
+        return parseEmbedding(data, "ai-mix 검색어 임베딩 응답에 벡터가 없음");
     }
 
     /** 3차원 좌표 축소 입력(아이템 하나의 임베딩). */

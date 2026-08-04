@@ -142,4 +142,15 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /*
+   * 클릭 가능한 요소는 손가락 커서로 — Tailwind v4 preflight 는 button 을
+   * cursor:default(화살표)로 두므로, AI 모드 토글 등 모든 버튼이 클릭돼 보이지 않았다.
+   * 여기 한 곳에서 걸어 개별 컴포넌트에 cursor-pointer 를 붙이지 않게 한다(DRY).
+   * 비활성(disabled)은 제외 — 눌리지 않는데 손가락 커서면 오해를 준다.
+   */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
 }
