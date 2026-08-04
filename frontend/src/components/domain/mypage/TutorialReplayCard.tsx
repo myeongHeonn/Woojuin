@@ -26,11 +26,11 @@ const TutorialReplayCard = ({
 
   return (
     <>
-      {/* 설정 섹션의 한 행 — 상자 없이 호버 필로만 눌림을 알린다 */}
+      {/* 설정 그룹의 한 행 — 채움은 부모가 만들고 여기는 행 호버만 */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center rounded-[10px] px-2 py-3 text-left hover:bg-surface-2"
+        className="flex w-full items-center px-4 py-3.5 text-left hover:bg-surface-2"
       >
         <span className="flex-1 text-sm font-semibold text-text-1">튜토리얼 다시 보기</span>
         <span aria-hidden="true" className="text-lg leading-none text-text-3">
