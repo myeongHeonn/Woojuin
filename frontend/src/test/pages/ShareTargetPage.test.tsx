@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,6 +7,34 @@ import ShareTargetPage from '@/pages/ShareTargetPage';
 import { accessTokenAtom, postLoginRedirectAtom } from '@/stores/authAtoms';
 import { lastShareSpaceIdAtom } from '@/stores/shareAtoms';
 import { stubApi } from '@/test/helpers/stubApi';
+import {
+  SHARE_FILE_CACHE,
+  SHARE_FILE_KEY_PREFIX,
+  SHARE_FILE_NAME_HEADER,
+  SHARE_FILES_FLAG,
+} from '@/constants/shareTarget';
+import { clearSharedFiles, readSharedFiles } from '@/utils/sharedFiles';
+
+/** 서비스워커가 넣는 모양 그대로 캐시를 채운다 (src/sw.ts 참고) */
+const putSharedFile = async (index: number, file: File) => {
+  const cache = await caches.open(SHARE_FILE_CACHE);
+  await cache.put(
+    `${SHARE_FILE_KEY_PREFIX}${index}`,
+    new Response(file, {
+      headers: {
+        'content-type': file.type,
+        [SHARE_FILE_NAME_HEADER]: encodeURIComponent(file.name),
+      },
+    }),
+  );
+};
+
+const imageFile = (name: string) =>
+  new File([new Uint8Array([1, 2, 3])], name, { type: 'image/png' });
+
+afterEach(async () => {
+  await clearSharedFiles();
+});
 
 const get = stubApi('get');
 const post = stubApi('post');
@@ -152,6 +180,72 @@ describe('ShareTargetPage', () => {
     expect(container.textContent).toContain('로그인하고 저장하기');
     // 무엇이 저장될지는 로그인 전에도 보여 준다
     expect(container.textContent).toContain('https://example.com/a');
+  });
+
+  it('사진 공유는 캐시에서 꺼내 순서대로 올린다', async () => {
+    // 사진은 주소에 실리지 않는다 — 서비스워커가 캐시에 넣고 ?shared=files 로 보낸다
+    await putSharedFile(0, imageFile('첫장.png'));
+    await putSharedFile(1, imageFile('둘째장.png'));
+    workspacesOk();
+    post.mockResolvedValue({ data: { data: { itemId: 20, status: 'PROCESSING' } } });
+
+    const { container } = await renderShare(`?shared=${SHARE_FILES_FLAG}`);
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('사진 2장');
+    });
+    [...container.querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === '저장하기')!
+      .click();
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('사진 2장을 저장했어요');
+    });
+    // 두 장이 각각 multipart 로 올라갔다
+    expect(post).toHaveBeenCalledTimes(2);
+    const [firstPath, firstBody] = post.mock.calls[0];
+    expect(firstPath).toBe('/workspaces/1/items');
+    expect(firstBody).toBeInstanceOf(FormData);
+    expect((firstBody as FormData).get('file')).toBeInstanceOf(File);
+    expect(((firstBody as FormData).get('file') as File).name).toBe('첫장.png');
+    expect(((post.mock.calls[1][1] as FormData).get('file') as File).name).toBe('둘째장.png');
+    // 저장에 성공했으니 캐시를 비운다 — 다음 공유에 섞이면 안 된다
+    expect(await readSharedFiles()).toEqual([]);
+  });
+
+  it('사진 저장이 중간에 실패하면 다시 시도가 실패한 장부터 이어진다', async () => {
+    // 처음부터 다시 보내면 이미 올라간 사진이 두 번 저장된다
+    await putSharedFile(0, imageFile('a.png'));
+    await putSharedFile(1, imageFile('b.png'));
+    workspacesOk();
+    post
+      .mockResolvedValueOnce({ data: { data: { itemId: 21, status: 'PROCESSING' } } })
+      .mockRejectedValueOnce(new Error('두 번째 실패'))
+      .mockResolvedValue({ data: { data: { itemId: 22, status: 'PROCESSING' } } });
+
+    const { container } = await renderShare(`?shared=${SHARE_FILES_FLAG}`);
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('사진 2장');
+    });
+
+    const clickSave = (label: string) =>
+      [...container.querySelectorAll('button')]
+        .find((button) => button.textContent?.trim() === label)!
+        .click();
+
+    clickSave('저장하기');
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('다시 시도');
+    });
+    expect(post).toHaveBeenCalledTimes(2); // 첫 장 성공 + 둘째 장 실패
+
+    clickSave('다시 시도');
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('저장했어요');
+    });
+    // 세 번째 호출이 둘째 장 — 첫 장을 다시 보내지 않았다
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(((post.mock.calls[2][1] as FormData).get('file') as File).name).toBe('b.png');
   });
 
   it('공유된 내용이 없으면 저장 버튼 대신 안내를 준다', async () => {
