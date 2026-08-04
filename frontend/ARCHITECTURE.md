@@ -42,6 +42,21 @@ frontend/src/
 | `styles/` | CSS 파일 — **`theme.css` = 디자인 토큰 단일 소스** |
 | `types/` | 공통 타입 정의 (`Item`, `Workspace`, `ItemStatus`) |
 
+### 알아둬야 하는 두 가지 전역 규칙
+
+**히스토리 항목은 늘어나지 않는다.** `utils/singleHistoryEntry` 가 `history.pushState` 를
+`replaceState` 로 돌려놓는다. 설치된 앱에서 뒤로가기가 앱 안을 걷지 않고 곧바로 앱을 벗어나게
+하려는 것이다(안드로이드는 한 번에 닫히고, iOS 엣지 스와이프는 아무 일도 하지 않는다).
+
+그래서 **`navigate(-1)` 을 쓰면 앱이 닫힌다.** 화면 안의 "뒤로" 버튼은 히스토리를 되짚지 않고
+갈 곳을 직접 지정한다 — `hooks/useGoBack` 을 쓴다. 모달은 라우트가 아니라 state 로 열고 닫으므로
+영향이 없다.
+
+**안전영역은 `--safe-*` 변수로만 쓴다.** `theme.css` 가 `env(safe-area-inset-*)` 을 감싸 둔다.
+상단에 붙는 요소는 각자 여백에 `var(--safe-top)` 을 더하고(셸에 주면 캔버스가 상태바 뒤로
+흐르는 연출이 깨진다), 좌우는 셸(`Layout`)에서 한 번만 처리한다. `StageHeader` 자리를 비우는
+콘텐츠 여백은 `constants/stage` 의 `STAGE_PT` 를 쓴다 — 값이 흩어지면 헤더가 콘텐츠를 덮는다.
+
 ---
 
 ## 2. `components/` 를 ui / domain 으로 나누는 이유
