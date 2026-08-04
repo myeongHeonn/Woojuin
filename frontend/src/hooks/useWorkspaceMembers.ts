@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchMembers, createInvitation, removeMember } from '@/services/workspaces';
+import {
+  fetchMembers,
+  createInvitation,
+  removeMember,
+  fetchMemberActivities,
+} from '@/services/workspaces';
 
 /**
  * 워크스페이스 멤버 목록 — 공유 모달·아바타 스택이 쓰는 서버 상태.
@@ -35,6 +40,19 @@ export function useRemoveMember(workspaceId: number) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['members', workspaceId] });
       qc.invalidateQueries({ queryKey: ['workspaces'] });
+      qc.invalidateQueries({ queryKey: ['member-activities', workspaceId] });
     },
+  });
+}
+
+/**
+ * 멤버 활동 이력(가입/탈퇴/추방) — 최신순 피드.
+ * refetchOnWindowFocus를 'always'로 두는 이유는 useMembers와 같다(SSE 재연결 사이 공백 보정).
+ */
+export function useMemberActivities(workspaceId: number) {
+  return useQuery({
+    queryKey: ['member-activities', workspaceId],
+    queryFn: () => fetchMemberActivities(workspaceId),
+    refetchOnWindowFocus: 'always',
   });
 }
