@@ -24,6 +24,15 @@ public class KakaoLocalGeocoder implements Geocoder {
     private static final String ADDRESS_SEARCH = "/v2/local/search/address.json";
     private static final String KEYWORD_SEARCH = "/v2/local/search/keyword.json";
     private static final String COORD_TO_ADDRESS = "/v2/local/geo/coord2address.json";
+    private static final String CATEGORY_SEARCH = "/v2/local/search/category.json";
+
+    /**
+     * 주변 후보로 뒤질 카카오 카테고리 그룹 — 음식점·카페. "지금 있는 곳 저장"의 대상은
+     * 대부분 이 둘이고, 코드 하나가 요청 하나라 욕심을 부리면 워치 응답이 그만큼 늦는다.
+     */
+    private static final java.util.List<String> NEARBY_CATEGORY_GROUPS = java.util.List.of("FD6", "CE7");
+    private static final int NEARBY_RADIUS_METERS = 300;
+    private static final int NEARBY_LIMIT = 5;
 
     private final KakaoLocalClient client;
 
@@ -66,6 +75,48 @@ public class KakaoLocalGeocoder implements Geocoder {
             return Optional.empty();
         }
         return Optional.ofNullable(addressNameOf(documents.get(0)));
+    }
+
+    /**
+     * 좌표 주변 장소 후보 — 카테고리 그룹별로 한 요청씩 모아 거리순 상위 {@value NEARBY_LIMIT}개.
+     * 같은 장소가 두 그룹에 걸리는 일은 없으므로(그룹이 배타적) 중복 제거는 하지 않는다.
+     */
+    @Override
+    public java.util.List<NearbyPlace> nearby(GeoPoint point) {
+        if (point == null) {
+            return java.util.List.of();
+        }
+        java.util.List<NearbyPlace> found = new java.util.ArrayList<>();
+        for (String group : NEARBY_CATEGORY_GROUPS) {
+            JsonNode documents = call(CATEGORY_SEARCH, Map.of(
+                    "category_group_code", group,
+                    "x", String.valueOf(point.lng()),
+                    "y", String.valueOf(point.lat()),
+                    "radius", String.valueOf(NEARBY_RADIUS_METERS),
+                    "sort", "distance",
+                    "size", String.valueOf(NEARBY_LIMIT)));
+            if (documents == null) continue;
+            for (JsonNode document : documents) {
+                toNearbyPlace(document).ifPresent(found::add);
+            }
+        }
+        found.sort(java.util.Comparator.comparingInt(NearbyPlace::distanceMeters));
+        return found.size() > NEARBY_LIMIT ? found.subList(0, NEARBY_LIMIT) : found;
+    }
+
+    private Optional<NearbyPlace> toNearbyPlace(JsonNode document) {
+        String name = text(document.path("place_name"));
+        if (name == null) {
+            return Optional.empty();
+        }
+        // x=경도, y=위도, distance 는 x·y 를 준 요청에서만 오는 미터 문자열
+        return GeoPoint.parse(document.path("y").asText(null), document.path("x").asText(null))
+                .map(placePoint -> new NearbyPlace(
+                        name,
+                        text(document.path("category_name")),
+                        document.path("distance").asInt(0),
+                        placePoint,
+                        addressNameOf(document)));
     }
 
     private Optional<ResolvedLocation> search(String path, String query) {

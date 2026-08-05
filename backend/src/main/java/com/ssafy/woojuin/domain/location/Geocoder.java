@@ -33,4 +33,11 @@ public interface Geocoder {
 
     /** 좌표 → 주소 문자열. EXIF GPS로 좌표만 얻은 IMAGE 아이템의 address를 채운다. */
     Optional<String> reverse(GeoPoint point);
+
+    /**
+     * 좌표 주변의 장소 후보 (거리순). 워치 위치 저장(FR-053)이 "지금 있는 곳 고르기"에 쓴다.
+     * 다른 메서드와 같은 계약 — 실패·0건 모두 빈 목록이고 예외를 던지지 않는다.
+     * NoOp(키 없음)에서는 빈 목록이라, 워치 화면엔 "현재 위치" 후보만 남는다.
+     */
+    java.util.List<NearbyPlace> nearby(GeoPoint point);
 }

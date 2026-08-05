@@ -27,4 +27,9 @@ public class NoOpGeocoder implements Geocoder {
     public Optional<String> reverse(GeoPoint point) {
         return Optional.empty();
     }
+
+    @Override
+    public java.util.List<NearbyPlace> nearby(GeoPoint point) {
+        return java.util.List.of();
+    }
 }

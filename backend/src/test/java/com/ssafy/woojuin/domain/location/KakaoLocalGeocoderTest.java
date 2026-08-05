@@ -3,6 +3,7 @@ package com.ssafy.woojuin.domain.location;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -192,5 +193,46 @@ class KakaoLocalGeocoderTest {
         assertThat(geocoder.reverse(null)).isEmpty();
 
         verify(client, never()).documents(any(), anyMap());
+    }
+
+    // ---------- 주변 장소 (FR-053) ----------
+
+    @Test
+    void 주변_장소를_카테고리_그룹별로_모아_거리순으로_돌려준다() throws Exception {
+        when(client.documents(eq("/v2/local/search/category.json"),
+                argThat(params -> "FD6".equals(params.get("category_group_code")))))
+                .thenReturn(documents("""
+                        [{
+                          "place_name": "온화정", "category_name": "음식점 > 한식",
+                          "x": "127.0562", "y": "37.5446", "distance": "120",
+                          "road_address_name": "서울 성동구 성수이로 100"
+                        }]"""));
+        when(client.documents(eq("/v2/local/search/category.json"),
+                argThat(params -> "CE7".equals(params.get("category_group_code")))))
+                .thenReturn(documents("""
+                        [{
+                          "place_name": "어니언 성수", "category_name": "음식점 > 카페",
+                          "x": "127.0570", "y": "37.5450", "distance": "45",
+                          "road_address_name": "서울 성동구 아차산로9길 8"
+                        }]"""));
+
+        var places = geocoder.nearby(new GeoPoint(37.5445, 127.0561));
+
+        assertThat(places).hasSize(2);
+        // 그룹 순서(FD6 먼저)가 아니라 거리순이다 — 워치 화면의 첫 후보가 제일 가까운 곳이어야 한다
+        assertThat(places.get(0).name()).isEqualTo("어니언 성수");
+        assertThat(places.get(0).distanceMeters()).isEqualTo(45);
+        assertThat(places.get(1).name()).isEqualTo("온화정");
+        // x=경도, y=위도 — 뒤집히면 컴파일도 테스트도 통과한 채 핀이 엉뚱한 곳에 간다
+        assertThat(places.get(0).point().lng()).isEqualTo(127.0570);
+        assertThat(places.get(0).point().lat()).isEqualTo(37.5450);
+    }
+
+    @Test
+    void 주변_검색_실패는_빈_목록이다() throws Exception {
+        when(client.documents(eq("/v2/local/search/category.json"), anyMap()))
+                .thenThrow(new RuntimeException("timeout"));
+
+        assertThat(geocoder.nearby(new GeoPoint(37.5445, 127.0561))).isEmpty();
     }
 }
