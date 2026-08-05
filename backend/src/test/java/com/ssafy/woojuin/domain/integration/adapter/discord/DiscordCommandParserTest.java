@@ -15,7 +15,7 @@ class DiscordCommandParserTest {
     void parsesSaveWithOptionalWorkspace() throws Exception {
         var data = objectMapper.readTree("""
                 {"name":"woojuin","options":[{"type":1,"name":"save","options":[
-                  {"type":3,"name":"url","value":"https://example.com"},
+                  {"type":3,"name":"content","value":"https://example.com"},
                   {"type":4,"name":"workspace","value":42}
                 ]}]}
                 """);
@@ -32,6 +32,26 @@ class DiscordCommandParserTest {
                 """);
 
         assertThat(parser.parse(data)).isEqualTo("workspace set 7");
+    }
+
+    @Test
+    void parsesWorkspaceNumber() throws Exception {
+        var data = objectMapper.readTree("""
+                {"name":"woojuin","options":[{"type":1,"name":"workspace","options":[
+                  {"type":4,"name":"number","value":11}
+                ]}]}
+                """);
+
+        assertThat(parser.parse(data)).isEqualTo("workspace 11");
+    }
+
+    @Test
+    void parsesWorkspaceWithoutTargetAsList() throws Exception {
+        var data = objectMapper.readTree("""
+                {"name":"woojuin","options":[{"type":1,"name":"workspace"}]}
+                """);
+
+        assertThat(parser.parse(data)).isEqualTo("workspace list");
     }
 
     @Test

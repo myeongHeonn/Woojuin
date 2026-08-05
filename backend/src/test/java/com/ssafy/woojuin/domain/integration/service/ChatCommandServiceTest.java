@@ -29,6 +29,8 @@ import com.ssafy.woojuin.domain.item.service.ItemSearchService;
 import com.ssafy.woojuin.domain.item.service.ItemService;
 import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
@@ -100,13 +102,17 @@ class ChatCommandServiceTest {
     }
 
     @Test
-    void rejectsInvalidUrlBeforeCallingItemService() {
+    void savesPlainTextAsMemo() {
         arrangeConnected("request-2");
+        when(itemService.createFromRequest(eq(11L), eq(7L), any(ItemCreateRequest.class)))
+                .thenReturn(new ItemCreateResponse(43L, ItemStatus.PROCESSING, OffsetDateTime.now()));
+        when(workspaceRepository.findById(11L)).thenReturn(Optional.of(workspace));
 
         ChatCommandResult result = service.handle(command("request-2", "save not-a-url"));
 
-        assertThat(result.message()).contains("올바른 http 또는 https URL");
-        verify(itemService, never()).createFromRequest(any(), any(), any());
+        assertThat(result.message()).contains("종류: `메모`");
+        verify(itemService).createFromRequest(eq(11L), eq(7L),
+                eq(new ItemCreateRequest(ItemType.MEMO, null, "not-a-url")));
     }
 
     @Test
@@ -173,6 +179,55 @@ class ChatCommandServiceTest {
                         com.ssafy.woojuin.domain.item.entity.ItemType.MEMO,
                         null,
                         "다음 회의 일정 확인")));
+    }
+
+    @Test
+    void listsWorkspaceNumbersAndChangesWorkspaceByNumber() {
+        arrangeConnected("workspace-list");
+        WorkspaceMember membership = WorkspaceMember.builder()
+                .workspace(workspace)
+                .user(connection.getUser())
+                .role(WorkspaceRole.OWNER)
+                .build();
+        when(workspaceMemberRepository.findByUserId(7L)).thenReturn(List.of(membership));
+
+        ChatCommandResult list = service.handle(command("workspace-list", "workspace list"));
+
+        assertThat(list.message()).contains("11. 마이스페이스");
+
+        arrangeConnected("workspace-number");
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(11L, 7L))
+                .thenReturn(Optional.of(membership));
+
+        ChatCommandResult changed = service.handle(command("workspace-number", "workspace 11"));
+
+        assertThat(changed.message()).contains("마이스페이스").contains("변경했어요");
+        verify(connectionRepository).save(connection);
+    }
+
+    @Test
+    void connectImmediatelyShowsWorkspaceListAndNumberInstruction() {
+        when(deduplicationService.acquire(ChatPlatform.MATTERMOST, "connect-request")).thenReturn(true);
+        when(linkCodeService.consume("ABC123")).thenReturn(7L);
+        when(userRepository.findById(7L)).thenReturn(Optional.of(connection.getUser()));
+        when(connectionRepository.findByPlatformAndExternalUserId(ChatPlatform.MATTERMOST, "mm-user"))
+                .thenReturn(Optional.empty());
+        when(connectionRepository.findByPlatformAndUserId(ChatPlatform.MATTERMOST, 7L))
+                .thenReturn(Optional.empty());
+        WorkspaceMember membership = WorkspaceMember.builder()
+                .workspace(workspace)
+                .user(connection.getUser())
+                .role(WorkspaceRole.OWNER)
+                .build();
+        when(workspaceMemberRepository.findByUserId(7L)).thenReturn(List.of(membership));
+
+        ChatCommandResult result = service.handle(command("connect-request", "connect ABC123"));
+
+        assertThat(result.message())
+                .contains("`user`님의 우주인 계정이 연결됐어요")
+                .contains("마이스페이스")
+                .contains("11. 마이스페이스")
+                .contains("/woojuin workspace <번호>");
     }
 
     @Test
