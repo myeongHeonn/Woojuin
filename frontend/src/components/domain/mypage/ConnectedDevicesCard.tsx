@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import WatchLinkModal from '@/components/domain/mypage/WatchLinkModal';
 import {
   fetchSessions,
   revokeAllSessions,
@@ -23,6 +24,7 @@ type PendingRevoke = { kind: 'one'; session: DeviceSession } | { kind: 'all' } |
 const ConnectedDevicesCard = ({ onSessionEnded, onError }: ConnectedDevicesCardProps) => {
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<PendingRevoke>(null);
+  const [watchLinkOpen, setWatchLinkOpen] = useState(false);
 
   // 오래된 목록으로 엉뚱한 세션을 끊으면 안 되므로 캐시하지 않고 화면을 열 때마다 다시 받는다.
   const {
@@ -132,6 +134,18 @@ const ConnectedDevicesCard = ({ onSessionEnded, onError }: ConnectedDevicesCardP
               ))}
             </ul>
 
+            {/* 워치 링크 코드 승인 진입점 — 워치가 띄운 코드를 여기서 입력한다 (S15P11C105-458) */}
+            <button
+              type="button"
+              onClick={() => setWatchLinkOpen(true)}
+              className="flex w-full items-center border-t border-border-soft px-4 py-3.5 text-left hover:bg-surface-2"
+            >
+              <span className="flex-1 text-sm font-semibold text-text-1">워치 연결</span>
+              <span aria-hidden="true" className="text-lg leading-none text-text-3">
+                ›
+              </span>
+            </button>
+
             {/* 위험 동작은 그룹 맨 아래 행 — 색이 무게를 다 말한다(iOS 로그아웃 행 문법) */}
             <button
               type="button"
@@ -144,6 +158,18 @@ const ConnectedDevicesCard = ({ onSessionEnded, onError }: ConnectedDevicesCardP
           </>
         )}
       </div>
+
+      <WatchLinkModal
+        open={watchLinkOpen}
+        onClose={() => setWatchLinkOpen(false)}
+        onApproved={() => {
+          void queryClient.invalidateQueries({ queryKey: ['auth', 'sessions'] });
+          // 워치는 몇 초 간격으로 폴링한다 — 토큰을 받아 세션이 생긴 뒤 한 번 더 받아온다
+          window.setTimeout(() => {
+            void queryClient.invalidateQueries({ queryKey: ['auth', 'sessions'] });
+          }, 4000);
+        }}
+      />
 
       <ConfirmModal
         open={pending?.kind === 'one'}

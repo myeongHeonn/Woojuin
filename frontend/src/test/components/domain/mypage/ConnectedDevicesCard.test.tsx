@@ -4,6 +4,7 @@ import { userEvent } from 'vitest/browser';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ConnectedDevicesCard from '@/components/domain/mypage/ConnectedDevicesCard';
 import {
+  approveDeviceLink,
   fetchSessions,
   revokeAllSessions,
   revokeSession,
@@ -16,6 +17,7 @@ vi.mock('@/services/auth', async (importOriginal) => ({
   fetchSessions: vi.fn(),
   revokeSession: vi.fn(),
   revokeAllSessions: vi.fn(),
+  approveDeviceLink: vi.fn(),
 }));
 
 const recent = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
@@ -60,6 +62,7 @@ beforeEach(() => {
   vi.mocked(fetchSessions).mockReset().mockResolvedValue([currentDevice, otherDevice]);
   vi.mocked(revokeSession).mockReset().mockResolvedValue(undefined);
   vi.mocked(revokeAllSessions).mockReset().mockResolvedValue(undefined);
+  vi.mocked(approveDeviceLink).mockReset().mockResolvedValue(undefined);
 });
 
 describe('연결된 기기 카드', () => {
@@ -147,5 +150,49 @@ describe('연결된 기기 카드', () => {
 
     await vi.waitFor(() => expect(onError).toHaveBeenCalled());
     expect(onSessionEnded).not.toHaveBeenCalled();
+  });
+
+  it('워치 연결: 코드를 입력해 승인하면 대문자로 정규화되어 서버로 간다', async () => {
+    const { container } = await renderCard();
+    await vi.waitFor(() => expect(container.textContent).toContain('워치 연결'));
+
+    const linkRow = [...container.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('워치 연결'),
+    ) as HTMLButtonElement;
+    await userEvent.click(linkRow);
+
+    const input = container.querySelector('input[aria-label="워치 코드"]') as HTMLInputElement;
+    await userEvent.type(input, 'ab23cd');
+    expect(input.value).toBe('AB23CD'); // 워치는 대문자 코드를 띄운다 — 화면에서 먼저 맞춘다
+
+    const approve = [...container.querySelectorAll('button')].find(
+      (b) => b.textContent === '워치 연결' && b.className.includes('bg-accent'),
+    ) as HTMLButtonElement;
+    await userEvent.click(approve);
+
+    await vi.waitFor(() => expect(approveDeviceLink).toHaveBeenCalledWith('AB23CD'));
+    await vi.waitFor(() => expect(container.textContent).toContain('승인되었습니다'));
+  });
+
+  it('워치 연결: 만료·오타 코드는 오류 안내를 보여준다', async () => {
+    vi.mocked(approveDeviceLink).mockRejectedValue(new Error('400'));
+    const { container } = await renderCard();
+    await vi.waitFor(() => expect(container.textContent).toContain('워치 연결'));
+
+    const linkRow = [...container.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('워치 연결'),
+    ) as HTMLButtonElement;
+    await userEvent.click(linkRow);
+
+    const input = container.querySelector('input[aria-label="워치 코드"]') as HTMLInputElement;
+    await userEvent.type(input, 'XXXXXX');
+    const approve = [...container.querySelectorAll('button')].find(
+      (b) => b.textContent === '워치 연결' && b.className.includes('bg-accent'),
+    ) as HTMLButtonElement;
+    await userEvent.click(approve);
+
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain('코드가 만료되었거나 올바르지 않습니다'),
+    );
   });
 });

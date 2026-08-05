@@ -133,6 +133,15 @@ export async function revokeAllSessions() {
   await api.delete<ApiResponse<null>>('/auth/sessions');
 }
 
+/**
+ * 워치 화면의 링크 코드를 승인한다 (S15P11C105-458).
+ * 승인되면 워치가 폴링으로 토큰을 받아 가고, 몇 초 안에 기기 목록에 워치가 나타난다.
+ * 만료·오타 코드는 400 — 워치에서 새 코드를 확인해야 한다.
+ */
+export async function approveDeviceLink(code: string) {
+  await api.post<ApiResponse<null>>('/auth/device-link/approve', { code });
+}
+
 export type TutorialType = 'PERSONAL' | 'SHARED_WORKSPACE';
 
 export async function completeTutorial(tutorialType: TutorialType) {
