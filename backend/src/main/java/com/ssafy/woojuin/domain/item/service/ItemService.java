@@ -4,6 +4,8 @@ import com.ssafy.woojuin.domain.ai.usage.AiUsageReservation;
 import com.ssafy.woojuin.domain.ai.usage.AiUsageService;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateRequest;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
+import com.ssafy.woojuin.domain.item.dto.PlaceSaveRequest;
+import com.ssafy.woojuin.domain.location.GeoPoint;
 import com.ssafy.woojuin.domain.item.dto.ItemDetailResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemFavoriteResponse;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
@@ -77,6 +79,35 @@ public class ItemService {
                 .build();
 
         return save(item, workspaceId, usageReservation);
+    }
+
+    /**
+     * 장소 아이템 생성 — 워치 위치 저장(FR-053, S15P11C105-458)의 서버 절반.
+     *
+     * URL·MEMO 와 달리 <b>AI 큐를 태우지 않는다.</b> 장소명·좌표·주소가 이미 완성형이라
+     * 크롤·AI 가 만들 것이 없고, 그래서 AI 사용량도 차감하지 않는다. 저장 즉시 DONE 이라
+     * 워치는 폴링 없이 응답 한 번으로 끝난다.
+     */
+    public ItemCreateResponse createPlace(Long workspaceId, Long userId, PlaceSaveRequest request) {
+        verifyMembership(workspaceId, userId);
+
+        Item item = Item.builder()
+                .workspaceId(workspaceId)
+                .createdBy(userId)
+                .type(ItemType.MEMO)
+                .title(request.name())
+                .content(request.memo())
+                .build();
+        // 장소 아이템은 좌표가 본체다 — applyLocation 은 이상한 좌표를 조용히 버리므로 먼저 거른다
+        if (GeoPoint.of(request.lat(), request.lng()).isEmpty()) {
+            throw new IllegalArgumentException("좌표가 올바르지 않습니다");
+        }
+        item.applyLocation(request.lat(), request.lng(), request.address());
+        item.markDone();
+
+        Item saved = itemRepository.save(item);
+        publishItemChanged(workspaceId);
+        return ItemCreateResponse.from(saved);
     }
 
     public ItemCreateResponse createFromImage(Long workspaceId, Long userId, MultipartFile file) {
