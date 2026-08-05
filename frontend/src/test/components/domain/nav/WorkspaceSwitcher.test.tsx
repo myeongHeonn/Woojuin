@@ -44,7 +44,7 @@ describe('WorkspaceSwitcher', () => {
     const { container } = await renderAt('/workspace/1/library');
     expect(container.textContent).toContain('개인');
 
-    await userEvent.click(container.querySelector('button[aria-label="워크스페이스 전환"]')!);
+    await userEvent.click(container.querySelector('button[aria-label*="워크스페이스 전환"]')!);
     const other = [...container.querySelectorAll('button')].find((b) =>
       b.textContent?.includes('몽골 여행'),
     )!;
@@ -52,5 +52,19 @@ describe('WorkspaceSwitcher', () => {
 
     // 워크스페이스만 2로 바뀌고 보던 뷰(library)는 유지
     await expect.poll(() => loc(container)).toBe('/workspace/2/library');
+  });
+
+  /**
+   * WCAG "Label in Name" — 접근성 이름은 화면에 보이는 글자를 포함해야 한다.
+   * 안 그러면 음성 제어 사용자가 보이는 이름("개인")을 불러도 이 버튼이 안 잡힌다.
+   */
+  it('접근성 이름에 화면에 보이는 워크스페이스 이름이 들어간다', async () => {
+    const { container } = await renderAt('/workspace/1/library');
+
+    const trigger = container.querySelector('button[aria-label*="워크스페이스 전환"]')!;
+    const visibleName = trigger.textContent!.trim();
+
+    expect(visibleName).not.toBe('');
+    expect(trigger.getAttribute('aria-label')).toContain(visibleName);
   });
 });
