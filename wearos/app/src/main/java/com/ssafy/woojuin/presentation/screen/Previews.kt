@@ -138,7 +138,7 @@ fun PreviewPlacePicker() = PreviewShell {
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
 @Composable
 fun PreviewPlaceSaveSuccess() = PreviewShell {
-    PlaceSaveSuccessScreen(onDone = {}, onVoiceMemo = {}, onOpenOnPhone = {})
+    PlaceSaveSuccessScreen(onDone = {}, onVoiceMemo = {})
 }
 
 // ─── 주변 장소 / 기타 ───

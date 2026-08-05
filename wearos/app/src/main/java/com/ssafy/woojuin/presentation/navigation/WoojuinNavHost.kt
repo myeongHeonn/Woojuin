@@ -176,7 +176,6 @@ fun WoojuinNavHost(
             PlaceSaveSuccessScreen(
                 onDone = { backToHome() },
                 onVoiceMemo = { navController.navigate(Routes.VOICE_CAPTURE) },
-                onOpenOnPhone = { navController.navigate(Routes.OPEN_ON_PHONE) },
             )
         }
 

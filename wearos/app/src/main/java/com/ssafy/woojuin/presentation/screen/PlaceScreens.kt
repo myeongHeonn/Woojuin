@@ -338,10 +338,8 @@ fun PlacePickerScreen(
 fun PlaceSaveSuccessScreen(
     onDone: () -> Unit,
     onVoiceMemo: () -> Unit,
-    onOpenOnPhone: () -> Unit,
 ) {
     val place by Repositories.place.lastSavedPlace.collectAsState()
-    val scope = rememberCoroutineScope()
 
     WoojuinListScreen {
         item {
@@ -370,29 +368,6 @@ fun PlaceSaveSuccessScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.SurfaceActive),
                 icon = { Icon(Icons.Rounded.Mic, contentDescription = null, tint = WoojuinColor.AccentPurple, modifier = Modifier.size(18.dp)) },
                 label = { Text("한마디 남기기") },
-            )
-        }
-        item {
-            Button(
-                onClick = {
-                    scope.launch {
-                        Repositories.place.undo("")
-                        onDone()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.SurfaceRaised),
-                icon = { Icon(Icons.Rounded.Undo, contentDescription = null, tint = WoojuinColor.TextSecondary, modifier = Modifier.size(18.dp)) },
-                label = { Text("실행 취소") },
-            )
-        }
-        item {
-            Button(
-                onClick = onOpenOnPhone,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.Surface),
-                icon = { Icon(Icons.Rounded.Map, contentDescription = null, tint = WoojuinColor.TextSecondary, modifier = Modifier.size(18.dp)) },
-                label = { Text("휴대폰 카카오맵에서 열기") },
             )
         }
     }
