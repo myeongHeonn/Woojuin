@@ -86,6 +86,41 @@ function makeGlowTexture(): THREE.Texture {
 
 const ACCENT_COLOR_HEX = 0x7c6cf0;
 
+/** 별 하나가 지금 어떤 상태로 그려져야 하는지 — 우선순위가 있는 배타적 상태다 */
+export type StarEmphasis = 'highlighted' | 'active' | 'dimmed' | 'normal';
+
+/**
+ * 강조 규칙. 매 프레임 별마다 불리지만 규칙 자체는 상태가 없어서 따로 뺐다
+ * (렌더 루프 안에 두면 읽기도 검증하기도 어렵다).
+ *
+ * 우선순위가 곧 규칙이다:
+ *   1. 검색 하이라이트가 가장 세다 — 카테고리와 다른 축이라 절대 어두워지지 않는다.
+ *   2. 활성 카테고리 소속이면 강조.
+ *   3. 활성 카테고리가 있는데 소속이 아니면 어두워진다. 단 지금 가리키고 있는
+ *      (호버·포커스) 별은 예외 — 가리키는 게 사라지면 어색하다.
+ */
+export function starEmphasis(input: {
+  isHighlighted: boolean;
+  isCategoryActive: boolean;
+  hasActiveCategory: boolean;
+  /** 호버 중이거나 포커스된 별 */
+  isPointed: boolean;
+}): StarEmphasis {
+  if (input.isHighlighted) return 'highlighted';
+  if (input.isCategoryActive) return 'active';
+  if (input.hasActiveCategory && !input.isPointed) return 'dimmed';
+  return 'normal';
+}
+
+/**
+ * 어두워진 별의 밝기. 강조를 크기·맥동만으로 알리면 별이 빽빽한 화면에서
+ * 어디가 강조인지 읽히지 않아, 나머지를 낮춰 대비를 만든다.
+ */
+const DIM_CORE_OPACITY = 0.22;
+const DIM_GLOW_OPACITY = 0.12;
+/** 어두워진 별에 걸린 선도 같이 낮춘다 — 안 그러면 별보다 선이 밝게 남아 어긋난다 */
+const DIM_LINE_RATIO = 0.35;
+
 interface StarObject extends StarNode {
   glow: THREE.Sprite;
   core: THREE.Sprite;
@@ -528,15 +563,23 @@ export function createUniverseScene(
           (!n.isHub && activeCategoryName && n.categoryNames.includes(activeCategoryName))),
       );
 
+      const emphasis = starEmphasis({
+        isHighlighted,
+        isCategoryActive,
+        hasActiveCategory: activeCategoryId !== null,
+        isPointed: n === hovered || n === focused,
+      });
+
       // 1) 별 자체의 확대 크기 배율 조절 (숫자가 클수록 더 크게 보임)
       let focusScale = n === focused ? 1.5 : 1; // 일반 포커스(선택) 시 크기 배율 (기본 1.5배)
-      if (isHighlighted)
+      if (emphasis === 'highlighted')
         focusScale = 2.0; // 검색 하이라이트 시 크기 배율 (기본 2.0배)
-      else if (isCategoryActive) focusScale = 1.7; // 활성화된 카테고리 내 소속 별의 크기 배율 (기본 1.7배)
+      else if (emphasis === 'active') focusScale = 1.7; // 활성화된 카테고리 내 소속 별의 크기 배율 (기본 1.7배)
 
       // 2) 별이 반짝이는 속도(pulseFreq)와 진폭(pulseAmp) 조절
-      const pulseFreq = isHighlighted ? 3 : isCategoryActive ? 4 : 1.8; // 반짝이는 빈도/속도
-      const pulseAmp = isHighlighted ? 0.4 : isCategoryActive ? 0.25 : 0.13; // 반짝일 때 크기 변화폭
+      // 어두워진 별은 크기·맥동을 건드리지 않는다 — 바뀌는 건 밝기뿐이다
+      const pulseFreq = emphasis === 'highlighted' ? 3 : emphasis === 'active' ? 4 : 1.8; // 반짝이는 빈도/속도
+      const pulseAmp = emphasis === 'highlighted' ? 0.4 : emphasis === 'active' ? 0.25 : 0.13; // 반짝일 때 크기 변화폭
       const pulse = (1 + pulseAmp * Math.sin(t * pulseFreq + i * 0.7)) * focusScale;
 
       const cs = n.baseRadius * 1.4 * pulse;
@@ -544,10 +587,15 @@ export function createUniverseScene(
       n.core.scale.set(cs, cs, 1);
       n.glow.scale.set(gs, gs, 1);
 
-      if (isHighlighted) {
+      n.core.material.opacity = emphasis === 'dimmed' ? DIM_CORE_OPACITY : 1;
+
+      if (emphasis === 'dimmed') {
+        n.glow.material.color.setHex(n.baseColorHex);
+        n.glow.material.opacity = DIM_GLOW_OPACITY;
+      } else if (emphasis === 'highlighted') {
         n.glow.material.color.setHex(ACCENT_COLOR_HEX);
         n.glow.material.opacity = 0.9 + 0.1 * Math.sin(t * 8 + i);
-      } else if (isCategoryActive) {
+      } else if (emphasis === 'active') {
         n.glow.material.color.setHex(n.baseColorHex);
         n.glow.material.opacity = 0.9 + 0.1 * Math.sin(t * 4 + i);
       } else {
@@ -567,6 +615,8 @@ export function createUniverseScene(
 
       if (isConnectedToActive) {
         l.mat.opacity = 0.88;
+      } else if (activeCategoryId !== null) {
+        l.mat.opacity = l.baseOpacity * DIM_LINE_RATIO;
       } else {
         l.mat.opacity = l.baseOpacity;
       }

@@ -13,8 +13,11 @@ import Spinner from '@/components/ui/Spinner';
 import AddBtn from '@/components/domain/header/AddBtn';
 
 interface ConstellationSearchProps {
-  /** 검색 결과 아이템 ID 목록 변경 알림 */
-  onSearchResults?: (itemIds: number[]) => void;
+  /**
+   * 검색 결과 아이템 ID 목록 변경 알림. 확정된 검색어(query)도 같이 준다 —
+   * 결과가 0건일 때 "검색을 안 했다"와 "검색했는데 없다"를 구분하려면 목록만으론 부족하다.
+   */
+  onSearchResults?: (itemIds: number[], query: string) => void;
   /**
    * 하단 플로팅 스택의 맨 위(결과 패널보다도 위)에 얹을 내용(예: 처리 중 배지) — 이
    * 컴포넌트는 "무엇을 얹는지" 모른다. 검색과 무관한 상태를 이 컴포넌트가 알 필요는
@@ -52,11 +55,8 @@ const ConstellationSearch = ({ onSearchResults, aboveBar }: ConstellationSearchP
 
   useEffect(() => {
     const parsedIds = itemIdsStr ? itemIdsStr.split(',').map(Number) : [];
-    if (q.trim().length > 0 && parsedIds.length > 0) {
-      onSearchResults?.(parsedIds);
-    } else {
-      onSearchResults?.([]);
-    }
+    const query = q.trim();
+    onSearchResults?.(query.length > 0 ? parsedIds : [], query);
   }, [itemIdsStr, q, onSearchResults]);
 
   const submit = (e: FormEvent) => {

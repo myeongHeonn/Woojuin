@@ -1,5 +1,6 @@
 import mainIcon from '@/assets/mainIcon.svg';
 import LogoMiniText from '@/components/ui/LogoMiniText';
+import { BRAND_NAME } from '@/constants/brand';
 import { classNames } from '@/utils/classNames';
 
 interface BrandMarkProps {
@@ -17,7 +18,7 @@ const BrandMark = ({ size = 30, className }: BrandMarkProps) => (
       style={{ width: size, height: size }}
       className="block shrink-0 rounded-[9px]"
     />
-    <LogoMiniText text="WooJuIn" />
+    <LogoMiniText text={BRAND_NAME} />
   </div>
 );
 
