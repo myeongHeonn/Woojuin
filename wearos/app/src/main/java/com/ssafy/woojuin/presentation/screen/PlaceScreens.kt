@@ -333,11 +333,10 @@ fun PlacePickerScreen(
     }
 }
 
-/** 저장 완료 — 자동 저장 + 실행 취소, 한마디는 선택 사항. */
+/** 저장 완료 — 확인과 복귀만. 취소는 웹 휴지통, 음성 한마디는 2단계(FR-054) 몫이다. */
 @Composable
 fun PlaceSaveSuccessScreen(
     onDone: () -> Unit,
-    onVoiceMemo: () -> Unit,
 ) {
     val place by Repositories.place.lastSavedPlace.collectAsState()
 
@@ -362,12 +361,12 @@ fun PlaceSaveSuccessScreen(
             )
         }
         item {
+            // 음성 한마디는 2단계(FR-054) 몫이다 — fake 버튼을 남기지 않고 완료만 둔다
             Button(
-                onClick = onVoiceMemo,
+                onClick = onDone,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.SurfaceActive),
-                icon = { Icon(Icons.Rounded.Mic, contentDescription = null, tint = WoojuinColor.AccentPurple, modifier = Modifier.size(18.dp)) },
-                label = { Text("한마디 남기기") },
+                label = { Text("완료") },
             )
         }
     }
