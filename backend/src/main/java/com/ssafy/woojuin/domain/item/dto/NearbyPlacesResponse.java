@@ -16,7 +16,8 @@ public record NearbyPlacesResponse(List<NearbyPlaceResponse> candidates) {
             int distanceMeters,
             double lat,
             double lng,
-            String address) {
+            String address,
+            String placeUrl) {
 
         public static NearbyPlaceResponse from(NearbyPlace place) {
             return new NearbyPlaceResponse(
@@ -25,7 +26,8 @@ public record NearbyPlacesResponse(List<NearbyPlaceResponse> candidates) {
                     place.distanceMeters(),
                     place.point().lat(),
                     place.point().lng(),
-                    place.address());
+                    place.address(),
+                    place.placeUrl());
         }
     }
 }

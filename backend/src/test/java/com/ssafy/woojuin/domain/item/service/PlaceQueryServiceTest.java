@@ -34,7 +34,8 @@ class PlaceQueryServiceTest {
         when(geocoder.reverse(any())).thenReturn(Optional.of("서울 성동구 성수동2가"));
         when(geocoder.nearby(any())).thenReturn(List.of(
                 new NearbyPlace("온화정", "음식점 > 한식", 120,
-                        new GeoPoint(37.5446, 127.0562), "서울 성동구 성수이로 100")));
+                        new GeoPoint(37.5446, 127.0562), "서울 성동구 성수이로 100",
+                        "http://place.map.kakao.com/12345")));
 
         NearbyPlacesResponse response = placeQueryService.nearby(37.5445, 127.0561);
 
@@ -44,6 +45,8 @@ class PlaceQueryServiceTest {
         assertThat(response.candidates().get(0).lat()).isEqualTo(37.5445);
         assertThat(response.candidates().get(1).name()).isEqualTo("온화정");
         assertThat(response.candidates().get(1).distanceMeters()).isEqualTo(120);
+        assertThat(response.candidates().get(1).placeUrl()).isEqualTo("http://place.map.kakao.com/12345");
+        assertThat(response.candidates().get(0).placeUrl()).isNull(); // "현재 위치"는 장소 페이지가 없다
     }
 
     @Test

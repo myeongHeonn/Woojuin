@@ -116,7 +116,9 @@ public class KakaoLocalGeocoder implements Geocoder {
                         text(document.path("category_name")),
                         document.path("distance").asInt(0),
                         placePoint,
-                        addressNameOf(document)));
+                        addressNameOf(document),
+                        // 카카오맵 장소 페이지 — 아이템에 실어 두면 상세에서 카카오맵으로 이어진다
+                        text(document.path("place_url"))));
     }
 
     private Optional<ResolvedLocation> search(String path, String query) {

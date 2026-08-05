@@ -33,7 +33,7 @@ public class PlaceQueryService {
         // 주소는 지오코딩이 꺼져 있으면(NoOp) 비고, 그래도 좌표 저장에는 지장이 없다
         candidates.add(new NearbyPlaceResponse(
                 "현재 위치", null, 0, point.lat(), point.lng(),
-                geocoder.reverse(point).orElse(null)));
+                geocoder.reverse(point).orElse(null), null));
         geocoder.nearby(point).forEach(place -> candidates.add(NearbyPlaceResponse.from(place)));
 
         return new NearbyPlacesResponse(candidates);

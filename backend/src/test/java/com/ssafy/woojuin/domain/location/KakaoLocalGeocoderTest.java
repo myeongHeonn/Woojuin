@@ -213,6 +213,7 @@ class KakaoLocalGeocoderTest {
                         [{
                           "place_name": "어니언 성수", "category_name": "음식점 > 카페",
                           "x": "127.0570", "y": "37.5450", "distance": "45",
+                          "place_url": "http://place.map.kakao.com/26338954",
                           "road_address_name": "서울 성동구 아차산로9길 8"
                         }]"""));
 
@@ -226,6 +227,8 @@ class KakaoLocalGeocoderTest {
         // x=경도, y=위도 — 뒤집히면 컴파일도 테스트도 통과한 채 핀이 엉뚱한 곳에 간다
         assertThat(places.get(0).point().lng()).isEqualTo(127.0570);
         assertThat(places.get(0).point().lat()).isEqualTo(37.5450);
+        assertThat(places.get(0).placeUrl()).isEqualTo("http://place.map.kakao.com/26338954");
+        assertThat(places.get(1).placeUrl()).isNull(); // 픽스처에 없으면 null — 필수 아님
     }
 
     @Test
