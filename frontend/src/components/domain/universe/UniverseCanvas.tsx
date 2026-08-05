@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   createUniverseScene,
   type CameraState,
@@ -8,7 +8,9 @@ import {
   type UniverseScene,
 } from '@/utils/scene';
 import type { UniverseResponse } from '@/types/universe';
-import ConstellationLabels from '@/components/domain/universe/ConstellationLabels';
+import ConstellationLabels, {
+  type ConstellationLabel,
+} from '@/components/domain/universe/ConstellationLabels';
 import StarTooltip from '@/components/ui/StarTooltip';
 
 interface UniverseCanvasProps {
@@ -45,9 +47,60 @@ const UniverseCanvas = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<UniverseScene | null>(null);
 
-  const [labels, setLabels] = useState<LabelPosition[]>([]);
+  /**
+   * 라벨은 "목록"과 "좌표"를 분리한다. 목록(이름·개수)만 React state 로 두고,
+   * 초당 60회 바뀌는 좌표는 아래 registerNode 로 잡아 둔 DOM 노드에 직접 쓴다.
+   * 좌표까지 state 로 올리면 매 프레임 리렌더가 돈다(그게 원래 구조였다).
+   */
+  const [labelList, setLabelList] = useState<ConstellationLabel[]>([]);
+  const labelNodesRef = useRef(new Map<number, HTMLElement>());
+  /** 목록이 실제로 바뀌었는지 비교할 키 — 매 프레임 setState 를 막는 유일한 장치다 */
+  const labelKeyRef = useRef('');
+
   const [hover, setHover] = useState<HoverState | null>(null);
   const [selected, setSelected] = useState<HoverState | null>(null);
+
+  const registerLabelNode = useCallback((categoryId: number, node: HTMLElement | null) => {
+    if (node) labelNodesRef.current.set(categoryId, node);
+    else labelNodesRef.current.delete(categoryId);
+  }, []);
+
+  /** 마지막으로 받은 좌표 — 목록이 새로 렌더된 직후 곧바로 반영하는 데 쓴다 */
+  const latestPositionsRef = useRef<LabelPosition[]>([]);
+
+  const applyPositions = useCallback((positions: LabelPosition[]) => {
+    positions.forEach((p) => {
+      const node = labelNodesRef.current.get(p.categoryId);
+      if (!node) return;
+      // translateY(-50%) 로 세로 중앙을 맞춘다(예전 -translate-y-1/2 클래스와 같은 역할)
+      node.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) translateY(-50%)`;
+      node.style.opacity = p.visible ? '1' : '0';
+    });
+  }, []);
+
+  /** 씬이 매 프레임 부른다 — 목록이 바뀐 경우에만 React 를 돌리고, 좌표는 DOM 에 직접 쓴다 */
+  const handleLabels = useCallback(
+    (positions: LabelPosition[]) => {
+      latestPositionsRef.current = positions;
+
+      const key = positions.map((p) => `${p.categoryId}:${p.name}`).join('|');
+      if (key !== labelKeyRef.current) {
+        labelKeyRef.current = key;
+        setLabelList(positions.map(({ categoryId, name }) => ({ categoryId, name })));
+      }
+      applyPositions(positions);
+    },
+    [applyPositions],
+  );
+
+  /**
+   * 목록이 새로 렌더된 직후 최신 좌표를 한 번 더 쓴다. 목록이 바뀐 프레임에는 아직 DOM
+   * 노드가 없어 위 applyPositions 가 건너뛰는데, 이게 없으면 다음 프레임까지 라벨이
+   * 초기값(-9999px)에 머문다. 페인트 전에 도는 layout effect 라 화면에는 안 보인다.
+   */
+  useLayoutEffect(() => {
+    applyPositions(latestPositionsRef.current);
+  }, [labelList, applyPositions]);
 
   /** 콜백이 매 렌더 바뀌어도 씬을 다시 만들지 않도록 ref 로 최신값만 넘긴다 */
   const handlersRef = useRef({ onSelectConstellation, onOpenItem });
@@ -82,7 +135,7 @@ const UniverseCanvas = ({
     const scene = createUniverseScene(
       canvasRef.current,
       {
-        onLabels: setLabels,
+        onLabels: handleLabels,
         onHover: (node, position) => setHover(node && position ? { node, position } : null),
         onSelect: (node, position) => {
           if (node.isHub && node.hub) {
@@ -112,8 +165,10 @@ const UniverseCanvas = ({
       cameraStateRef.current = scene.getCameraState();
       scene.dispose();
       sceneRef.current = null;
+      // 데이터가 바뀌면 별자리 구성도 달라진다 — 비교 키를 비워 새 목록을 반드시 다시 그린다
+      labelKeyRef.current = '';
     };
-  }, [data]);
+  }, [data, handleLabels]);
 
   useEffect(() => {
     sceneRef.current?.setHighlightedItems(highlightItemIds ?? []);
@@ -128,7 +183,8 @@ const UniverseCanvas = ({
       <canvas ref={canvasRef} className="block h-full w-full" />
 
       <ConstellationLabels
-        labels={labels}
+        labels={labelList}
+        registerNode={registerLabelNode}
         onSelect={(categoryId) => {
           onSelectConstellation?.(categoryId);
         }}
