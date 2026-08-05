@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-react';
+import { userEvent } from 'vitest/browser';
 import ItemCard from '@/components/domain/library/ItemCard';
 import type { Item, ItemStatus, ItemType } from '@/types/item';
 
@@ -163,6 +164,52 @@ describe('ItemCard', () => {
       // 세로가 덜 차면(고유 비율로 그려지면) 카드 아래가 빈다 — 이게 막으려는 회귀다
       expect(box.height).toBeGreaterThan(outer.height - 4);
       expect(box.width).toBeGreaterThan(outer.width - 4);
+    });
+  });
+
+  describe('클릭', () => {
+    it('누르면 아이템 id 를 넘긴다', async () => {
+      const onClick = vi.fn();
+      const { container } = await render(
+        <ItemCard item={make({ type: 'URL', status: 'DONE', itemId: 42 })} onClick={onClick} />,
+      );
+
+      await userEvent.click(card(container));
+      // 호출부가 () => open(id) 로 감싸지 않아도 되도록 id 를 넘겨준다(memo 유지의 전제)
+      expect(onClick).toHaveBeenCalledWith(42);
+    });
+  });
+
+  /**
+   * 처리 중인 아이템이 있으면 목록이 3초마다 다시 조회된다. react-query 는 값이 안 바뀐
+   * 아이템의 객체 참조를 그대로 유지하므로(structural sharing), memo 가 걸려 있으면
+   * 그 카드들은 다시 그려지지 않아야 한다. onClick 을 화살표로 감싸면 이게 깨진다.
+   */
+  describe('메모이제이션', () => {
+    it('같은 item·onClick 으로 다시 렌더하면 DOM 을 건드리지 않는다', async () => {
+      const item = make({ type: 'URL', status: 'DONE', title: '그대로' });
+      const onClick = vi.fn();
+      const { container, rerender } = await render(<ItemCard item={item} onClick={onClick} />);
+
+      const before = card(container);
+      // 부모가 리렌더된 상황 — 같은 참조를 그대로 넘긴다
+      await rerender(<ItemCard item={item} onClick={onClick} />);
+
+      expect(card(container)).toBe(before);
+      expect(card(container).textContent).toContain('그대로');
+    });
+
+    it('item 이 바뀌면 다시 그린다', async () => {
+      const onClick = vi.fn();
+      const { container, rerender } = await render(
+        <ItemCard item={make({ type: 'URL', status: 'DONE', title: '이전' })} onClick={onClick} />,
+      );
+      expect(card(container).textContent).toContain('이전');
+
+      await rerender(
+        <ItemCard item={make({ type: 'URL', status: 'DONE', title: '이후' })} onClick={onClick} />,
+      );
+      expect(card(container).textContent).toContain('이후');
     });
   });
 });
