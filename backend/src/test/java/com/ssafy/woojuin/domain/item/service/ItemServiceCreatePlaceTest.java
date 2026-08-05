@@ -70,7 +70,8 @@ class ItemServiceCreatePlaceTest {
     private ItemService itemService;
 
     private static final PlaceSaveRequest REQUEST =
-            new PlaceSaveRequest("온화정", 37.5445, 127.0561, "서울 성동구 성수동2가", null);
+            new PlaceSaveRequest("온화정", 37.5445, 127.0561, "서울 성동구 성수동2가", null,
+                    "http://place.map.kakao.com/12345");
 
     @Test
     @DisplayName("장소 저장은 좌표·주소가 실린 완성형(DONE) 아이템을 만든다 — AI 큐·사용량 없이")
@@ -90,6 +91,7 @@ class ItemServiceCreatePlaceTest {
         assertThat(item.getLat()).isEqualTo(37.5445);
         assertThat(item.getLng()).isEqualTo(127.0561);
         assertThat(item.getAddress()).isEqualTo("서울 성동구 성수동2가");
+        assertThat(item.getUrl()).isEqualTo("http://place.map.kakao.com/12345"); // 카카오맵 링크 보존
         assertThat(response.status()).isEqualTo(ItemStatus.DONE);
 
         // AI 파이프라인 미개입 — 이게 이 경로의 존재 이유다
@@ -116,7 +118,7 @@ class ItemServiceCreatePlaceTest {
                 .thenReturn(Optional.of(mock(WorkspaceMember.class)));
 
         assertThatThrownBy(() -> itemService.createPlace(
-                10L, 1L, new PlaceSaveRequest("이상한 곳", 123.0, 999.0, null, null)))
+                10L, 1L, new PlaceSaveRequest("이상한 곳", 123.0, 999.0, null, null, null)))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(itemRepository, never()).save(any());
     }

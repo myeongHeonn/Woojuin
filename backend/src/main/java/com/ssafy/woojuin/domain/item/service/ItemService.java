@@ -97,6 +97,8 @@ public class ItemService {
                 .type(ItemType.MEMO)
                 .title(request.name())
                 .content(request.memo())
+                // 카카오맵 장소 페이지를 보존한다 — 크롤 대상이 아니라 이동용 링크다
+                .url(request.placeUrl())
                 .build();
         // 장소 아이템은 좌표가 본체다 — applyLocation 은 이상한 좌표를 조용히 버리므로 먼저 거른다
         if (GeoPoint.of(request.lat(), request.lng()).isEmpty()) {
