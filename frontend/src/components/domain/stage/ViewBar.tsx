@@ -1,6 +1,7 @@
 import type { ComponentType, SVGProps } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
+import { IS_INSTALLED_APP } from '@/utils/installedApp';
 import { ConstellationIcon, DashboardIcon, MapIcon } from '@/assets/icons';
 //OverviewIcon -> canvas 뷰 추가시 추가
 
@@ -45,6 +46,8 @@ const ViewBar = () => {
             key={segment}
             data-tutorial-view={segment}
             to={to}
+            // 뷰 전환은 설치된 앱에서 히스토리를 쌓지 않는다 — 이유는 TabBar 의 같은 줄에 있다
+            replace={IS_INSTALLED_APP}
             title={label}
             aria-current={active ? 'page' : undefined}
             className={classNames(

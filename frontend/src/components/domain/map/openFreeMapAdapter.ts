@@ -6,8 +6,10 @@ import {
   NavigationControl,
   Popup,
   setWorkerUrl,
+  type IControl,
 } from 'maplibre-gl';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import maximizeIconUrl from '@/assets/icons/tabler-maximize.svg?url';
 import type { MapAdapter, MapAdapterOptions, MapPoint } from '@/components/domain/map/mapAdapter';
 import { INFO_CARD_CLASS } from '@/components/ui/infoCardStyles';
 
@@ -24,6 +26,35 @@ const DISTANT_PLACE_THRESHOLD_METERS = 800_000;
 const SELECTED_PLACE_ZOOM = 17.5;
 
 setWorkerUrl(maplibreWorkerUrl);
+
+const createResetViewControl = (onReset: () => void): IControl => {
+  let control: HTMLDivElement | null = null;
+
+  return {
+    onAdd() {
+      control = document.createElement('div');
+      control.className = 'maplibregl-ctrl maplibregl-ctrl-group woojuin-map-reset-view-control';
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.title = '전체 장소 보기';
+      button.setAttribute('aria-label', '전체 장소 보기');
+      button.addEventListener('click', onReset);
+
+      const icon = document.createElement('img');
+      icon.className = 'woojuin-map-reset-view-icon';
+      icon.src = maximizeIconUrl;
+      icon.alt = '';
+      button.append(icon);
+      control.append(button);
+      return control;
+    },
+    onRemove() {
+      control?.remove();
+      control = null;
+    },
+  };
+};
 
 const createPopupContent = (point: MapPoint, onOpen: (pointId: number) => void) => {
   const content = document.createElement('article');
@@ -75,6 +106,7 @@ export const createOpenFreeMapAdapter = ({
   onSelectPoint,
   onOpenPoint,
   onDeselectPoint,
+  onResetView,
 }: MapAdapterOptions): MapAdapter => {
   const map = new MapLibreMap({
     container,
@@ -97,14 +129,6 @@ export const createOpenFreeMapAdapter = ({
 
   map.on('styledata', collapseInitialAttribution);
   collapseInitialAttribution();
-
-  map.addControl(
-    new NavigationControl({
-      showCompass: false,
-      showZoom: true,
-    }),
-    'bottom-right',
-  );
 
   let points: MapPoint[] = [];
   let markers: Marker[] = [];
@@ -317,8 +341,8 @@ export const createOpenFreeMapAdapter = ({
 
     const isDesktop = width >= 640;
     const requestedPadding = isDesktop
-      ? { top: 96, right: 390, bottom: 96, left: 72 }
-      : { top: 72, right: 24, bottom: Math.round(height * 0.5), left: 24 };
+      ? { top: 112, right: 430, bottom: 150, left: 88 }
+      : { top: 88, right: 64, bottom: Math.round(height * 0.55), left: 40 };
     const horizontalBudget = width - 1;
     const verticalBudget = height - 1;
     const left = Math.min(requestedPadding.left, Math.floor(horizontalBudget / 2));
@@ -338,6 +362,22 @@ export const createOpenFreeMapAdapter = ({
       duration: 650,
     });
   };
+
+  map.addControl(
+    new NavigationControl({
+      showCompass: false,
+      showZoom: true,
+    }),
+    'bottom-right',
+  );
+
+  map.addControl(
+    createResetViewControl(() => {
+      onResetView();
+      fitPoints();
+    }),
+    'bottom-right',
+  );
 
   map.on('moveend', renderMarkers);
   map.on('click', handleMapClick);

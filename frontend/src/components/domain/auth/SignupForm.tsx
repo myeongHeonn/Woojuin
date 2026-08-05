@@ -43,7 +43,9 @@ const SignupForm = () => {
   const signupMutation = useMutation({
     mutationFn: signup,
     onSuccess: () => {
-      navigate('/login');
+      // replace — 가입 완료된 화면으로 되돌아갈 일이 없고, 남겨 두면 로그인 뒤 뒤로가기가
+      // GuestOnly 에 되돌려져 "눌러도 아무 일이 없는" 상태가 된다
+      navigate('/login', { replace: true });
     },
     onError: (error) => {
       // 이메일 중복은 실시간 체크와 같은 자리(필드 밑)에 표시 — 기존 useEffect가
@@ -90,8 +92,8 @@ const SignupForm = () => {
       </p>
 
       <p className="text-center text-sm text-text-3">
-        이미 계정이 있으신가요?{' '}
-        <Link to="/login" className="font-semibold text-accent hover:text-accent-hover">
+        이미 계정이 있으신가요? {/* replace — 이유는 LoginForm 의 반대쪽 링크에 적어 뒀다 */}
+        <Link to="/login" replace className="font-semibold text-accent hover:text-accent-hover">
           로그인
         </Link>
       </p>

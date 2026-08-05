@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { classNames } from '@/utils/classNames';
-import { STAGE_PX } from '@/constants/stage';
+import { STAGE_PT, STAGE_PX } from '@/constants/stage';
 import CategoryChipBar from '@/components/domain/library/CategoryChipBar';
 import CategoryManage from '@/components/domain/library/CategoryManage';
 import Items from '@/components/domain/library/Items';
@@ -59,13 +59,15 @@ const LibraryPage = () => {
 
   return (
     // 좌우 여백(STAGE_PX)은 헤더 제목과 같은 값을 공유해 칩 바·리스트가 한 선에 맞는다.
-    // StageHeader 가 absolute 로 떠 있어(모바일 58·데스크톱 66px) 콘텐츠를 그 아래에서 시작.
+    // 상단 여백(STAGE_PT)은 absolute 로 떠 있는 StageHeader 자리를 비운다 — 안전영역까지
+    // 포함하므로 헤더가 상태바만큼 내려가도 칩 바를 덮지 않는다.
     //
     // 세로 flex 로 칩 바는 고정하고 아래 리스트만 스크롤한다.
     // main 이 overflow-hidden(성좌 캔버스용)이라 스크롤은 이 안에서 일어난다.
     <div
       className={classNames(
-        'flex h-full w-full flex-col overflow-hidden bg-space pt-16 desktop:pt-[72px]',
+        'flex h-full w-full flex-col overflow-hidden bg-space',
+        STAGE_PT,
         STAGE_PX,
       )}
     >
@@ -84,10 +86,14 @@ const LibraryPage = () => {
 
       {(!workspaceEmpty || q) && <LibrarySearch />}
 
-      {/* 칩 바 아래만 스크롤 — flex-1 로 남은 높이를 채우고 min-h-0 이라야 넘칠 때 줄어든다 */}
+      {/*
+        칩 바 아래만 스크롤 — flex-1 로 남은 높이를 채우고 min-h-0 이라야 넘칠 때 줄어든다.
+        탭바는 absolute 로 이 영역 위에 떠 있으므로 하단 여백으로 자리를 비워야 마지막
+        아이템이 탭바에 가리지 않는다 (휴지통·마이페이지는 원래 그렇게 하고 있었다).
+      */}
       <div
         data-tutorial-page-content="library"
-        className="min-h-0 flex-1 overflow-y-auto scrollbar-none"
+        className="scrollbar-none min-h-0 flex-1 overflow-y-auto pb-above-tabbar desktop:pb-6"
       >
         {q ? (
           <SearchItems q={q} aiMode={aiMode} onOpenItem={setOpenItemId} />

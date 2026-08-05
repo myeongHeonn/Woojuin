@@ -7,6 +7,7 @@ import com.ssafy.woojuin.domain.auth.oauth.OAuth2LoginFailureHandler;
 import com.ssafy.woojuin.domain.auth.oauth.OAuth2LoginSuccessHandler;
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
 import com.ssafy.woojuin.domain.auth.security.CustomUserDetailsService;
+import com.ssafy.woojuin.domain.auth.session.SessionRevocationStore;
 import com.ssafy.woojuin.global.security.RestAuthenticationEntryPoint;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -44,6 +45,7 @@ public class SecurityConfig {
     private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final UserRepository userRepository;
+    private final SessionRevocationStore sessionRevocationStore;
 
     // 기본값은 application.yml 한 곳에만 둔다(${CORS_ALLOWED_ORIGIN:...}).
     // 여기에도 기본값을 적으면 yml 쪽이 항상 이겨서 죽은 값이 되는데, 코드만 읽은 사람은
@@ -56,7 +58,8 @@ public class SecurityConfig {
                            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
                            OAuth2LoginFailureHandler oAuth2LoginFailureHandler,
                            RestAuthenticationEntryPoint restAuthenticationEntryPoint,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           SessionRevocationStore sessionRevocationStore) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userDetailsService = userDetailsService;
         this.customOidcUserService = customOidcUserService;
@@ -64,6 +67,7 @@ public class SecurityConfig {
         this.oAuth2LoginFailureHandler = oAuth2LoginFailureHandler;
         this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
         this.userRepository = userRepository;
+        this.sessionRevocationStore = sessionRevocationStore;
     }
 
     @Bean
@@ -127,7 +131,8 @@ public class SecurityConfig {
                 // JWT 인증 자체는 세션이 필요 없지만, 필요한 쪽(oauth2Login)이 있으니 IF_REQUIRED로 둔다.
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, userRepository),
+                .addFilterBefore(
+                        new JwtAuthenticationFilter(jwtTokenProvider, userRepository, sessionRevocationStore),
                         UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(restAuthenticationEntryPoint))
                 .oauth2Login(oauth2 -> oauth2

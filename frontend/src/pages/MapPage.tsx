@@ -148,6 +148,11 @@ const MapPage = () => {
     }
   };
 
+  const resetMapView = () => {
+    setSelectedCategories([]);
+    setSelectedPlaceId(null);
+  };
+
   return (
     <div
       data-map-panel-collapsed={isMapPanelCollapsed}
@@ -160,6 +165,7 @@ const MapPage = () => {
         onSelectPlace={selectPlaceAndCollapsePanel}
         onOpenItem={setOpenItemId}
         onDeselectPlace={() => setSelectedPlaceId(null)}
+        onResetView={resetMapView}
       />
       {/*
         헤더 왼쪽 아래, MapPlacePanel(우측/하단)과 안 겹치는 좌상단. 헤더 왼쪽에는
@@ -168,7 +174,7 @@ const MapPage = () => {
         배지·토스트는 같은 자리에 세로로 쌓인다(위치 없음 토스트는 배지가 사라진 뒤에도
         잠깐 남을 수 있어 별개 조건으로 각자 렌더한다).
       */}
-      <div className="absolute left-5 top-24 z-[6] flex flex-col items-start gap-2 desktop:left-[34px] desktop:top-28">
+      <div className="absolute left-5 top-[calc(96px+var(--safe-top))] z-[6] flex flex-col items-start gap-2 desktop:left-[34px] desktop:top-[calc(112px+var(--safe-top))]">
         <ProcessingBadge count={processingCount} label="장소 찾는 중" />
         <MapLocationToast message={locationToast} />
       </div>

@@ -5,6 +5,7 @@ import CreateWorkspaceModal from '@/components/domain/nav/CreateWorkspaceModal';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { ChevronDownIcon, PlanetIcon, PlusIcon } from '@/assets/icons';
 import { classNames } from '@/utils/classNames';
+import { IS_INSTALLED_APP } from '@/utils/installedApp';
 
 /**
  * 모바일 워크스페이스 전환기 — 데스크톱은 사이드바가 하지만 모바일엔 없어서,
@@ -50,7 +51,12 @@ const WorkspaceSwitcher = () => {
                   key={workspace.id}
                   type="button"
                   onClick={() => {
-                    navigate(`/workspace/${workspace.id}/${segment}`);
+                    // 워크스페이스 전환도 뷰 전환과 같은 성격이라 설치된 앱에서는 히스토리를
+                    // 쌓지 않는다 — 쌓이면 전환 뒤 뒤로가기가 앱을 닫지 않고 옛 워크스페이스로
+                    // 돌아간다 (TabBar 의 같은 주석 참고)
+                    navigate(`/workspace/${workspace.id}/${segment}`, {
+                      replace: IS_INSTALLED_APP,
+                    });
                     close();
                   }}
                   className={classNames(

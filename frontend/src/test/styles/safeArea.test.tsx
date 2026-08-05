@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { MemoryRouter } from 'react-router-dom';
 import LandingHeader from '@/components/domain/landing/LandingHeader';
+import { STAGE_PT } from '@/constants/stage';
 
 /**
  * 안전영역(노치·상태바) 반영을 지킨다.
@@ -59,6 +60,48 @@ describe('안전영역 토큰', () => {
 
     expect(computed('bottom-above-tabbar').bottom).toBe('122px');
     expect(computed('pb-above-tabbar').paddingBottom).toBe('122px');
+  });
+});
+
+describe('StageHeader 자리 예약 — 헤더와 같이 내려가야 한다', () => {
+  /**
+   * 실기기에서 났던 회귀다. 헤더(absolute)에만 안전영역을 더하고 콘텐츠의 예약 여백을
+   * 그대로 뒀더니, 아이폰에서 헤더가 카테고리 칩 바(관리·즐겨찾기)를 53px 덮었다.
+   *
+   * 헤더 높이를 추정하지 않고 **증가량이 같은지**만 본다 — 그게 겹치지 않는 조건이다.
+   */
+  const paddingTopAt = (cls: string, inset: string) => {
+    document.documentElement.style.setProperty('--safe-top', inset);
+    const el = document.createElement('div');
+    el.className = cls;
+    document.body.appendChild(el);
+    const value = parseFloat(getComputedStyle(el).paddingTop);
+    el.remove();
+    return value;
+  };
+
+  it('안전영역이 늘어난 만큼 헤더와 콘텐츠가 똑같이 내려간다', () => {
+    const headerClass = 'pt-[calc(20px+var(--safe-top))]';
+    // STAGE_PT 의 모바일 쪽 값 — 상수를 그대로 쓰면 desktop: 변형까지 섞여 폭에 따라 갈린다
+    const contentClass = 'pt-[calc(64px+var(--safe-top))]';
+
+    const headerDelta = paddingTopAt(headerClass, '59px') - paddingTopAt(headerClass, '0px');
+    const contentDelta = paddingTopAt(contentClass, '59px') - paddingTopAt(contentClass, '0px');
+
+    expect(headerDelta).toBe(59);
+    expect(contentDelta).toBe(headerDelta);
+  });
+
+  it('STAGE_PT 가 안전영역을 포함한다 — 빼먹으면 헤더가 콘텐츠를 덮는다', () => {
+    expect(STAGE_PT).toContain('var(--safe-top)');
+  });
+});
+
+describe('당겨서 새로고침 차단', () => {
+  it('문서에 overscroll-behavior-y: contain 이 걸려 있다', () => {
+    // 앱 셸이 h-dvh overflow-hidden 이라 문서 스크롤이 항상 0 이고, 크롬은 그걸 "맨 위"로
+    // 보고 pull-to-refresh 를 상시 켠다 — 리스트에서 아래로 끌면 앱이 새로고침됐다
+    expect(getComputedStyle(document.documentElement).overscrollBehaviorY).toBe('contain');
   });
 });
 

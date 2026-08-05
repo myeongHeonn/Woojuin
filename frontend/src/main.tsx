@@ -41,7 +41,18 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <JotaiProvider store={jotaiStore}>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        {/*
+          v7_startTransition — 라우터의 화면 전환을 startTransition 으로 감싼다.
+
+          이게 없으면 링크를 누르는 **동기 입력**이 곧바로 lazy 청크를 기다리게 되고, React 가
+          "A component suspended while responding to synchronous input" 을 던진다. 실제로
+          공유 화면에서 로그인 링크를 누를 때 났다 — 레이아웃(AuthLayout·GuestOnly·Layout)까지
+          lazy 라서 거의 모든 이동이 청크를 기다릴 수 있다.
+
+          켜면 그 전환이 transition 이 되어 React 가 이전 화면을 유지한 채 청크를 기다린다
+          (그게 에러 메시지가 요구하는 처방이다). v7 에서는 기본값이 되므로 미리 켜는 셈이다.
+        */}
+        <RouterProvider router={router} future={{ v7_startTransition: true }} />
       </QueryClientProvider>
     </JotaiProvider>
   </React.StrictMode>,

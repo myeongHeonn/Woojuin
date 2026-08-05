@@ -165,6 +165,18 @@
 @layer base {
   html {
     color-scheme: dark; /* 기본 다크 (data-theme 미지정 시) */
+
+    /*
+     * 안드로이드 PWA 에서 의도치 않은 당겨서 새로고침을 막는다.
+     *
+     * 앱 셸이 `h-dvh overflow-hidden` 이라 문서 스크롤 위치가 **항상 0** 이다. 크롬은 그걸
+     * "맨 위"로 보고 pull-to-refresh 를 상시 켜 두므로, 리스트 안에서 아래로 끌기만 해도
+     * 앱이 새로고침됐다. 스크롤은 안쪽 컨테이너에서 일어나는데 제스처는 문서가 받는 것이다.
+     *
+     * contain 은 이 요소 안에서 오버스크롤을 멈추게 해 브라우저 동작으로 넘기지 않는다.
+     * (none 이 아니라 contain 인 이유: 안쪽 스크롤 영역의 고무줄 효과는 남겨 둔다)
+     */
+    overscroll-behavior-y: contain;
   }
 
   body {
