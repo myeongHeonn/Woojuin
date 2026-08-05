@@ -111,8 +111,8 @@ describe('ItemCard', () => {
           item={make({ type: 'IMAGE', status: 'DONE', imageUrl: 'https://s3/photo.png' })}
         />,
       );
-      const thumb = container.querySelector('.absolute.inset-0') as HTMLElement;
-      expect(thumb.style.backgroundImage).toContain('https://s3/photo.png');
+      const thumb = container.querySelector('img.absolute.inset-0') as HTMLImageElement;
+      expect(thumb.src).toContain('https://s3/photo.png');
     });
 
     it('링크(URL)는 preview.thumbnailUrl 을 쓴다 (imageUrl 아님)', async () => {
@@ -126,9 +126,21 @@ describe('ItemCard', () => {
           })}
         />,
       );
-      const thumb = container.querySelector('.absolute.inset-0') as HTMLElement;
-      expect(thumb.style.backgroundImage).toContain('https://x/preview.png');
-      expect(thumb.style.backgroundImage).not.toContain('should-not-use');
+      const thumb = container.querySelector('img.absolute.inset-0') as HTMLImageElement;
+      expect(thumb.src).toContain('https://x/preview.png');
+      expect(thumb.src).not.toContain('should-not-use');
+    });
+
+    // 카드 이미지가 화면 밖까지 전부 내려오면 대시보드 전송량이 폭발한다(실측 3MB) —
+    // background-image 로는 지연 로딩이 불가능해 img 로 바꾼 것이 이 속성으로 드러난다.
+    it('카드 이미지는 지연 로딩한다', async () => {
+      const { container } = await render(
+        <ItemCard
+          item={make({ type: 'IMAGE', status: 'DONE', imageUrl: 'https://s3/photo.png' })}
+        />,
+      );
+      const thumb = container.querySelector('img.absolute.inset-0') as HTMLImageElement;
+      expect(thumb.loading).toBe('lazy');
     });
   });
 });
