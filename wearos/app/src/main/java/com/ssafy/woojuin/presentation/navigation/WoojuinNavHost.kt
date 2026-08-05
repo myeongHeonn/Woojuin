@@ -1,6 +1,9 @@
 package com.ssafy.woojuin.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
@@ -39,6 +42,19 @@ fun WoojuinNavHost(
 ) {
     fun backToHome() {
         navController.popBackStack(Routes.HOME, inclusive = false)
+    }
+
+    // 웹 기기 관리에서 이 워치를 해제하면(-460) 다음 요청이 거부되며 토큰이 지워진다.
+    // 그 순간을 여기서 받아 재시작 없이 링크 화면으로 보낸다 — AC "해제하면 로그인 상태를 잃는다".
+    if (com.ssafy.woojuin.data.AppServices.initialized) {
+        val loggedIn by com.ssafy.woojuin.data.AppServices.auth.isLoggedIn
+            .collectAsState(initial = true)
+        LaunchedEffect(loggedIn) {
+            val route = navController.currentDestination?.route
+            if (!loggedIn && route != Routes.LINK && route != Routes.SPLASH) {
+                navController.navigate(Routes.LINK) { popUpTo(0) { inclusive = true } }
+            }
+        }
     }
 
     SwipeDismissableNavHost(
