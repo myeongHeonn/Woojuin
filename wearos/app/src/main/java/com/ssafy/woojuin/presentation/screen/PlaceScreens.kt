@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -103,13 +104,50 @@ fun PlaceLocatingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val reduceMotion = rememberReduceMotion()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var permissionDenied by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) viewModel.locate() else permissionDenied = true
+    }
 
-    LaunchedEffect(Unit) { viewModel.locate() }
+    // 권한은 기능 진입 순간에 요청한다(매니페스트 방침). 있으면 바로 위치를 찾는다
+    LaunchedEffect(Unit) {
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (granted) viewModel.locate()
+        else permissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+    }
     LaunchedEffect(uiState) {
         when (uiState) {
             is PlacePickerUiState.Candidates, PlacePickerUiState.Empty -> onCandidates()
             else -> Unit
         }
+    }
+
+    if (permissionDenied) {
+        WoojuinStatusScreen {
+            Text(
+                text = "위치 권한이 필요해요",
+                style = MaterialTheme.typography.titleMedium,
+                color = WoojuinColor.TextPrimary,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            CaptionText("현재 위치로 장소를 찾으려면 허용해 주세요")
+            Spacer(modifier = Modifier.height(8.dp))
+            androidx.wear.compose.material3.Button(onClick = {
+                permissionDenied = false
+                permissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+            }) {
+                Text("다시 허용하기")
+            }
+        }
+        return
     }
 
     WoojuinStatusScreen {
