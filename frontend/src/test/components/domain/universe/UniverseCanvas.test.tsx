@@ -103,3 +103,52 @@ describe('UniverseCanvas 씬 재생성 — 카메라 시점 이어받기', () =>
     expect(createSceneCalls[1].initialCamera).toEqual({ rotX: 0.42, rotY: -1.1, camZ: 77 });
   });
 });
+
+/**
+ * 씬은 초당 60회 onLabels 를 부른다. 그때마다 React state 를 건드리면 매 프레임
+ * 리렌더가 도는데(원래 구조였다), 라벨 목록은 데이터가 바뀔 때만 달라진다.
+ * 좌표는 DOM 에 직접 써야 한다.
+ */
+describe('UniverseCanvas 라벨 — 좌표는 DOM 에 직접 쓴다', () => {
+  const labelAt = (container: HTMLElement, name: string) =>
+    [...container.querySelectorAll('button')].find((b) => b.textContent === name) as HTMLElement;
+
+  it('좌표만 바뀌면 라벨을 다시 만들지 않고 transform 만 갱신한다', async () => {
+    const { container } = await render(<UniverseCanvas data={universe} />);
+    await expect.poll(() => sceneCallbacks).toBeDefined();
+
+    flushSync(() => {
+      sceneCallbacks!.onLabels([{ categoryId: 1, name: '여행', x: 10, y: 20, visible: true }]);
+    });
+    const first = labelAt(container, '여행');
+    expect(first.style.transform).toContain('10px');
+    expect(first.style.opacity).toBe('1');
+
+    // 같은 목록에 좌표만 다른 프레임 — 노드가 교체되지 않아야 한다(리렌더가 안 돌았다는 뜻)
+    flushSync(() => {
+      sceneCallbacks!.onLabels([{ categoryId: 1, name: '여행', x: 99, y: 88, visible: false }]);
+    });
+    const second = labelAt(container, '여행');
+    expect(second).toBe(first);
+    expect(second.style.transform).toContain('99px');
+    expect(second.style.opacity).toBe('0');
+  });
+
+  it('목록이 바뀌면 라벨을 다시 그린다', async () => {
+    const { container } = await render(<UniverseCanvas data={universe} />);
+    await expect.poll(() => sceneCallbacks).toBeDefined();
+
+    flushSync(() => {
+      sceneCallbacks!.onLabels([{ categoryId: 1, name: '여행', x: 10, y: 20, visible: true }]);
+    });
+    expect(container.querySelectorAll('button')).toHaveLength(1);
+
+    flushSync(() => {
+      sceneCallbacks!.onLabels([
+        { categoryId: 1, name: '여행', x: 10, y: 20, visible: true },
+        { categoryId: 2, name: '맛집', x: 30, y: 40, visible: true },
+      ]);
+    });
+    await expect.poll(() => container.querySelectorAll('button').length).toBe(2);
+  });
+});
