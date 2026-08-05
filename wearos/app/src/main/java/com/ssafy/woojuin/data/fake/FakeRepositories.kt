@@ -311,6 +311,13 @@ object Repositories {
         FakeSearchRepository(speechSource("지난번에 저장한 성수동 파스타집"))
     }
     val song: SongRepository by lazy { FakeSongRepository(sync) }
-    val place: PlaceRepository by lazy { FakePlaceRepository(sync) }
+    // 위치 저장은 실서버로 전환됐다(-458). Preview 는 AppServices 가 없어 fake 로 돈다
+    val place: PlaceRepository by lazy {
+        if (com.ssafy.woojuin.data.AppServices.initialized) {
+            com.ssafy.woojuin.data.AppServices.place
+        } else {
+            FakePlaceRepository(sync)
+        }
+    }
     val nearby: NearbyAlertRepository by lazy { FakeNearbyAlertRepository() }
 }
