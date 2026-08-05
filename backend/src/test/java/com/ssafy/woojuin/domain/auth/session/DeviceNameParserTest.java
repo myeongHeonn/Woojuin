@@ -43,4 +43,10 @@ class DeviceNameParserTest {
         assertThat(DeviceNameParser.parse("Mozilla/5.0 (Windows NT 10.0; Win64; x64)"))
                 .isEqualTo("Windows");
     }
+
+    @Test
+    @DisplayName("우리 워치 앱의 UA 는 워치임을 알아볼 수 있는 이름이 된다 (S15P11C105-458)")
+    void parse_wearOsApp() {
+        assertThat(DeviceNameParser.parse("Woojuin-WearOS/1.0")).isEqualTo("Wear OS 워치");
+    }
 }

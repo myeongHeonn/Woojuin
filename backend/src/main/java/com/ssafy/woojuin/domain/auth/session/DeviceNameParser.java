@@ -20,6 +20,10 @@ public final class DeviceNameParser {
     public static String parse(String userAgent) {
         if (userAgent == null || userAgent.isBlank()) return UNKNOWN;
 
+        // 우리 워치 앱은 UA 를 직접 정한다(브라우저가 아니라 OS·브라우저 토큰이 없다) —
+        // 문구는 서버에 있으므로 워치 출시 후에도 서버 배포만으로 바꿀 수 있다 (S15P11C105-458)
+        if (userAgent.contains("Woojuin-WearOS")) return "Wear OS 워치";
+
         String os = os(userAgent);
         String browser = browser(userAgent);
         if (os == null && browser == null) return UNKNOWN;
