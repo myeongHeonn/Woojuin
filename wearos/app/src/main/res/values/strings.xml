@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">우주인</string>
+    <string name="tile_voice_save">말해서 저장</string>
+    <string name="tile_search">자료 찾기</string>
+    <string name="tile_song">노래 찾기</string>
+    <string name="complication_voice_save">우주인 · 말해서 저장</string>
+</resources>
