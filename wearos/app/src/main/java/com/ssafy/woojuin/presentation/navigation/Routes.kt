@@ -2,6 +2,7 @@ package com.ssafy.woojuin.presentation.navigation
 
 object Routes {
     const val SPLASH = "splash"
+    const val LINK = "link"
     const val HOME = "home"
 
     const val VOICE_CAPTURE = "voiceCapture"

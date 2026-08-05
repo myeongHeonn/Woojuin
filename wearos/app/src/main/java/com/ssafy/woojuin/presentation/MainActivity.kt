@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.wear.compose.material3.AppScaffold
+import com.ssafy.woojuin.data.AppServices
 import com.ssafy.woojuin.data.fake.Repositories
 import com.ssafy.woojuin.presentation.navigation.Routes
 import com.ssafy.woojuin.presentation.navigation.WoojuinNavHost
@@ -43,20 +44,32 @@ class MainActivity : ComponentActivity() {
         val isColdStart = !LaunchState.coldStartConsumed
         LaunchState.coldStartConsumed = true
 
+        // 로그인 게이트 — 토큰이 없으면 어디로 들어와도(딥링크 포함) 링크 화면이다
+        val loggedIn = AppServices.tokenStore.hasTokensBlocking()
+        val postSplash = if (loggedIn) Routes.HOME else Routes.LINK
+
         // 딥링크 진입은 스플래시 모션을 건너뛰고 기능으로 직행한다.
-        val startDestination = deepLink ?: if (isColdStart) Routes.SPLASH else Routes.HOME
+        val startDestination = when {
+            !loggedIn -> if (isColdStart) Routes.SPLASH else Routes.LINK
+            deepLink != null -> deepLink
+            isColdStart -> Routes.SPLASH
+            else -> Routes.HOME
+        }
 
         setContent {
-            WoojuinApp(startDestination = startDestination)
+            WoojuinApp(startDestination = startDestination, postSplashDestination = postSplash)
         }
     }
 }
 
 @Composable
-fun WoojuinApp(startDestination: String) {
+fun WoojuinApp(startDestination: String, postSplashDestination: String = Routes.HOME) {
     WoojuinTheme {
         AppScaffold {
-            WoojuinNavHost(startDestination = startDestination)
+            WoojuinNavHost(
+                startDestination = startDestination,
+                postSplashDestination = postSplashDestination,
+            )
         }
     }
 }

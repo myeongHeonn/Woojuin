@@ -8,6 +8,7 @@ import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.ssafy.woojuin.presentation.component.WoojuinLaunchMotion
 import com.ssafy.woojuin.presentation.screen.HomeScreen
+import com.ssafy.woojuin.presentation.screen.LinkScreen
 import com.ssafy.woojuin.presentation.screen.NearbyPlaceDetailScreen
 import com.ssafy.woojuin.presentation.screen.OfflineQueueScreen
 import com.ssafy.woojuin.presentation.screen.OpenOnPhoneScreen
@@ -32,6 +33,8 @@ import com.ssafy.woojuin.presentation.screen.VoiceSearchScreen
 @Composable
 fun WoojuinNavHost(
     startDestination: String,
+    /** 스플래시가 끝난 뒤 갈 곳 — 토큰이 있으면 HOME, 없으면 LINK (MainActivity 가 정한다) */
+    postSplashDestination: String = Routes.HOME,
     navController: NavHostController = rememberSwipeDismissableNavController(),
 ) {
     fun backToHome() {
@@ -44,8 +47,16 @@ fun WoojuinNavHost(
     ) {
         composable(Routes.SPLASH) {
             WoojuinLaunchMotion(onFinished = {
-                navController.navigate(Routes.HOME) {
+                navController.navigate(postSplashDestination) {
                     popUpTo(Routes.SPLASH) { inclusive = true }
+                }
+            })
+        }
+
+        composable(Routes.LINK) {
+            LinkScreen(onLinked = {
+                navController.navigate(Routes.HOME) {
+                    popUpTo(Routes.LINK) { inclusive = true }
                 }
             })
         }
