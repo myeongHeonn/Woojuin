@@ -12,6 +12,8 @@ import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessor;
+import com.ssafy.woojuin.domain.item.processing.image.ImageThumbnailGenerator;
+import com.ssafy.woojuin.domain.item.service.S3Uploader;
 import com.ssafy.woojuin.domain.location.LocationResolver;
 import com.ssafy.woojuin.domain.location.ResolvedLocation;
 import com.ssafy.woojuin.global.common.ItemStatus;
@@ -21,6 +23,7 @@ import com.ssafy.woojuin.global.sse.WorkspaceEventType;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
@@ -32,7 +35,8 @@ import org.springframework.stereotype.Component;
  * URL 아이템 가공 오케스트레이터 (묶음 D).
  *
  * <p><b>트랙 A(미리보기)</b>: 정규화 → oEmbed(알려진 제공자) → 실패 시 HTML fetch + OG
- * 스크래핑 → 그래도 없으면 도메인명 폴백. 거의 항상 최소 미리보기를 만든다.
+ * 스크래핑 → 그래도 없으면 도메인명 폴백. 거의 항상 최소 미리보기를 만든다. 대표 이미지를
+ * 얻었으면 저용량 webp 썸네일로 줄여 S3에 캐시한다(목록 카드용 — IMAGE와 같은 규칙).
  *
  * <p><b>트랙 B(본문 확보)</b>: 트랙 A가 받아둔 Document를 재활용해 readability4j로 본문을
  * 뽑는다. 두 트랙은 완전히 격리돼 한쪽 실패가 다른 쪽에 영향을 주지 않는다.
@@ -64,6 +68,9 @@ public class UrlItemProcessor implements ItemProcessor {
     private final HtmlFetcher htmlFetcher;
     private final OpenGraphScraper openGraphScraper;
     private final ContentExtractor contentExtractor;
+    private final PreviewImageFetcher previewImageFetcher;
+    private final ImageThumbnailGenerator thumbnailGenerator;
+    private final S3Uploader s3Uploader;
     private final AiAnalyzer aiAnalyzer;
     private final CategoryAssignmentService categoryAssignmentService;
     private final ApplicationEventPublisher eventPublisher;
@@ -72,7 +79,8 @@ public class UrlItemProcessor implements ItemProcessor {
 
     public UrlItemProcessor(ItemRepository itemRepository, UrlNormalizer urlNormalizer,
             OEmbedClient oEmbedClient, HtmlFetcher htmlFetcher, OpenGraphScraper openGraphScraper,
-            ContentExtractor contentExtractor, AiAnalyzer aiAnalyzer,
+            ContentExtractor contentExtractor, PreviewImageFetcher previewImageFetcher,
+            ImageThumbnailGenerator thumbnailGenerator, S3Uploader s3Uploader, AiAnalyzer aiAnalyzer,
             CategoryAssignmentService categoryAssignmentService, ApplicationEventPublisher eventPublisher,
             LocationResolver locationResolver, TransactionRunner tx) {
         this.itemRepository = itemRepository;
@@ -81,6 +89,9 @@ public class UrlItemProcessor implements ItemProcessor {
         this.htmlFetcher = htmlFetcher;
         this.openGraphScraper = openGraphScraper;
         this.contentExtractor = contentExtractor;
+        this.previewImageFetcher = previewImageFetcher;
+        this.thumbnailGenerator = thumbnailGenerator;
+        this.s3Uploader = s3Uploader;
         this.aiAnalyzer = aiAnalyzer;
         this.categoryAssignmentService = categoryAssignmentService;
         this.eventPublisher = eventPublisher;
@@ -94,7 +105,8 @@ public class UrlItemProcessor implements ItemProcessor {
     }
 
     /** 2단계(외부 호출)가 모아 온 결과. 3단계(쓰기 트랜잭션)가 한 번에 반영한다. */
-    private record Gathered(UrlPreview preview, String content, ResolvedLocation location, AiAnalysis analysis) {
+    private record Gathered(UrlPreview preview, String thumbnailS3Key, String content,
+            ResolvedLocation location, AiAnalysis analysis) {
     }
 
     /**
@@ -131,6 +143,7 @@ public class UrlItemProcessor implements ItemProcessor {
             }
             item.applyPreview(gathered.preview().title(), gathered.preview().thumbnailUrl(),
                     gathered.preview().description());
+            item.applyThumbnail(gathered.thumbnailS3Key());   // null이면 무시(엔티티 계약)
             item.applyContent(gathered.content());   // null이면 무시(엔티티 계약)
             if (gathered.location() != null) {
                 item.applyLocation(gathered.location().lat(), gathered.location().lng(),
@@ -180,6 +193,10 @@ public class UrlItemProcessor implements ItemProcessor {
             preview = new UrlPreview(fallbackTitleOf(snapshot.getUrl()), null, null);
         }
 
+        // 대표 이미지를 저용량 webp로 줄여 S3에 캐시한다(목록 카드용). 실패하면 null이고
+        // 카드는 기존처럼 외부 URL(previewThumbnailUrl)로 폴백한다.
+        String thumbnailS3Key = tryCreateThumbnail(snapshot, preview.thumbnailUrl());
+
         // 트랙 B: 본문 확보. Document가 없으면(oEmbed 경로/트랙 A fetch 실패) 본문도 없다.
         String content = (doc != null) ? contentExtractor.extract(doc) : null;
 
@@ -190,7 +207,42 @@ public class UrlItemProcessor implements ItemProcessor {
         String effectiveTitle = hasText(snapshot.getTitle()) ? snapshot.getTitle() : preview.title();
         AiAnalysis analysis = analyzeSafely(snapshot, effectiveTitle, content);
 
-        return new Gathered(preview, content, location, analysis);
+        return new Gathered(preview, thumbnailS3Key, content, location, analysis);
+    }
+
+    /**
+     * 목록 카드용 webp 썸네일을 만들어 S3에 올리고 그 key를 돌려준다. og:image 원본은 보통
+     * 1200px 이상(수백 KB~수 MB)인 데다 외부 호스트 속도에 좌우되고, 일부 호스트는 핫링크를
+     * 차단해 카드가 깨지기도 한다 — 저용량 사본을 우리 S3에 캐시하면 둘 다 해결된다.
+     * 상세 화면은 계속 외부 원본을 쓴다(200px 썸네일은 크게 보여주기엔 흐릿하다).
+     *
+     * <p>최적화지 필수 경로가 아니므로 어떤 실패도(다운로드·리사이즈·업로드) 조용히 흡수하고
+     * null을 돌려준다 — 그때 목록 카드는 외부 URL로 폴백한다(ItemSummaryAssembler).
+     * ImageItemProcessor.tryGenerateThumbnail과 동일 패턴이고, 고아 썸네일 가능성·수명주기도
+     * 같다(원본 삭제 시 함께 정리).
+     *
+     * <p>키는 원본 이미지가 없어 파생할 수 없으니 previews/ 접두어 아래 새로 만든다.
+     */
+    private String tryCreateThumbnail(Item snapshot, String thumbnailUrl) {
+        if (thumbnailUrl == null) {
+            return null;
+        }
+        try {
+            byte[] bytes = previewImageFetcher.fetch(thumbnailUrl);
+            if (bytes == null) {
+                return null;
+            }
+            byte[] thumbnail = thumbnailGenerator.toThumbnail(bytes);
+            if (thumbnail == null) {
+                return null;
+            }
+            String baseKey = "previews/%d/%s".formatted(snapshot.getWorkspaceId(), UUID.randomUUID());
+            return s3Uploader.uploadThumbnail(thumbnail, baseKey);
+        } catch (Exception e) {
+            log.info("미리보기 썸네일 생성 실패(무시), 카드는 외부 URL로 폴백: itemId={}, cause={}",
+                    snapshot.getId(), e.getMessage());
+            return null;
+        }
     }
 
     private static boolean hasText(String value) {
