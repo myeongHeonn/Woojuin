@@ -197,6 +197,7 @@ woojuin:
   fetch:
     timeout-ms: 5000
     max-body-bytes: 3145728   # 3MB. 미리보기/본문 추출에 이보다 큰 HTML은 불필요
+    max-image-bytes: 10485760 # 10MB. 미리보기 대표 이미지(og:image) 다운로드 상한 — 썸네일 원료라 이보다 크면 거부
     max-redirects: 5
   crawler:
     # Scrapling 사이드카 폴백. crawler는 docker-compose에 포함돼 함께 뜨므로 기본 켜둔다.

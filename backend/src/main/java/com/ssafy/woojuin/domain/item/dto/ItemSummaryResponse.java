@@ -11,7 +11,8 @@ import java.util.List;
  * 목록/휴지통 카드용 응답. 상세({@link ItemDetailResponse})에서 본문 전문(content)만 뺀
  * 형태다 — 카드엔 본문이 필요 없고, text 컬럼이 목록 N건에 실리면 페이로드가 커지기 때문.
  * 카드 설명은 summary가 있으면 summary를, 없으면 preview.description을 쓰는 폴백을 상정한다.
- * imageUrl은 IMAGE 원본 presigned URL(IMAGE 아닐 시 null)이다.
+ * imageUrl은 IMAGE 원본 presigned URL(IMAGE 아닐 시 null)이고, preview는 조립기가 목록용으로
+ * 다듬은 값(URL 썸네일 presigned 대체 포함)을 받는다 — 그래서 상세와 달리 밖에서 주입한다.
  */
 public record ItemSummaryResponse(
         Long itemId,
@@ -27,7 +28,8 @@ public record ItemSummaryResponse(
         OffsetDateTime createdAt,
         OffsetDateTime deletedAt) {
 
-    public static ItemSummaryResponse from(Item item, List<CategoryResponse> categories, String imageUrl) {
+    public static ItemSummaryResponse from(Item item, List<CategoryResponse> categories, String imageUrl,
+            ItemPreview preview) {
         return new ItemSummaryResponse(
                 item.getId(),
                 item.getType(),
@@ -35,7 +37,7 @@ public record ItemSummaryResponse(
                 item.getTitle(),
                 item.getUrl(),
                 item.getSummary(),
-                ItemPreview.from(item),
+                preview,
                 imageUrl,
                 categories,
                 item.isFavorite(),

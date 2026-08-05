@@ -118,9 +118,10 @@ public class S3Uploader {
     }
 
     /**
-     * IMAGE 목록 카드용 webp 썸네일을 올린다. 키는 원본 키에서 파생시켜(원본키 + ".thumb.webp")
-     * 한 이미지의 원본/썸네일이 같은 접두어로 묶이게 한다. 원본과 달리 이미 메모리에 있는
-     * 바이트라 InputStream이 아닌 fromBytes로 올린다.
+     * 목록 카드용 webp 썸네일을 올린다. 키는 base 키에서 파생시킨다(base + ".thumb.webp") —
+     * IMAGE는 원본 키를 base로 써서 원본/썸네일이 같은 접두어로 묶이고, URL 미리보기는 원본이
+     * S3에 없으므로 previews/ 접두어의 새 키를 base로 쓴다(UrlItemProcessor.tryCreateThumbnail).
+     * 원본 업로드와 달리 이미 메모리에 있는 바이트라 InputStream이 아닌 fromBytes로 올린다.
      */
     public String uploadThumbnail(byte[] bytes, String originalKey) {
         String key = originalKey + ".thumb.webp";
