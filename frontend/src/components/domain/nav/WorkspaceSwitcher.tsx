@@ -32,7 +32,12 @@ const WorkspaceSwitcher = () => {
         renderTrigger={(toggle) => (
           <button
             type="button"
-            aria-label="워크스페이스 전환"
+            /*
+             * 보이는 글자(워크스페이스 이름)를 aria-label 앞에 그대로 둔다.
+             * "워크스페이스 전환"만 넣으면 화면에 보이는 이름과 접근성 이름이 어긋나,
+             * 음성으로 "몽골 여행 눌러줘" 라고 해도 이 버튼이 안 잡힌다(WCAG Label in Name).
+             */
+            aria-label={`${current?.name ?? 'My Universe'} — 워크스페이스 전환`}
             onClick={toggle}
             className="flex w-full items-center gap-1 text-2xl font-extrabold tracking-[-0.01em] text-text-1 [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-text-3"
           >
