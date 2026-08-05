@@ -45,7 +45,6 @@ FROM test AS build
 #    vite.config.ts 의 `envDir: '..'`(레포 루트) 때문에 파일로 넘기려면 루트에 .env 를
 #    만들어야 하는데, 환경변수로 주면 그 함정을 피할 수 있다.
 ARG VITE_API_BASE_URL
-ARG VITE_DISCORD_APPLICATION_ID
 # Firebase 웹 앱 설정. dev/prod가 같은 Firebase 프로젝트를 쓰지만 값은 여기 하드코딩하지
 # 않는다 — Jenkinsfile의 environment 블록 한 곳에서만 관리하고 --build-arg로 넘겨받는다
 # (VITE_API_BASE_URL과 같은 패턴).
@@ -60,7 +59,6 @@ ARG VITE_FCM_VAPID_KEY
 # "Discord에 우주인 설치" 버튼이 조용히 사라진다(ChatIntegrationCard 의 조건부 렌더).
 ARG VITE_DISCORD_APPLICATION_ID
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-ENV VITE_DISCORD_APPLICATION_ID=$VITE_DISCORD_APPLICATION_ID
 ENV VITE_FCM_API_KEY=$VITE_FCM_API_KEY
 ENV VITE_FCM_AUTH_DOMAIN=$VITE_FCM_AUTH_DOMAIN
 ENV VITE_FCM_PROJECT_ID=$VITE_FCM_PROJECT_ID
