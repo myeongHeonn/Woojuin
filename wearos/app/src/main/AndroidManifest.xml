@@ -3,6 +3,8 @@
 
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 오프라인 게이트가 연결 상태를 감시한다 (일반 권한, 런타임 요청 불필요) -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- 권한은 최초 실행 시 일괄 요청하지 않고, 각 기능 진입 순간에 요청한다. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />

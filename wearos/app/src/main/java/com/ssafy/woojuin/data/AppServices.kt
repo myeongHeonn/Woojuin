@@ -26,6 +26,9 @@ object AppServices {
     lateinit var place: PlaceRepository
         private set
 
+    lateinit var connectivity: ConnectivityMonitor
+        private set
+
     /** Compose Preview 는 init 을 거치지 않는다 — 그때는 fake 로 폴백한다 */
     val initialized: Boolean
         get() = ::tokenStore.isInitialized
@@ -35,5 +38,6 @@ object AppServices {
         api = WoojuinApi(tokenStore)
         auth = RemoteAuthRepository(api, tokenStore)
         place = RemotePlaceRepository(context.applicationContext, api)
+        connectivity = ConnectivityMonitor(context.applicationContext)
     }
 }
