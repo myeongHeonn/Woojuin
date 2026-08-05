@@ -78,6 +78,9 @@ pipeline {
         VITE_FCM_MESSAGING_SENDER_ID = '138341207339'
         VITE_FCM_APP_ID              = '1:138341207339:web:35f790c9ec6bdd07f3896e'
         VITE_FCM_VAPID_KEY           = 'BDZPcTlZsyHOvY1HSAVwHvXlcvi6d9Y0Dgkw9fEdYJusr4dxuLQNivp_4hKD4IJDdfJkY5UHpUVE4iwfxvmDzJk'
+        // Discord 애플리케이션 ID는 OAuth 설치 링크에 노출되는 공개 식별자다.
+        // 이 값이 빌드에 없으면 마이페이지의 "Discord에 우주인 설치" 버튼이 렌더링되지 않는다.
+        VITE_DISCORD_APPLICATION_ID   = '1533826351377678548'
 
         // 환경별 값(STACK, FE_API_BASE_URL, 웹루트, credential, lock ...)은 여기 있지 않다 —
         // 브랜치/MR 타겟에 따라 달라지므로 Checkout 스테이지에서 계산한다(TARGET_ENV).
@@ -364,6 +367,7 @@ pipeline {
                 sh """
                     docker build \
                         --build-arg VITE_API_BASE_URL=${FE_API_BASE_URL} \
+                        --build-arg VITE_DISCORD_APPLICATION_ID=${VITE_DISCORD_APPLICATION_ID} \
                         --build-arg VITE_FCM_API_KEY=${VITE_FCM_API_KEY} \
                         --build-arg VITE_FCM_AUTH_DOMAIN=${VITE_FCM_AUTH_DOMAIN} \
                         --build-arg VITE_FCM_PROJECT_ID=${VITE_FCM_PROJECT_ID} \
