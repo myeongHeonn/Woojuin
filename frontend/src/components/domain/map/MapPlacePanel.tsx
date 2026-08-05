@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import spacemanNoBg from '@/assets/spacemans/spaceman_no_bg.png';
+import spacemanNoBg from '@/assets/spacemans/spaceman_no_bg.webp';
 import { MAP_ITEM_TYPES, MAP_ITEM_TYPE_COLOR, MAP_ITEM_TYPE_LABEL } from '@/constants/map';
 import type { Category } from '@/types/category';
 import type { MapCategoryId, MapPlace } from '@/types/map';

@@ -1,4 +1,4 @@
-import spacemanNoBg from '@/assets/spacemans/spaceman_no_bg.png';
+import spacemanNoBg from '@/assets/spacemans/spaceman_no_bg.webp';
 
 interface EmptyStateProps {
   /** 필터(즐겨찾기·카테고리)가 걸린 상태에서 결과가 없음 — 문구가 달라진다 */
