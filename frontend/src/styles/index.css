@@ -2,12 +2,13 @@
 @import './theme.css';
 
 @media (max-width: 639px) {
+  /* 탭바 아래 여백(--tabbar-bottom-pad)을 기준으로 계산 — 탭바가 움직이면 같이 움직인다 */
   [data-map-panel-collapsed='false'] .woojuin-open-free-map .maplibregl-ctrl-bottom-right {
-    bottom: calc(50% + 100px + var(--safe-bottom));
+    bottom: calc(50% + 86px + var(--tabbar-bottom-pad));
   }
 
   [data-map-panel-collapsed='true'] .woojuin-open-free-map .maplibregl-ctrl-bottom-right {
-    bottom: calc(212px + var(--safe-bottom));
+    bottom: calc(198px + var(--tabbar-bottom-pad));
   }
 
   .woojuin-open-free-map .maplibregl-ctrl-bottom-right {

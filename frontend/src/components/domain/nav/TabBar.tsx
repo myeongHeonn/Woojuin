@@ -52,7 +52,7 @@ const TabBar = ({ className }: { className?: string }) => {
       className={classNames(
         // 데스크톱(>= breakpoint-desktop)에서는 사이드바가 대신하므로 감춘다.
         // SideBar 가 hidden desktop:flex 를 자기 안에 두는 것과 짝을 이룬다
-        'desktop:hidden px-3.5 pb-[calc(14px+var(--safe-bottom))]',
+        'desktop:hidden px-3.5 pb-[var(--tabbar-bottom-pad)]',
         className,
       )}
     >

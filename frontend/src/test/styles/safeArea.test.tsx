@@ -40,26 +40,34 @@ describe('안전영역 토큰', () => {
     setInsets('0px', '0px');
 
     expect(computed('pt-[calc(20px+var(--safe-top))]').paddingTop).toBe('20px');
-    expect(computed('pb-[calc(14px+var(--safe-bottom))]').paddingBottom).toBe('14px');
+    expect(computed('pb-[var(--tabbar-bottom-pad)]').paddingBottom).toBe('14px');
     expect(computed('bottom-above-tabbar').bottom).toBe('88px');
   });
 
-  it('안전영역이 있으면 그만큼 더한다', () => {
-    // iPhone 14 Pro 세로 — 상단 59px / 하단 34px
-    setInsets('59px', '34px');
+  it('상단 안전영역은 그만큼 더한다', () => {
+    // iPhone 14 Pro 세로 — 상단 59px
+    setInsets('59px', '0px');
 
     expect(computed('pt-[calc(20px+var(--safe-top))]').paddingTop).toBe('79px');
     expect(computed('pt-[calc(24px+var(--safe-top))]').paddingTop).toBe('83px');
     expect(computed('pt-[calc(40px+var(--safe-top))]').paddingTop).toBe('99px');
-    expect(computed('pb-[calc(14px+var(--safe-bottom))]').paddingBottom).toBe('48px');
   });
 
-  it('하단 탭바를 비켜 앉는 높이도 안전영역을 따라간다', () => {
+  it('탭바 아래 여백은 안전영역과 겹친다 — 더하면 탭바가 48px 떠서 너무 높다(실기기 피드백)', () => {
+    // iPhone 14 Pro 세로 — 하단 34px. 홈 인디케이터 인셋 자체가 빈 공간이라
+    // 14px 를 또 얹지 않고 max() 로 겹친다. 48px 로 돌아가면 이 테스트가 막는다.
+    setInsets('0px', '34px');
+
+    expect(computed('pb-[var(--tabbar-bottom-pad)]').paddingBottom).toBe('34px');
+  });
+
+  it('하단 탭바를 비켜 앉는 높이도 탭바 여백을 따라간다', () => {
     // 지도 배지·장소 패널·검색바·휴지통이 공유하는 값 — 전에는 네 곳에 각자 적혀 있었다
     setInsets('0px', '34px');
 
-    expect(computed('bottom-above-tabbar').bottom).toBe('122px');
-    expect(computed('pb-above-tabbar').paddingBottom).toBe('122px');
+    // 74px(탭바 높이) + max(14, 34) = 108 — 탭바가 내려간 만큼 같이 내려간다
+    expect(computed('bottom-above-tabbar').bottom).toBe('108px');
+    expect(computed('pb-above-tabbar').paddingBottom).toBe('108px');
   });
 });
 
