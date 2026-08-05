@@ -38,7 +38,7 @@ public class DiscordCommandParser {
             case "connect" -> "connect " + required(options, "code");
             case "list" -> "list";
             case "set" -> "set " + required(options, "id");
-            case "memo" -> "memo " + required(options, "content");
+            case "workspace" -> parseWorkspace(options);
             case "search" -> "search " + required(options, "query");
             case "save" -> parseSave(options);
             default -> throw new IllegalArgumentException("지원하지 않는 Discord 명령이에요.");
@@ -48,13 +48,20 @@ public class DiscordCommandParser {
     private String parseSave(JsonNode options) {
         List<String> parts = new ArrayList<>();
         parts.add("save");
-        parts.add(required(options, "url"));
+        String content = optional(options, "content");
+        if (content == null) content = required(options, "url");
+        parts.add(content);
         String workspace = optional(options, "workspace");
         if (workspace != null) {
             parts.add("--workspace");
             parts.add(workspace);
         }
         return String.join(" ", parts);
+    }
+
+    private String parseWorkspace(JsonNode options) {
+        String number = optional(options, "number");
+        return number == null || number.isBlank() ? "workspace list" : "workspace " + number;
     }
 
     private String required(JsonNode options, String name) {

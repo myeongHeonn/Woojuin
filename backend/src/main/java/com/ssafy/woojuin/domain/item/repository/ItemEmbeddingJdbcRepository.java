@@ -162,7 +162,7 @@ public class ItemEmbeddingJdbcRepository {
                         + "JOIN items i ON i.id = e.item_id AND i.deleted_at IS NULL "
                         + "WHERE e.workspace_id = ? AND (e.embedding <=> ?::vector) < ?"
                         + exclusion
-                        + " ORDER BY distance, e.item_id LIMIT ? OFFSET ?",
+                        + " ORDER BY distance, i.created_at DESC, e.item_id LIMIT ? OFFSET ?",
                 (rs, i) -> new SimilarityRow(rs.getLong(1), rs.getDouble(2)),
                 params.toArray());
     }

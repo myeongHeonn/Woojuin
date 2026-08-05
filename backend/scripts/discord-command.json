@@ -26,36 +26,20 @@
       "description": "우주인 계정 연결을 해제합니다"
     },
     {
-      "type": 2,
+      "type": 1,
       "name": "workspace",
-      "description": "기본 워크스페이스를 확인하거나 변경합니다",
+      "description": "워크스페이스 목록을 확인하거나 기본 공간을 변경합니다",
       "options": [
-        { "type": 1, "name": "list", "description": "접근 가능한 워크스페이스를 확인합니다" },
-        {
-          "type": 1,
-          "name": "set",
-          "description": "기본 워크스페이스를 변경합니다",
-          "options": [
-            { "type": 4, "name": "id", "description": "워크스페이스 ID", "required": true, "min_value": 1 }
-          ]
-        }
+        { "type": 4, "name": "number", "description": "워크스페이스 번호(비우면 목록)", "required": false, "min_value": 1 }
       ]
     },
     {
       "type": 1,
       "name": "save",
-      "description": "URL을 우주인에 저장합니다",
+      "description": "URL 또는 메모를 우주인에 저장합니다",
       "options": [
-        { "type": 3, "name": "url", "description": "저장할 http 또는 https URL", "required": true },
+        { "type": 3, "name": "content", "description": "저장할 URL 또는 메모", "required": true, "max_length": 2000 },
         { "type": 4, "name": "workspace", "description": "저장할 워크스페이스 ID(선택)", "required": false, "min_value": 1 }
-      ]
-    },
-    {
-      "type": 1,
-      "name": "memo",
-      "description": "메모를 우주인에 저장합니다",
-      "options": [
-        { "type": 3, "name": "content", "description": "저장할 메모 내용", "required": true, "max_length": 2000 }
       ]
     },
     {

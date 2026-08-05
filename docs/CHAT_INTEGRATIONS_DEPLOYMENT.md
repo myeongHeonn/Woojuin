@@ -19,7 +19,7 @@ Mattermost 슬래시 명령 설정값:
 | 응답 사용자명 | `woojuin` |
 | 응답 아이콘 | `https://woojuin.store/icons/icon-512.png` |
 | 자동완성 제안 | `우주인에 링크와 메모를 저장하고 저장한 정보를 검색합니다` |
-| 자동완성 설명 | `[save <URL> | memo <내용> | search <검색어> | workspace <list/set> | connect <코드>]` |
+| 자동완성 설명 | `[save <URL 또는 메모> | search <검색어> | workspace <list/번호> | connect <코드>]` |
 
 명령을 저장한 뒤 Mattermost가 발급한 토큰을 운영 환경의 `MATTERMOST_SLASH_TOKEN`에 넣는다. 요청 URL에 OAuth callback URL을 넣으면 `405 Method Not Allowed`가 발생한다.
 

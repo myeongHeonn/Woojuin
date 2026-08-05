@@ -82,7 +82,7 @@ class DiscordInteractionControllerTest {
         String body = """
                 {"id":"interaction-1","type":2,"member":{"user":{"id":"discord-user"}},
                  "data":{"name":"woojuin","options":[{"type":1,"name":"save","options":[
-                   {"type":3,"name":"url","value":"https://example.com"}
+                   {"type":3,"name":"content","value":"https://example.com"}
                  ]}]}}
                 """;
 
