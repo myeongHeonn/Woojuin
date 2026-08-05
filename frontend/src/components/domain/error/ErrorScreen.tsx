@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import spacemanFloating from '@/assets/spacemans/spaceman-floating.png';
+import spacemanFloating from '@/assets/spacemans/spaceman-floating.webp';
 import { ArrowLeftIcon } from '@/assets/icons';
 import ErrorCodeMark from '@/components/domain/error/ErrorCodeMark';
 import StarField from '@/components/domain/error/StarField';
@@ -56,10 +56,11 @@ const ErrorScreen = ({ code, title, description, actions, detail }: ErrorScreenP
           가로 중앙이 곧 `0` 의 중심이라 별도 계산 없이 행성 위에 떠 있는 모양이 된다.
           작게 두는 이유: 크면 캐릭터 일러스트 화면이 되고, 작으면 텅 빈 공간이 주인공이 된다.
 
-          `spaceman-floating.png` 는 원본 `spaceman-floating-2.png`(1254×1254 / 856KB)를
-          288px 로 줄인 것(68KB)이다. 100px 로 쓰는 그림에 856KB 를 받게 할 수 없다 —
+          `spaceman-floating.webp` 는 원본 `spaceman-floating-2.png`(1254×1254 / 856KB)를
+          224px WebP 로 구운 것(7KB)이다. 100px 로 쓰는 그림에 856KB 를 받게 할 수 없다 —
           에러 화면은 이미 뭔가 잘못된 상황에서 뜨므로 특히 가벼워야 한다.
-          그림을 바꿀 일이 생기면 원본을 갈아 끼우고 같은 비율로 다시 줄이면 된다.
+          그림을 바꿀 일이 생기면 원본을 갈아 끼우고 `node scripts/optimize-spacemans.mjs` 만
+          다시 돌리면 된다.
         */}
         <div className="relative mt-20">
           <ErrorCodeMark code={code} />
