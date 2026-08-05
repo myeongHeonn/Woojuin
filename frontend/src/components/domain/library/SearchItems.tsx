@@ -59,7 +59,7 @@ const SearchItems = ({ q, aiMode, onOpenItem }: SearchItemsProps) => {
           style={{ gridTemplateColumns: 'repeat(auto-fill, 124px)' }}
         >
           {items.map((item) => (
-            <ItemCard key={item.itemId} item={item} onClick={() => onOpenItem?.(item.itemId)} />
+            <ItemCard key={item.itemId} item={item} onClick={onOpenItem} />
           ))}
         </div>
       )}

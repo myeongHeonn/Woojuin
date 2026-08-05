@@ -118,11 +118,7 @@ const ConstellationSearch = ({ onSearchResults, aboveBar }: ConstellationSearchP
                     className="mt-2 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar]:h-1.5"
                   >
                     {items.map((item) => (
-                      <ItemCard
-                        key={item.itemId}
-                        item={item}
-                        onClick={() => setOpenItemId(item.itemId)}
-                      />
+                      <ItemCard key={item.itemId} item={item} onClick={setOpenItemId} />
                     ))}
                   </div>
                 )}
