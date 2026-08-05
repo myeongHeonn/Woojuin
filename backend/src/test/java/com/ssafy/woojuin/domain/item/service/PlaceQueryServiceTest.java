@@ -12,7 +12,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,37 +28,28 @@ class PlaceQueryServiceTest {
     private PlaceQueryService placeQueryService;
 
     @Test
-    @DisplayName("첫 후보는 항상 '현재 위치' — 그 뒤로 주변 장소가 이어진다")
-    void nearby_currentLocationFirst() {
-        when(geocoder.reverse(any())).thenReturn(Optional.of("서울 성동구 성수동2가"));
+    @DisplayName("후보는 카카오맵 링크가 있는 실제 장소뿐이다 — 저장이 그 링크로 이루어진다")
+    void nearby_returnsOnlyLinkedPlaces() {
         when(geocoder.nearby(any())).thenReturn(List.of(
                 new NearbyPlace("온화정", "음식점 > 한식", 120,
                         new GeoPoint(37.5446, 127.0562), "서울 성동구 성수이로 100",
-                        "http://place.map.kakao.com/12345")));
-
-        NearbyPlacesResponse response = placeQueryService.nearby(37.5445, 127.0561);
-
-        assertThat(response.candidates()).hasSize(2);
-        assertThat(response.candidates().get(0).name()).isEqualTo("현재 위치");
-        assertThat(response.candidates().get(0).address()).isEqualTo("서울 성동구 성수동2가");
-        assertThat(response.candidates().get(0).lat()).isEqualTo(37.5445);
-        assertThat(response.candidates().get(1).name()).isEqualTo("온화정");
-        assertThat(response.candidates().get(1).distanceMeters()).isEqualTo(120);
-        assertThat(response.candidates().get(1).placeUrl()).isEqualTo("http://place.map.kakao.com/12345");
-        assertThat(response.candidates().get(0).placeUrl()).isNull(); // "현재 위치"는 장소 페이지가 없다
-    }
-
-    @Test
-    @DisplayName("지오코딩이 꺼져 있어도(주변 0건·주소 없음) '현재 위치' 하나는 남는다")
-    void nearby_geocodingOff_currentLocationOnly() {
-        when(geocoder.reverse(any())).thenReturn(Optional.empty());
-        when(geocoder.nearby(any())).thenReturn(List.of());
+                        "http://place.map.kakao.com/12345"),
+                new NearbyPlace("링크 없는 곳", "음식점", 50,
+                        new GeoPoint(37.5447, 127.0563), null, null)));
 
         NearbyPlacesResponse response = placeQueryService.nearby(37.5445, 127.0561);
 
         assertThat(response.candidates()).hasSize(1);
-        assertThat(response.candidates().get(0).name()).isEqualTo("현재 위치");
-        assertThat(response.candidates().get(0).address()).isNull();
+        assertThat(response.candidates().get(0).name()).isEqualTo("온화정");
+        assertThat(response.candidates().get(0).placeUrl()).isEqualTo("http://place.map.kakao.com/12345");
+    }
+
+    @Test
+    @DisplayName("주변에 장소가 없으면 빈 목록 — 워치가 '주변 장소 없음'을 보여준다")
+    void nearby_empty() {
+        when(geocoder.nearby(any())).thenReturn(List.of());
+
+        assertThat(placeQueryService.nearby(37.5445, 127.0561).candidates()).isEmpty();
     }
 
     @Test
