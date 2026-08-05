@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.compose.ui.tooling)
     implementation(libs.core.splashscreen)
     implementation(libs.play.services.wearable)
+    implementation(libs.play.services.location)
     implementation(libs.okhttp)
     implementation(libs.datastore.preferences)
     implementation(libs.ui)
