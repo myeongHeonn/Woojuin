@@ -81,14 +81,29 @@ class WoojuinApi(private val tokenStore: TokenStore) {
      * refresh 까지 거부되면 토큰을 지우고 [AuthRequiredException] — 그 외 실패는
      * IOException 으로 흘려보낸다(토큰 유지, 화면은 재시도 안내).
      */
-    fun authorized(path: String, body: JSONObject): JSONObject {
+    fun authorized(path: String, body: JSONObject): JSONObject =
+        authorizedCall { access -> post(path, body, access) }
+
+    fun authorizedGet(path: String): JSONObject =
+        authorizedCall { access ->
+            Request.Builder().url(baseUrl + path)
+                .header("Authorization", "Bearer $access").get().build()
+        }
+
+    fun authorizedDelete(path: String): JSONObject =
+        authorizedCall { access ->
+            Request.Builder().url(baseUrl + path)
+                .header("Authorization", "Bearer $access").delete().build()
+        }
+
+    private fun authorizedCall(build: (String) -> Request): JSONObject {
         val access = tokenStore.accessTokenBlocking() ?: throw AuthRequiredException()
-        val first = call(post(path, body, access))
+        val first = call(build(access))
         if (first.first != 401) return parseBody(first)
 
         refreshOrThrow()
         val retryAccess = tokenStore.accessTokenBlocking() ?: throw AuthRequiredException()
-        val second = call(post(path, body, retryAccess))
+        val second = call(build(retryAccess))
         if (second.first == 401) {
             // 새 access 조차 거부 — 그 사이 기기 해제(폐기 목록)된 경우다
             runBlockingClear()
