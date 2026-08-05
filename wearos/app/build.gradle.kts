@@ -18,6 +18,8 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        // 개발·데모는 dev 서버를 향한다. release 가 prod 로 덮어쓴다
+        buildConfigField("String", "API_BASE_URL", "\"https://api.dev.woojuin.store/api\"")
     }
 
     buildTypes {
@@ -25,6 +27,7 @@ android {
             optimization {
                 enable = false
             }
+            buildConfigField("String", "API_BASE_URL", "\"https://api.woojuin.store/api\"")
         }
     }
     compileOptions {
@@ -34,6 +37,7 @@ android {
     useLibrary("wear-sdk")
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -54,6 +58,8 @@ dependencies {
     implementation(libs.compose.ui.tooling)
     implementation(libs.core.splashscreen)
     implementation(libs.play.services.wearable)
+    implementation(libs.okhttp)
+    implementation(libs.datastore.preferences)
     implementation(libs.ui)
     implementation(libs.ui.graphics)
     implementation(libs.ui.tooling.preview)
