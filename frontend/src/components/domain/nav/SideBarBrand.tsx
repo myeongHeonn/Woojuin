@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import InteractiveLogo from '@/components/ui/InteractiveLogo';
 import LogoMiniText from '@/components/ui/LogoMiniText';
+import { BRAND_NAME } from '@/constants/brand';
 import { classNames } from '@/utils/classNames';
 import { useSideBar } from '@/stores/context/SideBarContext';
 
@@ -39,7 +40,7 @@ const SideBarBrand = () => {
         onBlur={() => setBrandHovered(false)}
       >
         <InteractiveLogo size={28} hovered={brandHovered} className="rounded-sm" />
-        {!sideBarClosed && <LogoMiniText text="WooJuIn" />}
+        {!sideBarClosed && <LogoMiniText text={BRAND_NAME} />}
       </Link>
       <button
         type="button"

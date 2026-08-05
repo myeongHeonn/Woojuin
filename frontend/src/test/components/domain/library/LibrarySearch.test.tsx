@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import LibrarySearch from '@/components/domain/library/LibrarySearch';
+import { STAGE_PX } from '@/constants/stage';
+import { classNames } from '@/utils/classNames';
 
 /** 현재 URL 쿼리를 DOM 에 노출해 네비게이션 결과를 확인한다 */
 function Loc() {
@@ -58,5 +60,32 @@ describe('LibrarySearch', () => {
     // 입력을 다 지우면 ?q 가 빠져 전체 목록으로 돌아간다
     await userEvent.clear(input);
     await expect.poll(() => rawSearch(container)).toBe('');
+  });
+
+  /**
+   * 부모(LibraryPage)가 flex-col 이라 ml-auto 만 주면 가로 stretch 가 깨져 내용 크기로
+   * 줄어든다 — 좁은 화면에서 왼쪽에 100px 넘는 빈 공간이 생기고 검색창이 오른쪽 끝에
+   * 붙어 잘린 것처럼 보였다. 모바일에서는 좌우 여백이 같아야 한다.
+   */
+  it('모바일에서 좌우 여백이 같다', async () => {
+    await page.viewport(375, 812);
+    const { container } = await render(
+      <MemoryRouter>
+        {/* LibraryPage 의 컨테이너 조건(px-5 + flex-col)을 재현한다 */}
+        <div className={classNames('flex h-full w-full flex-col overflow-hidden', STAGE_PX)}>
+          <LibrarySearch />
+        </div>
+      </MemoryRouter>,
+    );
+
+    const parent = container.querySelector('div.flex.h-full') as HTMLElement;
+    const form = container.querySelector('form') as HTMLElement;
+    const p = parent.getBoundingClientRect();
+    const f = form.getBoundingClientRect();
+
+    expect(f.left - p.left).toBeCloseTo(p.right - f.right, 0);
+    expect(f.right).toBeLessThanOrEqual(375); // 뷰포트 밖으로 안 넘친다
+
+    await page.viewport(1280, 800);
   });
 });

@@ -299,7 +299,7 @@ public class ItemService {
         itemRepository.delete(item);
         publishItemChanged(item.getWorkspaceId());
 
-        // 원본과 썸네일 둘 다 정리한다(썸네일은 IMAGE가 생성됐을 때만 존재).
+        // 원본과 썸네일 둘 다 정리한다(썸네일은 IMAGE·URL이 생성에 성공했을 때만 존재).
         if (s3Key != null) {
             s3Uploader.deleteQuietly(s3Key);
         }
