@@ -98,12 +98,6 @@ class RemotePlaceRepository(
             )
         }
 
-    /** 저장 직후 취소 — 아이템을 휴지통으로 보낸다(웹과 같은 삭제 규칙, 영구 삭제 아님) */
-    override suspend fun undo(itemId: String) {
-        withContext(Dispatchers.IO) { api.authorizedDelete("/items/$itemId") }
-        _lastSavedPlace.value = null
-    }
-
     private fun workspaceId(): Long {
         personalSpaceId?.let { return it }
         // 프로필의 personalSpaceId 가 null 인 계정이 실존한다(구경로 가입) — 목록의

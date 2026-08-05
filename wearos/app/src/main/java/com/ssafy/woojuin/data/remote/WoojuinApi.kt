@@ -90,12 +90,6 @@ class WoojuinApi(private val tokenStore: TokenStore) {
                 .header("Authorization", "Bearer $access").get().build()
         }
 
-    fun authorizedDelete(path: String): JSONObject =
-        authorizedCall { access ->
-            Request.Builder().url(baseUrl + path)
-                .header("Authorization", "Bearer $access").delete().build()
-        }
-
     private fun authorizedCall(build: (String) -> Request): JSONObject {
         val access = tokenStore.accessTokenBlocking() ?: throw AuthRequiredException()
         val first = call(build(access))

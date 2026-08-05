@@ -59,7 +59,6 @@ interface PlaceRepository {
     /** 마지막으로 가져온 후보 캐시 — 화면 전환 간 공유용. */
     val lastCandidates: StateFlow<List<PlaceCandidate>>
     suspend fun savePlace(candidate: PlaceCandidate): SavedItem
-    suspend fun undo(itemId: String)
     val lastSavedPlace: StateFlow<PlaceCandidate?>
 }
 

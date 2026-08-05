@@ -257,10 +257,6 @@ class FakePlaceRepository(private val sync: SyncRepository) : PlaceRepository {
         }
         return item
     }
-
-    override suspend fun undo(itemId: String) {
-        _lastSavedPlace.value = null
-    }
 }
 
 class FakeNearbyAlertRepository : NearbyAlertRepository {
