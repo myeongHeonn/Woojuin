@@ -13,7 +13,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.ssafy.woojuin.data.AppServices
@@ -38,8 +37,6 @@ class LinkViewModel : ViewModel() {
 
     data class UiState(
         val code: String? = null,
-        /** startLink 자체가 실패했다 — 재시도 버튼을 보여준다 */
-        val offline: Boolean = false,
         val linked: Boolean = false,
     )
 
@@ -53,18 +50,14 @@ class LinkViewModel : ViewModel() {
         loop = viewModelScope.launch { runLoop() }
     }
 
-    fun retry() {
-        loop?.cancel()
-        loop = viewModelScope.launch { runLoop() }
-    }
-
     private suspend fun runLoop() {
         while (true) {
             val code = try {
                 AppServices.auth.startLink()
             } catch (_: Exception) {
-                _state.value = UiState(offline = true)
-                return
+                // 오프라인은 게이트가 앱째로 막는다 — 여기 오는 실패는 일시적인 것, 조용히 재시도
+                delay(RETRY_INTERVAL_MS)
+                continue
             }
             _state.value = UiState(code = code.code)
 
@@ -89,6 +82,7 @@ class LinkViewModel : ViewModel() {
 
     companion object {
         private const val POLL_INTERVAL_MS = 2_500L
+        private const val RETRY_INTERVAL_MS = 3_000L
     }
 }
 
@@ -106,19 +100,6 @@ fun LinkScreen(
 
     WoojuinStatusScreen {
         when {
-            state.offline -> {
-                Text(
-                    text = "서버에 연결할 수 없어요",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = WoojuinColor.TextPrimary,
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = { viewModel.retry() }) {
-                    Text("다시 시도")
-                }
-            }
-
             state.code == null -> {
                 CaptionText("연결 코드를 받는 중…")
             }
