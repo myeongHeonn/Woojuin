@@ -38,15 +38,20 @@ const Thumbnail = ({ src, seed, className }: ThumbnailProps) => {
     return <div className={className} style={{ background: GRADIENTS[seed % GRADIENTS.length] }} />;
   }
 
+  // 바깥 상자가 크기를 정하고(className), img 는 그 안을 채우기만 한다.
+  // img 를 직접 className 으로 배치하면 안 된다 — 대체 요소(replaced element)라
+  // `absolute inset-0` 만으로는 늘어나지 않고 고유 크기로 그려져 카드 아래가 빈다.
   return (
-    <img
-      src={src}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      onError={() => setFailedSrc(src)}
-      className={classNames('object-cover object-center', className)}
-    />
+    <div className={classNames('overflow-hidden', className)}>
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailedSrc(src)}
+        className="h-full w-full object-cover object-center"
+      />
+    </div>
   );
 };
 
