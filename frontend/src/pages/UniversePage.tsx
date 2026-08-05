@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
@@ -44,6 +44,22 @@ const UniversePage = () => {
     isError: isUniverseError,
     refetch: refetchUniverse,
   } = useUniverse(workspaceId, universePollInterval);
+
+  /**
+   * 검색을 하면 카테고리 강조는 끈다 — 두 강조가 같은 화면에 겹치면 어느 별이 검색
+   * 결과인지 읽히지 않는다(카테고리 강조는 소속 밖의 별을 어둡게까지 만들어서, 다른
+   * 별자리에 있는 검색 결과가 묻힌다).
+   *
+   * 결과가 0건이어도 끈다 — 검색하는 순간 관심사가 카테고리에서 검색어로 옮겨간 것이고,
+   * 어두워진 화면이 그대로 남아 있으면 "왜 안 나오지"가 아니라 "왜 다 어둡지"가 된다.
+   * 그래서 목록이 아니라 검색어를 기준으로 판단한다(빈 검색어 = 검색 안 함).
+   *
+   * ConstellationSearch 의 effect 의존성에 들어가므로 참조가 고정돼야 한다.
+   */
+  const handleSearchResults = useCallback((itemIds: number[], query: string) => {
+    setHighlightItemIds(itemIds);
+    if (query.length > 0) setActiveCategoryId(null);
+  }, []);
 
   const wasProcessingRef = useRef(false);
   useEffect(() => {
@@ -106,7 +122,7 @@ const UniversePage = () => {
       )}
 
       <ConstellationSearch
-        onSearchResults={setHighlightItemIds}
+        onSearchResults={handleSearchResults}
         aboveBar={<ProcessingBadge count={processingCount} label="별 만드는 중" />}
       />
       <ItemModal
