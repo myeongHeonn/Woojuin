@@ -85,7 +85,7 @@ describe('SideBar (통합)', () => {
   it('브랜드·네비·워크스페이스·유저를 모두 렌더한다', async () => {
     const { container } = await renderSideBar();
     const text = aside(container).textContent ?? '';
-    for (const part of ['WooJuIn', 'Personal Space', 'SPACE', 'Workspaces', '몽골 여행']) {
+    for (const part of ['WOOJUIN', 'Personal Space', 'SPACE', 'Workspaces', '몽골 여행']) {
       expect(text).toContain(part);
     }
     expect(text).toContain('우주인');
@@ -95,7 +95,7 @@ describe('SideBar (통합)', () => {
     // 브랜드 클릭 = 홈 복귀. /home 은 개인 우주로 넘겨주는 라우트다(FixedNav 폴백과 동일)
     const { container } = await renderSideBar();
     const brand = [...container.querySelectorAll('a')].find((a) =>
-      a.textContent?.includes('WooJuIn'),
+      a.textContent?.includes('WOOJUIN'),
     );
     expect(brand).not.toBeUndefined();
     expect(brand).toHaveAttribute('href', '/home');

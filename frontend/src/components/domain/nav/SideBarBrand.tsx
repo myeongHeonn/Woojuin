@@ -39,7 +39,7 @@ const SideBarBrand = () => {
         onBlur={() => setBrandHovered(false)}
       >
         <InteractiveLogo size={28} hovered={brandHovered} className="rounded-sm" />
-        {!sideBarClosed && <LogoMiniText text="WooJuIn" />}
+        {!sideBarClosed && <LogoMiniText text="WOOJUIN" />}
       </Link>
       <button
         type="button"
