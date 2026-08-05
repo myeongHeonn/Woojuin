@@ -18,8 +18,12 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        // 개발·데모는 dev 서버를 향한다. release 가 prod 로 덮어쓴다
-        buildConfigField("String", "API_BASE_URL", "\"https://api.dev.woojuin.store/api\"")
+        // 개발·데모는 dev 서버를 향한다. release 가 prod 로 덮어쓴다.
+        // 로컬 백엔드 실기기 테스트: gradlew installDebug "-PapiBaseUrl=http://<PC IP>:8080/api"
+        // (README 참고 — debug 는 cleartext 허용이라 http 로컬 주소가 통한다)
+        val apiBaseUrl = providers.gradleProperty("apiBaseUrl")
+            .getOrElse("https://api.dev.woojuin.store/api")
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
     buildTypes {

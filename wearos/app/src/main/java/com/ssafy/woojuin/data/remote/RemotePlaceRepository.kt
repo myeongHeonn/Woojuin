@@ -51,17 +51,22 @@ class RemotePlaceRepository(
         val candidates = buildList {
             for (i in 0 until array.length()) {
                 val c = array.getJSONObject(i)
+                // optString 은 JSON null 을 문자열 "null" 로 준다 — isNull 을 먼저 봐야 한다
+                val category = if (c.isNull("category")) null
+                else c.getString("category").substringAfterLast(" > ")
+                val address = if (c.isNull("address")) null else c.getString("address")
                 add(
                     PlaceCandidate(
                         // 서버 후보에는 id 가 없다(저장 전이므로) — 화면 키 용도로만 쓴다
                         id = "nearby-$i",
                         name = c.getString("name"),
-                        category = c.optString("category", "").substringAfterLast(" > "),
+                        // "현재 위치" 후보는 카테고리가 없다 — 부제 자리에 주소를 보여준다
+                        category = category ?: address ?: "내 위치",
                         distanceMeters = c.optInt("distanceMeters", 0),
                         lat = c.getDouble("lat"),
                         lng = c.getDouble("lng"),
-                        address = c.optString("address", "").ifEmpty { null },
-                        placeUrl = c.optString("placeUrl", "").ifEmpty { null },
+                        address = address,
+                        placeUrl = if (c.isNull("placeUrl")) null else c.getString("placeUrl"),
                     ),
                 )
             }

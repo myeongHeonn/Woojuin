@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 로컬 백엔드(http://PC:8080) 실기기 테스트용 — debug 빌드에만 병합된다 -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>
