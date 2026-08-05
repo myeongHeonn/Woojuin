@@ -3,13 +3,17 @@ package com.ssafy.woojuin.presentation
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.wear.compose.material3.AppScaffold
 import com.ssafy.woojuin.data.AppServices
 import com.ssafy.woojuin.data.fake.Repositories
 import com.ssafy.woojuin.presentation.navigation.Routes
 import com.ssafy.woojuin.presentation.navigation.WoojuinNavHost
+import com.ssafy.woojuin.presentation.screen.OfflineGateScreen
 import com.ssafy.woojuin.presentation.theme.WoojuinTheme
 
 /** 프로세스 단위 콜드 스타트 추적 — 웜 스타트에서는 로고 모션을 반복하지 않는다. */
@@ -66,10 +70,20 @@ class MainActivity : ComponentActivity() {
 fun WoojuinApp(startDestination: String, postSplashDestination: String = Routes.HOME) {
     WoojuinTheme {
         AppScaffold {
-            WoojuinNavHost(
-                startDestination = startDestination,
-                postSplashDestination = postSplashDestination,
-            )
+            Box {
+                WoojuinNavHost(
+                    startDestination = startDestination,
+                    postSplashDestination = postSplashDestination,
+                )
+                // 오프라인 게이트 — 내비게이션 위에 덮기만 해서, 연결이 돌아오면
+                // 하던 자리 그대로 이어진다 (Preview 는 AppServices 가 없어 게이트 없음)
+                if (AppServices.initialized) {
+                    val online by AppServices.connectivity.online.collectAsState()
+                    if (!online) {
+                        OfflineGateScreen()
+                    }
+                }
+            }
         }
     }
 }
