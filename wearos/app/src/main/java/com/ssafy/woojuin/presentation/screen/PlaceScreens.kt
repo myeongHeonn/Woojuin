@@ -90,8 +90,12 @@ class PlacePickerViewModel : ViewModel() {
 
     fun saveAnyway(place: PlaceCandidate) {
         viewModelScope.launch {
-            repository.savePlace(place)
-            _uiState.value = PlacePickerUiState.Saved
+            // 실서버 저장은 실패할 수 있다 — 예외가 새면 앱이 죽는다(통신 단절 AC 위반)
+            runCatching { repository.savePlace(place) }
+                .onSuccess { _uiState.value = PlacePickerUiState.Saved }
+                .onFailure {
+                    _uiState.value = PlacePickerUiState.Error("저장하지 못했어요. 통신 상태를 확인해 주세요")
+                }
         }
     }
 }

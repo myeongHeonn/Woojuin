@@ -106,7 +106,19 @@ class RemotePlaceRepository(
 
     private fun workspaceId(): Long {
         personalSpaceId?.let { return it }
-        val id = api.authorizedGet("/users/me").getJSONObject("data").getLong("personalSpaceId")
+        // 프로필의 personalSpaceId 가 null 인 계정이 실존한다(구경로 가입) — 목록의
+        // PERSONAL 워크스페이스로 폴백한다. 웹 사이드바가 쓰는 것과 같은 목록이다
+        val profile = api.authorizedGet("/users/me").getJSONObject("data")
+        val id = if (!profile.isNull("personalSpaceId")) {
+            profile.getLong("personalSpaceId")
+        } else {
+            val workspaces = api.authorizedGet("/workspaces").getJSONArray("data")
+            (0 until workspaces.length())
+                .map { workspaces.getJSONObject(it) }
+                .firstOrNull { it.getString("type") == "PERSONAL" }
+                ?.getLong("id")
+                ?: throw IllegalStateException("저장할 워크스페이스가 없습니다")
+        }
         personalSpaceId = id
         return id
     }
