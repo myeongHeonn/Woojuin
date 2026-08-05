@@ -134,9 +134,14 @@ public class DiscordImageSaveService {
             throw new IllegalArgumentException("이미지는 비어 있지 않은 10MB 이하 파일만 저장할 수 있어요.");
         }
         URI uri = safeDiscordUri(attachment.url());
-        if (!uri.getPath().startsWith("/attachments/")) {
+        if (!isDiscordAttachmentPath(uri.getPath())) {
             throw new IllegalArgumentException("Discord 첨부파일 주소가 올바르지 않아요.");
         }
+    }
+
+    static boolean isDiscordAttachmentPath(String path) {
+        return path != null
+                && (path.startsWith("/attachments/") || path.startsWith("/ephemeral-attachments/"));
     }
 
     private byte[] download(DiscordAttachment attachment) {

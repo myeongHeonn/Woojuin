@@ -223,6 +223,13 @@ services:
       OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:?}    # localhost 로 회귀 → 로그인 후 엉뚱한 곳으로
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:?}                        # 기본 버킷으로 회귀 → dev/prod 데이터 섞임
       AWS_S3_PUBLIC_ENDPOINT: ${AWS_S3_PUBLIC_ENDPOINT:?}      # 내부 주소로 서명 → 브라우저에서 이미지 깨짐
+      # 채팅 앱 연동. 빈 값이면 배포 자체는 떠도 Discord 요청 검증 또는 Mattermost 명령이
+      # 전부 실패하므로 운영 스택에서는 필수로 검증한다.
+      CHAT_BOT_SECRET: ${CHAT_BOT_SECRET:?}
+      DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY:?}
+      DISCORD_APPLICATION_ID: ${DISCORD_APPLICATION_ID:?}
+      MATTERMOST_SLASH_TOKEN: ${MATTERMOST_SLASH_TOKEN:?}
+      CHAT_INTEGRATION_FRONTEND_URL: ${CHAT_INTEGRATION_FRONTEND_URL:?}
       #
       # 나머지(OPENAI_API_KEY, KAKAO_*, AWS_REGION, FCM_PROJECT_ID, CRAWLER_ENABLED,
       # DB_USERNAME, AWS_S3_ACCESS/SECRET_KEY ...)는 env_file 로 들어온다.

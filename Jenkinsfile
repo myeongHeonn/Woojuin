@@ -78,7 +78,6 @@ pipeline {
         VITE_FCM_MESSAGING_SENDER_ID = '138341207339'
         VITE_FCM_APP_ID              = '1:138341207339:web:35f790c9ec6bdd07f3896e'
         VITE_FCM_VAPID_KEY           = 'BDZPcTlZsyHOvY1HSAVwHvXlcvi6d9Y0Dgkw9fEdYJusr4dxuLQNivp_4hKD4IJDdfJkY5UHpUVE4iwfxvmDzJk'
-
         // Discord Application ID. 마이페이지 "Discord에 우주인 설치" 링크의 client_id 로,
         // 백엔드 DISCORD_APPLICATION_ID(env-dev/env-prod)와 같은 값이다 — Discord 앱이
         // 하나뿐이고 dev/prod 가 공유한다. 설치 URL에 그대로 노출되는 공개값.
