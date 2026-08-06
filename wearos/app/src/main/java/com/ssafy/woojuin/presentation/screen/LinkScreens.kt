@@ -105,7 +105,13 @@ fun LinkScreen(
             }
 
             else -> {
-                CaptionText("웹 마이페이지 → 워치 연결에 입력")
+                // 한 줄에 "웹 마이페이지 → 워치 연결에 입력"을 담았더니 마지막 낱말이
+                // 넘쳐 "입/력"으로 쪼개졌다 — 짧은 두 줄로 나눠 어느 줄도 넘치지 않게 한다
+                CaptionText("이 코드를 입력하세요")
+                CaptionText(
+                    text = "웹 마이페이지 → 워치 연결",
+                    color = WoojuinColor.TextSecondary,
+                )
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = state.code.orEmpty(),
