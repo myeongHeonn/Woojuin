@@ -303,7 +303,14 @@ object Repositories {
             FakeSearchRepository(speech)
         }
     }
-    val song: SongRepository by lazy { FakeSongRepository(sync) }
+    // 노래 인식도 실서버로 전환됐다(-494). Preview 는 AppServices 가 없어 fake 로 돈다
+    val song: SongRepository by lazy {
+        if (com.ssafy.woojuin.data.AppServices.initialized) {
+            com.ssafy.woojuin.data.AppServices.song
+        } else {
+            FakeSongRepository(sync)
+        }
+    }
     // 위치 저장은 실서버로 전환됐다(-458). Preview 는 AppServices 가 없어 fake 로 돈다
     val place: PlaceRepository by lazy {
         if (com.ssafy.woojuin.data.AppServices.initialized) {
