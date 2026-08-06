@@ -160,14 +160,44 @@ async function requireSaveContext(chosenWorkspaceId: number | null): Promise<num
   return workspaceId;
 }
 
-async function downloadImage(srcUrl: string, permission: Promise<boolean>): Promise<File> {
+/**
+ * 이미지 출처 권한을 확보한다.
+ *
+ * request 의 결과만 믿지 않는 이유: 서비스워커는 유휴 30초면 종료되고 **다음 우클릭이 그 워커를
+ * 깨우면서** 이벤트를 전달하는데, 그렇게 깨어난 회차에는 사용자 제스처 토큰이 남아 있지 않아
+ * request 가 거부되거나 false 로 돌아올 수 있다. 반면 한 번 허용한 출처는 그대로 남아 있으므로,
+ * request 가 실패하면 **이미 가진 권한을 직접 확인해** 통과시킨다.
+ * (contains 는 조회라 제스처가 필요 없다.)
+ *
+ * 이걸 안 하면 '처음 한 번만 저장되고 그 뒤로는 계속 실패'하는 증상이 된다.
+ */
+async function ensureImagePermission(origin: string, requested?: Promise<boolean>): Promise<boolean> {
+  try {
+    if (requested && (await requested)) return true;
+  } catch (error) {
+    console.debug('이미지 출처 권한 요청이 실패했다 — 보유 권한을 확인한다:', error);
+  }
+  return chrome.permissions.contains({ origins: [origin] });
+}
+
+async function downloadImage(srcUrl: string, requested?: Promise<boolean>): Promise<File> {
   const url = new URL(srcUrl);
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('data: 및 blob: 이미지는 저장할 수 없습니다.');
-  const permitted = await permission;
-  if (!permitted) throw new Error('이미지를 내려받을 사이트 권한이 필요합니다.');
+  const origin = `${url.origin}/*`;
+  if (!(await ensureImagePermission(origin, requested))) {
+    throw new Error('이미지를 내려받을 사이트 권한이 필요합니다.');
+  }
 
-  const response = await fetch(srcUrl, { credentials: 'include' });
-  if (!response.ok) throw new Error('이미지 다운로드에 실패했습니다.');
+  let response: Response;
+  try {
+    response = await fetch(srcUrl, { credentials: 'include' });
+  } catch (error) {
+    // 요청이 아예 못 나간 경우다(출처 권한 미반영·네트워크·사이트 차단). 원문은 'Failed to fetch'
+    // 한 줄뿐이라 그대로 띄우면 사용자가 할 수 있는 게 없다 — 판단용 정보는 콘솔에 남긴다.
+    console.error('이미지 다운로드 실패:', { srcUrl, origin, error });
+    throw new Error('이미지를 내려받지 못했어요. 사이트가 외부 접근을 막았을 수 있어요.');
+  }
+  if (!response.ok) throw new Error(`이미지 다운로드에 실패했습니다. (${response.status})`);
   if (Number(response.headers.get('content-length') || 0) > IMAGE_MAX_BYTES) {
     throw new Error('이미지는 10MB 이하여야 합니다.');
   }
@@ -194,7 +224,8 @@ async function handleContextSave(
     const created = await saveMemo(workspaceId, content);
     await watchItem(created.itemId, created.status, workspaceId);
   } else if (isImageSaveMenu(info.menuItemId) && info.srcUrl) {
-    if (!imagePermission) throw new Error('이미지 출처 권한을 요청하지 못했습니다.');
+    // imagePermission 이 없어도 downloadImage 가 보유 권한을 확인한다 — 워커가 클릭으로
+    // 깨어난 회차에는 request 를 걸 제스처가 없을 수 있고, 그때도 이미 허용한 출처면 저장된다.
     const created = await saveImage(workspaceId, await downloadImage(info.srcUrl, imagePermission));
     await watchItem(created.itemId, created.status, workspaceId);
   }
