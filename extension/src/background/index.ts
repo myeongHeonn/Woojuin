@@ -118,16 +118,21 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
  * 여기서도 알림을 띄우면 한 번의 저장에 알림이 두 번 뜬다.
  * 실패는 알림으로 띄운다: 사용자가 조치해야 하고(권한 거부·미로그인 등) 배지만으로는 못 알아챈다.
  * 그래서 실패 알림은 '완료 알림 받기' 설정과 무관하게 항상 띄운다.
+ *
+ * storage 에는 **실패만** 남긴다. 이 값을 읽는 곳은 팝업뿐인데, 성공까지 남기면 우클릭으로
+ * 끝낸 저장을 팝업에서 또 알리게 된다 — 배지·툴팁·완료 알림에 이어 네 번째다. 우클릭 저장의
+ * 요점이 팝업을 안 여는 것이라 더욱 앞뒤가 안 맞는다. 실패는 팝업에 이유가 남아 있어야
+ * 조치할 수 있어 남긴다(알림은 놓치거나 OS 에서 막혀 있을 수 있다).
  */
 async function showFeedback(success: boolean, message: string): Promise<void> {
   await Promise.all([
-    chrome.storage.local.set({
-      [FEEDBACK_KEY]: { success, message, createdAt: Date.now() },
-    }),
     chrome.action.setBadgeBackgroundColor({ color: success ? '#16784b' : '#c33030' }),
     chrome.action.setBadgeText({ text: success ? 'OK' : '!' }),
     chrome.action.setTitle({ title: message }),
     ...(success ? [] : [
+      chrome.storage.local.set({
+        [FEEDBACK_KEY]: { success, message, createdAt: Date.now() },
+      }),
       chrome.notifications.create(`context-save-failed-${Date.now()}`, {
         type: 'basic',
         iconUrl: NOTIFICATION_ICON,
