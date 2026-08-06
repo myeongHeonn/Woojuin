@@ -59,7 +59,6 @@ dependencies {
     implementation(libs.protolayout.expression)
     implementation(libs.watchface.complications.data.source.ktx)
     implementation(libs.concurrent.futures.ktx)
-    implementation(libs.compose.ui.tooling)
     implementation(libs.core.splashscreen)
     implementation(libs.play.services.wearable)
     implementation(libs.play.services.location)
