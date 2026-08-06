@@ -13,7 +13,6 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.ssafy.woojuin.presentation.component.WoojuinLaunchMotion
 import com.ssafy.woojuin.presentation.screen.HomeScreen
 import com.ssafy.woojuin.presentation.screen.LinkScreen
-import com.ssafy.woojuin.presentation.screen.OfflineQueueScreen
 import com.ssafy.woojuin.presentation.screen.OpenOnPhoneScreen
 import com.ssafy.woojuin.presentation.screen.PermissionFeature
 import com.ssafy.woojuin.presentation.screen.PermissionGuideScreen
@@ -108,7 +107,6 @@ fun WoojuinNavHost(
                 onSearch = { navController.navigate(Routes.VOICE_SEARCH) },
                 onSong = { navController.navigate(Routes.SONG_RECOGNITION) },
                 onPlace = { navController.navigate(Routes.PLACE_PICKER) },
-                onSyncStatus = { navController.navigate(Routes.OFFLINE_QUEUE) },
             )
         }
 
@@ -192,7 +190,6 @@ fun WoojuinNavHost(
             )
         }
 
-        composable(Routes.OFFLINE_QUEUE) { OfflineQueueScreen() }
         composable(Routes.PERMISSION_GUIDE) { backStackEntry ->
             PermissionGuideScreen(
                 feature = PermissionFeature.from(backStackEntry.arguments?.getString("feature")),

@@ -4,78 +4,26 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloudQueue
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.ssafy.woojuin.data.fake.Repositories
 import com.ssafy.woojuin.presentation.component.CaptionText
 import com.ssafy.woojuin.presentation.component.GlassButton
-import com.ssafy.woojuin.presentation.component.GlassCard
-import com.ssafy.woojuin.presentation.component.ItemCardContent
 import com.ssafy.woojuin.presentation.component.WoojuinEdgeButton
-import com.ssafy.woojuin.presentation.component.WoojuinListScreen
 import com.ssafy.woojuin.presentation.component.WoojuinStatusScreen
 import com.ssafy.woojuin.presentation.theme.WoojuinColor
-import com.ssafy.woojuin.presentation.theme.woojuinRowInset
-
-/** 오프라인 큐 — 연결되면 자동 동기화. */
-@Composable
-fun OfflineQueueScreen() {
-    val pending by Repositories.sync.pendingItems.collectAsState()
-
-    WoojuinListScreen {
-        item {
-            ListHeader {
-                Text(
-                    text = "동기화 대기",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = WoojuinColor.TextPrimary,
-                )
-            }
-        }
-        if (pending.isEmpty()) {
-            item {
-                CaptionText("모두 동기화됐어요", modifier = Modifier.padding(top = 8.dp))
-            }
-        } else {
-            item {
-                CaptionText("연결되면 자동으로 동기화할게요")
-            }
-            pending.forEach { queued ->
-                item {
-                    GlassCard(modifier = Modifier.woojuinRowInset()) {
-                        ItemCardContent(
-                            icon = Icons.Rounded.CloudQueue,
-                            iconTint = WoojuinColor.TextSecondary,
-                            title = queued.title,
-                            summary = queued.savedAtLabel,
-                            metaLabel = null,
-                            dotColor = WoojuinColor.TextMuted,
-                            titleMaxLines = 1,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 enum class PermissionFeature(val route: String) {
     MIC("mic"),

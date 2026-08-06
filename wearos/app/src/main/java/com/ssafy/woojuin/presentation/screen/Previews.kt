@@ -65,7 +65,6 @@ fun PreviewHome() = PreviewShell {
         onSearch = {},
         onSong = {},
         onPlace = {},
-        onSyncStatus = {},
     )
 }
 
@@ -136,12 +135,6 @@ fun PreviewPlaceSaveSuccess() = PreviewShell {
 }
 
 // ─── 주변 장소 / 기타 ───
-
-@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
-@Composable
-fun PreviewOfflineQueue() = PreviewShell {
-    OfflineQueueScreen()
-}
 
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
 @Composable

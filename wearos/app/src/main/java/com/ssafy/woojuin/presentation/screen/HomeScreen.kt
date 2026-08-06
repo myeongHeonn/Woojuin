@@ -18,7 +18,6 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -33,25 +32,16 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
-import com.ssafy.woojuin.data.fake.Repositories
-import com.ssafy.woojuin.domain.model.SyncState
-import com.ssafy.woojuin.domain.model.SyncStatus
 import com.ssafy.woojuin.presentation.component.SpaceBackdrop
 import com.ssafy.woojuin.presentation.component.WoojuinLogo
 import com.ssafy.woojuin.presentation.theme.WoojuinColor
 import com.ssafy.woojuin.presentation.util.rememberHaptics
 import kotlin.math.cos
 import kotlin.math.sin
-
-class HomeViewModel : ViewModel() {
-    val syncStatus = Repositories.sync.status
-}
 
 /**
  * 홈 — **궤도 허브**. 화면 전체가 우주인 로고다.
@@ -81,10 +71,7 @@ fun HomeScreen(
     onSearch: () -> Unit,
     onSong: () -> Unit,
     onPlace: () -> Unit,
-    onSyncStatus: () -> Unit,
-    viewModel: HomeViewModel = viewModel(),
 ) {
-    val syncStatus by viewModel.syncStatus.collectAsState()
     val haptics = rememberHaptics()
     val w = LocalConfiguration.current.screenWidthDp.dp
 
@@ -132,14 +119,6 @@ fun HomeScreen(
                 accent = WoojuinColor.PlaceAccent,
                 label = "장소",
                 onClick = { haptics.tapStart(); onPlace() },
-            )
-
-            SyncStatusLine(
-                status = syncStatus,
-                onClick = onSyncStatus,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = w * 0.205f),
             )
         }
     }
@@ -258,29 +237,4 @@ private fun OrbitNode(
             modifier = Modifier.offset(y = -iconSize * 0.28f),
         )
     }
-}
-
-/** 동기화 상태 — 시계 아래 한 줄. 훑어보는 정보라 궤도를 건드리지 않는다. */
-@Composable
-private fun SyncStatusLine(
-    status: SyncStatus,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val label = when (status.state) {
-        SyncState.SYNCED -> "동기화 완료"
-        SyncState.SYNCING -> "올리는 중 · ${status.pendingCount}개"
-        SyncState.PENDING, SyncState.OFFLINE -> "대기 중 · ${status.pendingCount}개"
-        SyncState.FAILED -> "동기화 실패"
-    }
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelSmall,
-        color = WoojuinColor.TextMuted,
-        maxLines = 1,
-        modifier = modifier
-            .clip(CircleShape)
-            .clickable(role = Role.Button, onClickLabel = "동기화 상태 보기") { onClick() }
-            .padding(horizontal = 10.dp, vertical = 2.dp),
-    )
 }

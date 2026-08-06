@@ -19,7 +19,6 @@ object Routes {
     const val PLACE_PICKER = "placePicker"
     const val PLACE_SAVE_SUCCESS = "placeSaveSuccess"
 
-    const val OFFLINE_QUEUE = "offlineQueue"
     const val PERMISSION_GUIDE = "permissionGuide/{feature}"
     fun permissionGuide(feature: String) = "permissionGuide/$feature"
     /**

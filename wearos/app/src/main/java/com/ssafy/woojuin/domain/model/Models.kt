@@ -58,10 +58,3 @@ data class RecognizedSong(
     /** 곡 페이지 링크 — 저장의 재료이자 "휴대폰에서 열기"의 대상이다 */
     val link: String? = null,
 )
-
-enum class SyncState { SYNCED, SYNCING, PENDING, OFFLINE, FAILED }
-
-data class SyncStatus(
-    val state: SyncState = SyncState.SYNCED,
-    val pendingCount: Int = 0,
-)

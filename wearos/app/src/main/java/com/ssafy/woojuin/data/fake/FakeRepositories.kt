@@ -5,15 +5,12 @@ import com.ssafy.woojuin.domain.model.RecognizedSong
 import com.ssafy.woojuin.domain.model.SavedItem
 import com.ssafy.woojuin.domain.model.SavedItemType
 import com.ssafy.woojuin.domain.model.SearchInterpretation
-import com.ssafy.woojuin.domain.model.SyncState
-import com.ssafy.woojuin.domain.model.SyncStatus
 import com.ssafy.woojuin.domain.repository.PlaceRepository
 import com.ssafy.woojuin.domain.repository.SearchRepository
 import com.ssafy.woojuin.domain.repository.SongRecognitionEvent
 import com.ssafy.woojuin.domain.repository.SongRepository
 import com.ssafy.woojuin.domain.repository.SpeechEvent
 import com.ssafy.woojuin.domain.repository.SpeechSource
-import com.ssafy.woojuin.domain.repository.SyncRepository
 import com.ssafy.woojuin.domain.repository.VoiceCaptureRepository
 import java.util.UUID
 import kotlin.math.sin
@@ -88,25 +85,6 @@ object FakeData {
 
 private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-class FakeSyncRepository : SyncRepository {
-    private val _status = MutableStateFlow(SyncStatus(SyncState.SYNCED, 0))
-    override val status: StateFlow<SyncStatus> = _status.asStateFlow()
-
-    private val _pendingItems = MutableStateFlow<List<SavedItem>>(emptyList())
-    override val pendingItems: StateFlow<List<SavedItem>> = _pendingItems.asStateFlow()
-
-    override fun reportLocalSaved(item: SavedItem) {
-        _pendingItems.value = _pendingItems.value + item
-        _status.value = SyncStatus(SyncState.SYNCING, _pendingItems.value.size)
-    }
-
-    override fun reportSynced(item: SavedItem) {
-        _pendingItems.value = _pendingItems.value.filterNot { it.id == item.id }
-        val remaining = _pendingItems.value.size
-        _status.value = SyncStatus(if (remaining == 0) SyncState.SYNCED else SyncState.SYNCING, remaining)
-    }
-}
-
 /** 부분 인식 텍스트를 점진적으로 흘려보내는 공용 시뮬레이터. */
 private fun fakeSpeech(sentence: String, chunkDelayMs: Long = 350L): Flow<SpeechEvent> = flow {
     emit(SpeechEvent.Ready)
@@ -127,7 +105,6 @@ class FakeSpeechSource(private val sentence: String) : SpeechSource {
 }
 
 class FakeVoiceCaptureRepository(
-    private val sync: SyncRepository,
     private val speech: SpeechSource,
 ) : VoiceCaptureRepository {
     private val _lastSaved = MutableStateFlow<SavedItem?>(null)
@@ -148,11 +125,6 @@ class FakeVoiceCaptureRepository(
             sourceLabel = "메모",
         )
         _lastSaved.value = item
-        sync.reportLocalSaved(item)
-        appScope.launch {
-            delay(2500L)
-            sync.reportSynced(item)
-        }
         return item
     }
 
@@ -194,7 +166,7 @@ class FakeSearchRepository(
         FakeData.savedItems.firstOrNull { it.id == id } ?: _lastResults.value.firstOrNull { it.id == id }
 }
 
-class FakeSongRepository(private val sync: SyncRepository) : SongRepository {
+class FakeSongRepository : SongRepository {
     private val _lastMatched = MutableStateFlow<RecognizedSong?>(null)
     override val lastMatched: StateFlow<RecognizedSong?> = _lastMatched.asStateFlow()
 
@@ -216,16 +188,11 @@ class FakeSongRepository(private val sync: SyncRepository) : SongRepository {
             savedAtLabel = "방금",
             sourceLabel = "노래 찾기",
         )
-        sync.reportLocalSaved(item)
-        appScope.launch {
-            delay(2000L)
-            sync.reportSynced(item)
-        }
         return item
     }
 }
 
-class FakePlaceRepository(private val sync: SyncRepository) : PlaceRepository {
+class FakePlaceRepository : PlaceRepository {
     private val _lastSavedPlace = MutableStateFlow<PlaceCandidate?>(null)
     override val lastSavedPlace: StateFlow<PlaceCandidate?> = _lastSavedPlace.asStateFlow()
 
@@ -247,11 +214,6 @@ class FakePlaceRepository(private val sync: SyncRepository) : PlaceRepository {
             sourceLabel = "장소 저장",
         )
         _lastSavedPlace.value = candidate
-        sync.reportLocalSaved(item)
-        appScope.launch {
-            delay(2000L)
-            sync.reportSynced(item)
-        }
         return item
     }
 }
@@ -279,8 +241,6 @@ object Repositories {
             FakeSpeechSource(fallbackSentence)
         }
 
-    val sync: SyncRepository by lazy { FakeSyncRepository() }
-
     // 음성 저장·검색도 실서버로 전환됐다(-492). 인식기는 여기가 소유하므로 주입해 넘긴다 —
     // Preview 는 AppServices 가 없어 fake 로 돈다(위치 저장과 같은 폴백)
     val voiceCapture: VoiceCaptureRepository by lazy {
@@ -288,7 +248,7 @@ object Repositories {
         if (com.ssafy.woojuin.data.AppServices.initialized) {
             com.ssafy.woojuin.data.AppServices.voiceCapture(speech)
         } else {
-            FakeVoiceCaptureRepository(sync, speech)
+            FakeVoiceCaptureRepository(speech)
         }
     }
     val search: SearchRepository by lazy {
@@ -304,7 +264,7 @@ object Repositories {
         if (com.ssafy.woojuin.data.AppServices.initialized) {
             com.ssafy.woojuin.data.AppServices.song
         } else {
-            FakeSongRepository(sync)
+            FakeSongRepository()
         }
     }
     // 위치 저장은 실서버로 전환됐다(-458). Preview 는 AppServices 가 없어 fake 로 돈다
@@ -312,7 +272,7 @@ object Repositories {
         if (com.ssafy.woojuin.data.AppServices.initialized) {
             com.ssafy.woojuin.data.AppServices.place
         } else {
-            FakePlaceRepository(sync)
+            FakePlaceRepository()
         }
     }
 }

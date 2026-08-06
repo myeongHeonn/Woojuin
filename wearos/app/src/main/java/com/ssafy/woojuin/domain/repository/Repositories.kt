@@ -4,7 +4,6 @@ import com.ssafy.woojuin.domain.model.PlaceCandidate
 import com.ssafy.woojuin.domain.model.RecognizedSong
 import com.ssafy.woojuin.domain.model.SavedItem
 import com.ssafy.woojuin.domain.model.SearchInterpretation
-import com.ssafy.woojuin.domain.model.SyncStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -45,7 +44,7 @@ interface VoiceCaptureRepository {
      */
     fun finishListening() {}
 
-    /** 로컬 큐에 우선 저장. 서버 동기화는 백그라운드에서 진행된다. */
+    /** 받아쓴 문장을 아이템으로 저장한다. 서버가 받은 뒤 AI 가 제목·요약을 채운다. */
     suspend fun saveLocal(text: String): SavedItem
 
     suspend fun undo(itemId: String)
@@ -94,11 +93,4 @@ interface PlaceRepository {
 
     suspend fun savePlace(candidate: PlaceCandidate): SavedItem
     val lastSavedPlace: StateFlow<PlaceCandidate?>
-}
-
-interface SyncRepository {
-    val status: StateFlow<SyncStatus>
-    val pendingItems: StateFlow<List<SavedItem>>
-    fun reportLocalSaved(item: SavedItem)
-    fun reportSynced(item: SavedItem)
 }
