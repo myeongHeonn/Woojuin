@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.wear.compose.material3.AppScaffold
 import com.ssafy.woojuin.data.AppServices
@@ -48,16 +51,31 @@ class MainActivity : ComponentActivity() {
         val isColdStart = !LaunchState.coldStartConsumed
         LaunchState.coldStartConsumed = true
 
-        // 로그인 게이트 — 토큰이 없으면 어디로 들어와도(딥링크 포함) 링크 화면이다
-        val loggedIn = AppServices.tokenStore.hasTokensBlocking()
-        val postSplash = if (loggedIn) Routes.HOME else Routes.LINK
-
-        // 딥링크 진입은 스플래시 모션을 건너뛰고 기능으로 직행한다.
-        val startDestination = when {
-            !loggedIn -> if (isColdStart) Routes.SPLASH else Routes.LINK
-            deepLink != null -> deepLink
-            isColdStart -> Routes.SPLASH
-            else -> Routes.HOME
+        // 로그인 게이트 — 토큰이 없으면 어디로 들어와도(딥링크 포함) 링크 화면이다.
+        //
+        // 콜드 스타트로 스플래시를 지나는 경우에만 이 읽기를 뒤로 미룬다. 목적지가 필요한
+        // 시점은 1.3초 모션이 끝난 뒤인데, 디스크(DataStore) 동기 읽기를 시작 경로에서
+        // 하면 첫 프레임이 실측 300ms 늦어졌다. 딥링크(타일)와 웜 스타트는 첫 목적지가
+        // 곧바로 필요하므로 그대로 동기로 읽는다 — 그때는 이미 캐시가 더워 저렴하다.
+        val startDestination: String
+        val postSplash: suspend () -> String
+        if (isColdStart && deepLink == null) {
+            startDestination = Routes.SPLASH
+            val loggedInAsync = lifecycleScope.async(Dispatchers.IO) {
+                AppServices.tokenStore.hasTokensBlocking()
+            }
+            postSplash = { if (loggedInAsync.await()) Routes.HOME else Routes.LINK }
+        } else {
+            val loggedIn = AppServices.tokenStore.hasTokensBlocking()
+            // 딥링크 진입은 스플래시 모션을 건너뛰고 기능으로 직행한다.
+            startDestination = when {
+                !loggedIn -> if (isColdStart) Routes.SPLASH else Routes.LINK
+                deepLink != null -> deepLink
+                isColdStart -> Routes.SPLASH
+                else -> Routes.HOME
+            }
+            val target = if (loggedIn) Routes.HOME else Routes.LINK
+            postSplash = { target }
         }
 
         setContent {
@@ -67,7 +85,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun WoojuinApp(startDestination: String, postSplashDestination: String = Routes.HOME) {
+fun WoojuinApp(
+    startDestination: String,
+    postSplashDestination: suspend () -> String = { Routes.HOME },
+) {
     WoojuinTheme {
         AppScaffold {
             Box {

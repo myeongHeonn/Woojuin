@@ -6,6 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import kotlinx.coroutines.launch
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
@@ -34,8 +35,12 @@ import com.ssafy.woojuin.presentation.screen.VoiceSearchScreen
 @Composable
 fun WoojuinNavHost(
     startDestination: String,
-    /** 스플래시가 끝난 뒤 갈 곳 — 토큰이 있으면 HOME, 없으면 LINK (MainActivity 가 정한다) */
-    postSplashDestination: String = Routes.HOME,
+    /**
+     * 스플래시가 끝난 뒤 갈 곳 — 토큰이 있으면 HOME, 없으면 LINK (MainActivity 가 정한다).
+     * suspend 인 이유: 콜드 스타트에서는 토큰 읽기를 모션이 도는 동안으로 미루므로
+     * 여기서 그 결과를 기다린다(모션 1.3초 안에 이미 끝나 있어 실제 대기는 없다).
+     */
+    postSplashDestination: suspend () -> String = { Routes.HOME },
     navController: NavHostController = rememberSwipeDismissableNavController(),
 ) {
     fun backToHome() {
@@ -60,9 +65,13 @@ fun WoojuinNavHost(
         startDestination = startDestination,
     ) {
         composable(Routes.SPLASH) {
+            val scope = androidx.compose.runtime.rememberCoroutineScope()
             WoojuinLaunchMotion(onFinished = {
-                navController.navigate(postSplashDestination) {
-                    popUpTo(Routes.SPLASH) { inclusive = true }
+                scope.launch {
+                    val destination = postSplashDestination()
+                    navController.navigate(destination) {
+                        popUpTo(Routes.SPLASH) { inclusive = true }
+                    }
                 }
             })
         }
