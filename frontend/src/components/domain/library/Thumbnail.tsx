@@ -43,11 +43,15 @@ const Thumbnail = ({ src, seed, className }: ThumbnailProps) => {
   // `absolute inset-0` 만으로는 늘어나지 않고 고유 크기로 그려져 카드 아래가 빈다.
   return (
     <div className={classNames('overflow-hidden', className)}>
+      {/* 네이버(blogthumb.pstatic.net) 등은 자기 도메인 밖 Referer 가 붙으면 403 으로
+          핫링크를 차단한다(2026-08-06 실측: Referer 없음 200, 외부 Referer 403). 상세는
+          외부 og:image 원본을 그대로 쓰므로 Referer 를 아예 보내지 않아야 뜬다. */}
       <img
         src={src}
         alt=""
         loading="lazy"
         decoding="async"
+        referrerPolicy="no-referrer"
         onError={() => setFailedSrc(src)}
         className="h-full w-full object-cover object-center"
       />
