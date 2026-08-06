@@ -47,6 +47,16 @@ export function workspaceIdFromMenu(menuItemId: string | number): number | null 
 const workspaceLabel = (workspace: Workspace) =>
   workspace.type === 'PERSONAL' ? 'Personal Space' : workspace.name;
 
+/**
+ * 저장한 곳의 이름. 캐시에 없으면 null 이고, 그때 호출부는 스페이스를 뺀 문구로 알린다 —
+ * 이름을 얻으려고 저장 피드백을 네트워크 왕복만큼 늦출 이유가 없다.
+ */
+export async function findWorkspaceLabel(workspaceId: number): Promise<string | null> {
+  const workspaces = await getCachedWorkspaces();
+  const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
+  return workspace ? workspaceLabel(workspace) : null;
+}
+
 function createImageMenu(workspaces: Workspace[]): void {
   chrome.contextMenus.create({
     id: SAVE_IMAGE_ID,

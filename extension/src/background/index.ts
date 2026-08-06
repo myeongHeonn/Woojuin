@@ -10,6 +10,7 @@ import { getWorkspaces } from '@/api/workspaces';
 import { getAccessToken, getRefreshToken } from '@/storage/authStorage';
 import { openFromNotification, resumeWatchOnAlarm, watchItem } from '@/background/watchItem';
 import {
+  findWorkspaceLabel,
   isImageSaveMenu,
   refreshContextMenus,
   SAVE_SELECTION_ID,
@@ -179,10 +180,11 @@ async function downloadImage(srcUrl: string, permission: Promise<boolean>): Prom
   return new File([blob], `woojuin-image.${extension}`, { type: contentType });
 }
 
+/** 저장한 스페이스 id 를 돌려준다 — 접수 문구에 어디로 갔는지 적는 데 쓴다. */
 async function handleContextSave(
   info: chrome.contextMenus.OnClickData,
   imagePermission?: Promise<boolean>,
-): Promise<void> {
+): Promise<number> {
   const workspaceId = await requireSaveContext(workspaceIdFromMenu(info.menuItemId));
   // 저장은 접수까지만이고 완료 알림은 watchItem 이 실제 처리가 끝난 뒤에 띄운다.
   if (info.menuItemId === SAVE_SELECTION_ID) {
@@ -195,6 +197,7 @@ async function handleContextSave(
     const created = await saveImage(workspaceId, await downloadImage(info.srcUrl, imagePermission));
     await watchItem(created.itemId, created.status, workspaceId);
   }
+  return workspaceId;
 }
 
 chrome.contextMenus.onClicked.addListener((info) => {
@@ -211,7 +214,15 @@ chrome.contextMenus.onClicked.addListener((info) => {
   if (activeSaves.has(requestKey)) return;
   activeSaves.add(requestKey);
   void handleContextSave(info, imagePermission)
-    .then(() => showFeedback(true, '우주인으로 보냈어요. 정리가 끝나면 알려드릴게요.'))
+    // 어디로 갔는지 적는다 — 하위 메뉴로 고른 곳은 팝업에 표시된 스페이스와 다를 수 있어서,
+    // 문구가 '우주인으로 보냈어요' 뿐이면 잘못 골랐는지 확인할 방법이 없다.
+    // 조사는 '에'를 쓴다 — 이름이 한글이든 영문이든 받침에 따라 달라지지 않는다.
+    .then(async (workspaceId) => {
+      const label = await findWorkspaceLabel(workspaceId);
+      return showFeedback(true, label
+        ? `${label}에 보냈어요. 정리가 끝나면 알려드릴게요.`
+        : '우주인으로 보냈어요. 정리가 끝나면 알려드릴게요.');
+    })
     .catch((error: unknown) => {
       console.error('우주인 저장 실패:', error);
       const message = error instanceof Error ? error.message : '우클릭 저장에 실패했습니다.';
