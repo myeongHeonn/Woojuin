@@ -1,5 +1,6 @@
 package com.ssafy.woojuin.data.speech
 
+import android.os.SystemClock
 import android.util.Log
 import com.ssafy.woojuin.data.remote.WoojuinApi
 import com.ssafy.woojuin.domain.repository.SpeechEvent
@@ -7,11 +8,10 @@ import com.ssafy.woojuin.domain.repository.SpeechSource
 import com.ssafy.woojuin.domain.repository.SpeechTranscriptionException
 import com.ssafy.woojuin.domain.repository.SpeechUnavailableException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 
 private const val TAG = "WoojuinSpeech"
 
@@ -27,8 +27,9 @@ private const val TAG = "WoojuinSpeech"
  * 보여주게 한다. 잘못 들은 글자가 실시간으로 뜨는 것보다, 맞는 글자가 조금 늦게 뜨는 쪽이
  * 낫다고 봤다(실기기에서 온디바이스는 여섯 단어 중 셋을 틀렸다).
  *
- * <p>흐름: 녹음 시작 → [SpeechEvent.Ready] → 말하는 동안 음량 → 말 끝(무음 감지) →
- * 업로드 → [SpeechEvent.Final]. 무음이면 [SpeechEvent.SilenceTimeout] 이다.
+ * <p>흐름: 녹음 준비 → **첫 오디오가 들어오면** [SpeechEvent.Ready] → 말하는 동안 음량 →
+ * 말 끝(무음 감지) → [SpeechEvent.Transcribing] → 업로드 → [SpeechEvent.Final].
+ * 무음이면 [SpeechEvent.SilenceTimeout] 이다.
  */
 class ServerSpeechSource(private val api: WoojuinApi) : SpeechSource {
 
@@ -40,18 +41,26 @@ class ServerSpeechSource(private val api: WoojuinApi) : SpeechSource {
         recording?.finish()
     }
 
-    override fun listen(): Flow<SpeechEvent> = flow {
-        var level = 0f
-        val recorder = MicRecorder { level = it }
+    override fun listen(): Flow<SpeechEvent> = channelFlow {
+        val startedAt = SystemClock.elapsedRealtime()
+        val recorder = MicRecorder(
+            // 마이크가 실제로 열린 순간에만 "듣고 있어요"로 바꾼다. 그 전에 바꾸면
+            // 사용자가 허공에 말하고 앞부분이 잘린다(실기기에서 겪었다)
+            onStarted = {
+                Log.d(TAG, "청취 시작 — 탭에서 ${SystemClock.elapsedRealtime() - startedAt}ms")
+                trySend(SpeechEvent.Ready)
+            },
+            // 녹음 중 음량 — 화면의 로고가 목소리에 반응하는 근거
+            onLevel = { level -> trySend(SpeechEvent.Partial("", level)) },
+        )
         recording = recorder
 
-        // 마이크는 100ms 안에 열린다 — 탭하고 바로 말해도 앞부분이 살아 있다
-        emit(SpeechEvent.Ready)
-
-        // 블로킹 녹음 루프에는 코루틴 취소가 저절로 닿지 않는다 — Job 을 넘겨 직접 보게 한다
-        val job = currentCoroutineContext()[Job]
         val recorded = try {
-            recorder.record { job?.isActive != false }
+            // 블로킹 루프라 IO 로 옮긴다. 코루틴 취소는 isActive 로 직접 전달한다
+            withContext(Dispatchers.IO) {
+                val scope = this
+                recorder.record { scope.isActive }
+            }
         } finally {
             recording = null
         }
@@ -60,24 +69,24 @@ class ServerSpeechSource(private val api: WoojuinApi) : SpeechSource {
         }
         if (!recorded.spoke) {
             Log.d(TAG, "말소리 없음 — 업로드하지 않는다")
-            emit(SpeechEvent.SilenceTimeout)
-            return@flow
+            trySend(SpeechEvent.SilenceTimeout)
+            return@channelFlow
         }
 
         // 마이크는 닫혔다 — 화면이 "듣고 있어요"를 계속 보여주면 거짓이 된다
-        emit(SpeechEvent.Transcribing)
+        trySend(SpeechEvent.Transcribing)
 
         val wav = WavEncoder.wrap(recorded.pcm, MicRecorder.SAMPLE_RATE)
         Log.d(TAG, "받아쓰기 요청 — ${wav.size / 1024}KB")
-        val text = transcribe(wav)
+        val text = withContext(Dispatchers.IO) { transcribe(wav) }
         if (text.isBlank()) {
             // 서버가 무음으로 판정 — 우리 문턱보다 서버가 엄격했던 경우다
-            emit(SpeechEvent.SilenceTimeout)
+            trySend(SpeechEvent.SilenceTimeout)
         } else {
             Log.d(TAG, "받아쓰기 결과 — ${text.length}자")
-            emit(SpeechEvent.Final(text, confident = true))
+            trySend(SpeechEvent.Final(text, confident = true))
         }
-    }.flowOn(Dispatchers.IO)
+    }
 
     /**
      * @return 받아쓴 문장. 무음이면 빈 문자열(서버 계약)

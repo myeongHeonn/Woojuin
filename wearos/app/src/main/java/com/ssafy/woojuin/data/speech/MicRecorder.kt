@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.SystemClock
 import android.util.Log
 import java.io.ByteArrayOutputStream
 import kotlin.math.sqrt
@@ -29,7 +30,13 @@ private const val TAG = "WoojuinSpeech"
  * 사라졌고, 준비 전에 한 말이 버려지는 문제도 없어졌다.
  */
 class MicRecorder(
-    /** 0..1 로 정규화한 현재 음량. 화면이 "듣고 있다"를 보여주는 근거다. */
+    /**
+     * **첫 오디오가 실제로 들어온 순간** 한 번 불린다. 화면이 "듣고 있어요"로 바뀔 근거는
+     * 이것뿐이다 — 마이크를 열기 전에 그렇게 보여주면 사용자가 허공에 말하고 앞부분이
+     * 잘린다(실기기에서 "성수동 파스타집..."이 "스타집..."으로 저장됐다).
+     */
+    private val onStarted: () -> Unit,
+    /** 0..1 로 정규화한 현재 음량 — 100ms 마다 */
     private val onLevel: (Float) -> Unit,
 ) {
 
@@ -82,6 +89,7 @@ class MicRecorder(
      */
     @SuppressLint("MissingPermission")
     fun record(isActive: () -> Boolean = { true }): Recording? {
+        val createdAt = SystemClock.elapsedRealtime()
         val minBuffer = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
@@ -112,8 +120,10 @@ class MicRecorder(
 
         val collected = ByteArrayOutputStream()
         try {
+            val beforeStart = SystemClock.elapsedRealtime()
             record.startRecording()
-            Log.d(TAG, "녹음 시작")
+            Log.d(TAG, "startRecording 반환 — 준비 ${beforeStart - createdAt}ms, 시작 " +
+                "${SystemClock.elapsedRealtime() - beforeStart}ms")
             pump(record, collected, isActive)
         } finally {
             runCatching { record.stop() }
@@ -143,6 +153,11 @@ class MicRecorder(
         while (!finished && isActive() && elapsedMs < MAX_DURATION_MS) {
             val read = record.read(samples, 0, samples.size)
             if (read <= 0) continue
+            if (elapsedMs == 0) {
+                // 여기부터가 진짜 녹음이다 — 화면은 이 신호를 받아야 "듣고 있어요"가 된다
+                Log.d(TAG, "첫 오디오 도착")
+                onStarted()
+            }
             val chunkMs = read * 1000 / SAMPLE_RATE
             elapsedMs += chunkMs
 
