@@ -12,17 +12,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudQueue
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.Map
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
@@ -38,114 +34,6 @@ import com.ssafy.woojuin.presentation.component.ItemCardContent
 import com.ssafy.woojuin.presentation.component.WoojuinListScreen
 import com.ssafy.woojuin.presentation.component.WoojuinStatusScreen
 import com.ssafy.woojuin.presentation.theme.WoojuinColor
-
-/** 주변 저장 장소 상세 — 알림에서 바로 진입한다. */
-@Composable
-fun NearbyPlaceDetailScreen(
-    onOpenOnPhone: () -> Unit,
-    onDisabled: () -> Unit,
-) {
-    val alert by Repositories.nearby.activeAlert.collectAsState()
-
-    val current = alert
-    if (current == null) {
-        WoojuinStatusScreen {
-            Text(
-                text = "근처에 저장한 장소가 없어요",
-                style = MaterialTheme.typography.titleMedium,
-                color = WoojuinColor.TextPrimary,
-                textAlign = TextAlign.Center,
-            )
-        }
-        return
-    }
-
-    WoojuinListScreen {
-        item {
-            ListHeader {
-                Text(
-                    text = current.placeName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = WoojuinColor.TextPrimary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
-        item {
-            Text(
-                text = "현재 ${current.distanceMeters}m",
-                style = MaterialTheme.typography.labelSmall,
-                color = WoojuinColor.NearbyAccent,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        item {
-            Card(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = WoojuinColor.Surface),
-            ) {
-                ItemCardContent(
-                    icon = Icons.Rounded.LocationOn,
-                    iconTint = WoojuinColor.NearbyAccent,
-                    title = "저장 당시 요약",
-                    summary = current.summary,
-                    metaLabel = current.savedAtLabel,
-                    dotColor = WoojuinColor.NearbyAccent,
-                )
-            }
-        }
-        current.memo?.let { memo ->
-            item {
-                Card(
-                    onClick = {},
-                    enabled = false,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = WoojuinColor.SidebarBlack),
-                ) {
-                    Text(
-                        text = "내 메모",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = WoojuinColor.TextMuted,
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = memo,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = WoojuinColor.TextSecondary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
-        item {
-            Button(
-                onClick = onOpenOnPhone,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.SurfaceActive),
-                icon = { Icon(Icons.Rounded.Map, contentDescription = null, tint = WoojuinColor.PlaceAccent, modifier = Modifier.size(18.dp)) },
-                label = { Text("카카오맵에서 열기") },
-            )
-        }
-        item {
-            Button(
-                onClick = {
-                    Repositories.nearby.disableAlert(current.placeId)
-                    onDisabled()
-                },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.Surface),
-                icon = { Icon(Icons.Rounded.NotificationsOff, contentDescription = null, tint = WoojuinColor.TextSecondary, modifier = Modifier.size(18.dp)) },
-                label = { Text("이 장소 알림 끄기") },
-            )
-        }
-    }
-}
 
 /** 오프라인 큐 — 연결되면 자동 동기화. */
 @Composable
@@ -196,8 +84,7 @@ fun OfflineQueueScreen() {
 
 enum class PermissionFeature(val route: String) {
     MIC("mic"),
-    LOCATION("location"),
-    BACKGROUND("background");
+    LOCATION("location");
 
     companion object {
         fun from(value: String?): PermissionFeature =
@@ -223,13 +110,7 @@ fun PermissionGuideScreen(feature: PermissionFeature, onBack: () -> Unit) {
             Icons.Rounded.LocationOn,
             WoojuinColor.PlaceAccent,
             "위치 권한이 필요해요",
-            "현재 장소를 저장하고, 저장한 장소 근처에서 알려드릴게요.",
-        )
-        PermissionFeature.BACKGROUND -> Quad(
-            Icons.Rounded.Notifications,
-            WoojuinColor.NearbyAccent,
-            "알림 권한이 필요해요",
-            "저장해 둔 장소 근처에 도착했을 때만 알려드릴게요.",
+            "지금 있는 곳을 저장할 때만 위치를 사용해요.",
         )
     }
 

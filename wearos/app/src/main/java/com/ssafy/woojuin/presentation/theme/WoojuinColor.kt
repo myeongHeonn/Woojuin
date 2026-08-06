@@ -31,5 +31,4 @@ object WoojuinColor {
     val SearchAccent = StarBlue
     val SongAccent = StarYellow
     val PlaceAccent = StarGreen
-    val NearbyAccent = StarOrange
 }
