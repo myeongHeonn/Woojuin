@@ -105,9 +105,8 @@ class VoiceSearchViewModel : ViewModel() {
 }
 
 fun typeIcon(type: SavedItemType): Pair<ImageVector, Color> = when (type) {
-    SavedItemType.VOICE -> Icons.Rounded.Mic to WoojuinColor.AccentPurple
     // StickyNote2 는 AutoMirrored 에만 있다(RTL 에서 뒤집히는 게 맞는 모양이라 옮겨졌다)
-    SavedItemType.MEMO -> Icons.AutoMirrored.Rounded.StickyNote2 to WoojuinColor.StarLavender
+    SavedItemType.MEMO -> Icons.AutoMirrored.Rounded.StickyNote2 to WoojuinColor.AccentPurple
     SavedItemType.LINK -> Icons.Rounded.Link to WoojuinColor.StarBlue
     SavedItemType.SONG -> Icons.Rounded.MusicNote to WoojuinColor.StarYellow
     SavedItemType.PLACE -> Icons.Rounded.Place to WoojuinColor.StarGreen

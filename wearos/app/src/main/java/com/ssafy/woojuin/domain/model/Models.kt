@@ -1,13 +1,11 @@
 package com.ssafy.woojuin.domain.model
 
 /**
- * 화면이 아이콘·문구를 고르는 기준. 서버의 `ItemType`(URL·IMAGE·MEMO)과 일부러 다르다 —
- * 워치는 "이걸 어떻게 저장했는지"를 보여주는데, 서버는 "무엇을 저장했는지"만 안다.
- *
- * [VOICE] 는 **워치가 방금 음성으로 저장한 것**에만 쓴다. 서버에서 받아온 메모는 타이핑한
- * 것일 수도 있어(서버가 구분하지 않는다) [MEMO] 다 — 마이크를 붙이면 거짓이 된다.
+ * 화면이 아이콘·문구를 고르는 기준. **서버가 주는 종류를 그대로 따른다** — 음성으로 저장한
+ * 것도 서버에는 MEMO 로 들어가므로 워치도 MEMO 로 보여준다. 입력 수단(음성·타이핑)까지
+ * 갈라 두면 서버에 없는 구분을 워치만 아는 상태가 되고, 같은 아이템이 화면마다 달라 보인다.
  */
-enum class SavedItemType { VOICE, MEMO, LINK, SONG, PLACE }
+enum class SavedItemType { MEMO, LINK, SONG, PLACE }
 
 data class SavedItem(
     val id: String,

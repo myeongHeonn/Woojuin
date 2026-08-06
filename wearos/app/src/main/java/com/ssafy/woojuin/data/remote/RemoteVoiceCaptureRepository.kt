@@ -49,12 +49,12 @@ class RemoteVoiceCaptureRepository(
 
         val item = SavedItem(
             id = data.getLong("itemId").toString(),
-            type = SavedItemType.VOICE,
+            type = SavedItemType.MEMO,
             // 서버 제목은 AI 가 나중에 붙인다 — 지금 보여줄 수 있는 건 말한 문장 자체다
             title = text,
             summary = "AI가 정리하고 있어요",
             savedAtLabel = "방금",
-            sourceLabel = "음성 메모",
+            sourceLabel = "메모",
         )
         _lastSaved.value = item
         item

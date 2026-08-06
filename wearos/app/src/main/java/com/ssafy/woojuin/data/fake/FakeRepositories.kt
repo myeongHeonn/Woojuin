@@ -56,11 +56,11 @@ object FakeData {
         ),
         SavedItem(
             id = "item-jeju",
-            type = SavedItemType.VOICE,
+            type = SavedItemType.MEMO,
             title = "제주도 여행 메모",
             summary = "협재 근처 스테이, 렌터카는 공항점이 더 저렴",
             savedAtLabel = "4월 28일",
-            sourceLabel = "음성 메모",
+            sourceLabel = "메모",
         ),
         SavedItem(
             id = "item-song",
@@ -148,11 +148,11 @@ class FakeVoiceCaptureRepository(
         // 로컬 저장은 즉시 끝난다 — 서버/AI를 기다리지 않는다.
         val item = SavedItem(
             id = UUID.randomUUID().toString(),
-            type = SavedItemType.VOICE,
+            type = SavedItemType.MEMO,
             title = text,
             summary = "AI가 정리하고 있어요",
             savedAtLabel = "방금",
-            sourceLabel = "음성 메모",
+            sourceLabel = "메모",
         )
         _lastSaved.value = item
         sync.reportLocalSaved(item)
