@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import BrowserExtensionCard from '@/components/domain/mypage/BrowserExtensionCard';
 import ChatIntegrationCard from '@/components/domain/mypage/ChatIntegrationCard';
 import {
   disconnectChatConnection,
@@ -116,6 +117,11 @@ const ConnectedAppsCard = ({ onError }: ConnectedAppsCardProps) => {
           <ChatIntegrationCard
             onError={() => onError('연결 코드를 발급하지 못했습니다. 다시 시도해 주세요.')}
           />
+        </div>
+
+        {/* 크롬 확장 설치로 가는 길 — 눌러서 웹스토어로 들어가면 거기서 설치가 뜬다 */}
+        <div className="border-t border-border-soft">
+          <BrowserExtensionCard />
         </div>
       </div>
 
