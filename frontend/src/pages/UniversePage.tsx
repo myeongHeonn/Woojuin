@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
 import UniverseCanvas from '@/components/domain/universe/UniverseCanvas';
+import SkyTimeScrubber from '@/components/domain/universe/SkyTimeScrubber';
 import ConstellationSearch from '@/components/domain/search/ConstellationSearch';
 import ProcessingBadge from '@/components/domain/stage/ProcessingBadge';
 import ItemModal from '@/components/domain/library/detail/ItemModal';
@@ -120,6 +121,9 @@ const UniversePage = () => {
           </div>
         </div>
       )}
+
+      {/* 개발 빌드에서만 나온다 — 프로덕션에서는 통째로 번들에서 빠진다 */}
+      <SkyTimeScrubber />
 
       <ConstellationSearch
         onSearchResults={handleSearchResults}
