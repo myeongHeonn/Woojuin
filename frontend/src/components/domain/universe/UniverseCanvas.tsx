@@ -166,7 +166,9 @@ const UniverseCanvas = ({
       scene.dispose();
       sceneRef.current = null;
       // 데이터가 바뀌면 별자리 구성도 달라진다 — 비교 키를 비워 새 목록을 반드시 다시 그린다
-      labelKeyRef.current = '';
+      // 다음 장면이 빈 우주라 onLabels([])를 보내더라도 이전 라벨 목록을 반드시 비운다.
+      // 빈 문자열로 초기화하면 []의 비교 키도 빈 문자열이라 변경이 없다고 오판한다.
+      labelKeyRef.current = '__scene_disposed__';
     };
   }, [data, handleLabels]);
 
