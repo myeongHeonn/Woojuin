@@ -13,7 +13,6 @@ import kotlinx.coroutines.async
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.wear.compose.material3.AppScaffold
 import com.ssafy.woojuin.data.AppServices
-import com.ssafy.woojuin.data.fake.Repositories
 import com.ssafy.woojuin.presentation.navigation.Routes
 import com.ssafy.woojuin.presentation.navigation.WoojuinNavHost
 import com.ssafy.woojuin.presentation.screen.OfflineGateScreen
@@ -37,9 +36,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
-
-        // 인식기 바인딩을 미리 데워 로고 탭 → 청취 시작 지연을 줄인다.
-        Repositories.warmUpSpeech()
 
         val deepLink = when (intent.getStringExtra(EXTRA_ROUTE)) {
             ROUTE_VOICE -> Routes.VOICE_CAPTURE

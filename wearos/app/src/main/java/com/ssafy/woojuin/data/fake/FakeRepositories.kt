@@ -145,6 +145,8 @@ class FakeVoiceCaptureRepository(
 
     override fun listen(): Flow<SpeechEvent> = speech.listen()
 
+    override fun finishListening() = speech.finishNow()
+
     override suspend fun saveLocal(text: String): SavedItem {
         // 로컬 저장은 즉시 끝난다 — 서버/AI를 기다리지 않는다.
         val item = SavedItem(
@@ -290,23 +292,19 @@ object Repositories {
         appContext = context.applicationContext
     }
 
-    /** 음성 저장·검색이 공유하는 단일 인식기 — 바인딩을 데워 재사용한다. */
-    private val androidSpeech: com.ssafy.woojuin.data.speech.AndroidSpeechSource? by lazy {
-        val context = appContext
-        if (context != null && android.speech.SpeechRecognizer.isRecognitionAvailable(context)) {
-            com.ssafy.woojuin.data.speech.AndroidSpeechSource(context)
-        } else {
-            null
-        }
-    }
-
-    /** 앱 진입 시 호출 — 탭 → 첫 인식까지의 콜드 스타트를 줄인다. */
-    fun warmUpSpeech() {
-        androidSpeech?.warmUp()
-    }
-
+    /**
+     * 음성 저장·검색이 공유하는 인식기 — 손목에서 녹음해 서버로 보낸다
+     * ([com.ssafy.woojuin.data.speech.ServerSpeechSource]). 기기 인식기를 쓰지 않는 이유는
+     * [com.ssafy.woojuin.data.speech.MicRecorder] javadoc 에 있다.
+     *
+     * <p>Preview 는 [AppServices] 가 없어 정해진 문장을 흘리는 fake 로 떨어진다.
+     */
     private fun speechSource(fallbackSentence: String): SpeechSource =
-        androidSpeech ?: FakeSpeechSource(fallbackSentence)
+        if (com.ssafy.woojuin.data.AppServices.initialized) {
+            com.ssafy.woojuin.data.speech.ServerSpeechSource(com.ssafy.woojuin.data.AppServices.api)
+        } else {
+            FakeSpeechSource(fallbackSentence)
+        }
 
     val sync: SyncRepository by lazy { FakeSyncRepository() }
 
