@@ -15,7 +15,13 @@ import {
   getRefreshToken,
   setAutoLoginSuppressed,
 } from '@/storage/authStorage';
-import { clearSelectedWorkspaceId, getSelectedWorkspaceId, setSelectedWorkspaceId } from '@/storage/workspaceStorage';
+import {
+  clearCachedWorkspaces,
+  clearSelectedWorkspaceId,
+  getSelectedWorkspaceId,
+  setCachedWorkspaces,
+  setSelectedWorkspaceId,
+} from '@/storage/workspaceStorage';
 
 type Status = 'idle' | 'loading' | 'saving' | 'analyzing' | 'done' | 'error';
 interface ContextSaveFeedback {
@@ -96,6 +102,8 @@ export default function Popup() {
         ?? items.find((item) => item.type === 'PERSONAL') ?? items[0] ?? null;
       setWorkspaces(items);
       setWorkspaceId(selected?.id ?? null);
+      // 우클릭 메뉴가 이 목록으로 저장할 곳 하위 메뉴를 짠다(background/contextMenus.ts).
+      await setCachedWorkspaces(items);
       if (selected) await setSelectedWorkspaceId(selected.id);
       setStatus('idle');
     } catch (error) {
@@ -263,7 +271,12 @@ export default function Popup() {
 
   async function handleLogout() {
     // 토큰만 지우면 팝업을 다시 열 때 우주인 탭에서 곧바로 재수확되어 로그아웃이 무의미해진다.
-    await Promise.all([logout(), clearSelectedWorkspaceId(), setAutoLoginSuppressed(true)]);
+    await Promise.all([
+      logout(),
+      clearSelectedWorkspaceId(),
+      clearCachedWorkspaces(),
+      setAutoLoginSuppressed(true),
+    ]);
     setAuthenticated(false);
     setWorkspaces([]);
     setWorkspaceId(null);
