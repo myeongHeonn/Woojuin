@@ -106,11 +106,28 @@
   z-index: 3; /* 캔버스 위, 성좌 라벨(z-4) 아래 */
   overflow: hidden;
   pointer-events: none;
-  opacity: 0;
-  will-change: opacity;
 }
 
-/* 지평선의 해 — 여명은 아래에서 올라오고 노을은 위에서 내려간다 */
+/* 하늘빛 띠 — 동(오른쪽)에서 들어와 서(왼쪽)로 지나간다.
+   해가 동에서 서로 가므로 하늘이 물드는 것도 그 방향을 따라야 한다. 화면 전체가 동시에
+   밝아졌다 어두워지면 조명 스위치를 누른 것처럼 보인다.
+
+   화면의 두 배 폭으로 만들어 가로지르게 하고, 서쪽 끝을 마스크로 흐려 둔다 — 그 흐린
+   경계가 앞장서면서 색이 번져 나가는 것으로 읽힌다. */
+.woojuin-theme-wash::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 35%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 35%);
+  will-change: transform, opacity;
+  animation: woojuin-wash-sweep var(--universe-theme-duration) var(--universe-theme-ease);
+}
+
+/* 지평선의 해 — 뜨고 지는 동시에 서쪽으로 흐른다 */
 .woojuin-theme-wash::after {
   content: '';
   position: absolute;
@@ -124,7 +141,22 @@
   will-change: opacity, transform;
 }
 
-.woojuin-theme-wash-dawn {
+/* 띠의 이동은 방향과 무관하게 같다(해는 늘 동에서 서로 간다). 색만 갈린다. */
+@keyframes woojuin-wash-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%);
+  }
+}
+
+.woojuin-theme-wash-dawn::before {
   background: linear-gradient(
     to top,
     rgba(255, 201, 136, 0.8) 0%,
@@ -133,7 +165,6 @@
     rgba(20, 48, 103, 0.66) 74%,
     rgba(5, 18, 51, 0.82) 100%
   );
-  animation: woojuin-dawn-wash var(--universe-theme-duration) var(--universe-theme-ease);
 }
 
 .woojuin-theme-wash-dawn::after {
@@ -146,7 +177,7 @@
   animation: woojuin-dawn-horizon var(--universe-theme-duration) var(--universe-theme-ease);
 }
 
-.woojuin-theme-wash-dusk {
+.woojuin-theme-wash-dusk::before {
   background: linear-gradient(
     to top,
     rgba(244, 137, 91, 0.78) 0%,
@@ -154,7 +185,6 @@
     rgba(67, 63, 130, 0.62) 52%,
     rgba(9, 26, 67, 0.84) 100%
   );
-  animation: woojuin-dusk-wash var(--universe-theme-duration) var(--universe-theme-ease);
 }
 
 .woojuin-theme-wash-dusk::after {
@@ -175,57 +205,33 @@
 
    해(::after)는 transform 키프레임을 양 끝에만 둔다. 그래야 중간에 꺾이지 않고 전 구간을
    일정한 속도로 가로지른다 — 타임랩스에서 해가 움직이는 방식이다. */
-@keyframes woojuin-dawn-wash {
-  0% {
-    opacity: 0;
-  }
-  50% {
-    opacity: 0.9;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-/* 여명 — 해가 아래에서 위로 */
+/* 여명 — 해가 동에서 떠올라 서로 흐른다 */
 @keyframes woojuin-dawn-horizon {
   0% {
     opacity: 0;
-    transform: translateY(30%);
+    transform: translate(10%, 30%);
   }
   50% {
     opacity: 0.9;
   }
   100% {
     opacity: 0;
-    transform: translateY(-20%);
+    transform: translate(-10%, -20%);
   }
 }
 
-@keyframes woojuin-dusk-wash {
-  0% {
-    opacity: 0;
-  }
-  50% {
-    opacity: 0.9;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-/* 노을 — 해가 위에서 아래로 */
+/* 노을 — 해가 서로 흐르며 진다. 가로 방향은 여명과 같다(해는 늘 서쪽으로 간다) */
 @keyframes woojuin-dusk-horizon {
   0% {
     opacity: 0;
-    transform: translateY(-20%);
+    transform: translate(10%, -20%);
   }
   50% {
     opacity: 0.9;
   }
   100% {
     opacity: 0;
-    transform: translateY(30%);
+    transform: translate(-10%, 30%);
   }
 }
 
