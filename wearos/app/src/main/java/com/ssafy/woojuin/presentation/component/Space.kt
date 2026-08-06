@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -166,8 +167,23 @@ private fun DrawScope.drawSparkle(center: Offset, halfLength: Float) {
     }
 }
 
-/** [GlassButton]·[GlassCard] 의 모서리 — 스타디움(반원)이 아니라 부드러운 사각형이다. */
-private val GlassShape = RoundedCornerShape(18.dp)
+/**
+ * [GlassButton]·[GlassCard] 의 모서리.
+ *
+ * <p>18dp 였을 때 44dp 높이 버튼에서는 반원에 가까워 결국 알약처럼 보였다 — 걷어내려던
+ * 그 모양이다. 12dp 는 부드럽지만 사각형으로 읽힌다.
+ */
+private val GlassShape = RoundedCornerShape(12.dp)
+
+/**
+ * 색 위에 얹을 글자색.
+ *
+ * <p>경계를 0.5 로 잡았더니 파랑(#8FB4FF, 밝기 0.46)에 흰 글자가 올라가 명암비가 2:1 밖에
+ * 안 됐다 — 실측 화면에서 읽기 어려웠다. 0.30 이면 파랑·초록·노랑·연어색은 검은 글자,
+ * 보라(0.21)만 흰 글자가 되어 네 색 모두 읽힌다.
+ */
+private fun onAccent(accent: Color): Color =
+    if (accent.luminance() > 0.30f) WoojuinColor.SpaceBlack else Color.White
 
 /**
  * 화면의 **주 동작** — 아래 베젤을 따라 휘는 버튼.
@@ -183,25 +199,31 @@ private val GlassShape = RoundedCornerShape(18.dp)
 fun WoojuinEdgeButton(
     label: String,
     onClick: () -> Unit,
-    accent: Color = WoojuinColor.TextPrimary,
+    accent: Color = WoojuinColor.TextSecondary,
     primary: Boolean = false,
 ) {
+    // 회색(SurfaceRaised) 채움을 쓰지 않는다 — 검은 배경 위에서 탁한 회색 덩어리로
+    // 보였다. 화면의 기능 색을 옅게 깔고 글자를 그 색으로 두면 같은 자리가 선명해진다
     EdgeButton(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (primary) WoojuinColor.AccentPurple else WoojuinColor.SurfaceRaised,
-            contentColor = if (primary) Color.White else accent,
+            containerColor = if (primary) accent else accent.copy(alpha = 0.20f),
+            contentColor = if (primary) onAccent(accent) else accent,
         ),
     ) {
-        Text(text = label, style = MaterialTheme.typography.titleSmall)
+        // **라벨은 한 줄로 들어와야 한다.** EdgeButton 은 아래로 좁아지는 모양이라 두 줄이
+        // 되면 둘째 줄이 곡면에 잘렸다("휴대폰에서 / 열기"에서 "열기"가 먹혔다). 글자를
+        // 한 단계 작게 쓰고, 긴 문구는 이 버튼에 두지 않는다(본문의 GlassButton 을 쓴다)
+        Text(text = label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
     }
 }
 
 /**
- * 목록의 한 칸. 유리 표면 + 헤어라인, 필요하면 탭도 받는다.
+ * 목록의 한 칸. 필요하면 탭도 받는다.
  *
- * <p>Wear 기본 `Card` 는 단색 채움이라 검은 배경 위에서 회색 사각형으로 보인다. 홈의
- * 문법(위→아래 표면 그라데이션 + 기능 색 헤어라인)을 목록에도 그대로 쓴다.
+ * <p>Wear 기본 `Card` 는 단색 채움이라 검은 배경 위에서 회색 사각형으로 보인다. 버튼과
+ * 같은 문법을 쓴다 — 종류 색을 옅게 깔고 같은 색 테두리 한 겹. 카드는 여러 장이 겹쳐
+ * 놓이므로 버튼보다 더 옅게 깐다.
  *
  * @param accent 헤어라인 색 — 항목의 종류 색을 주면 목록을 훑을 때 종류가 먼저 읽힌다
  */
@@ -223,10 +245,10 @@ fun GlassCard(
             .clip(GlassShape)
             .background(
                 Brush.verticalGradient(
-                    listOf(WoojuinColor.SurfaceRaised, WoojuinColor.Surface),
+                    listOf(accent.copy(alpha = 0.10f), accent.copy(alpha = 0.04f)),
                 ),
             )
-            .border(1.dp, accent.copy(alpha = 0.30f), GlassShape)
+            .border(1.dp, accent.copy(alpha = 0.40f), GlassShape)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
@@ -238,7 +260,9 @@ fun GlassCard(
                     Modifier
                 },
             )
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            // 카드 안쪽 여백은 좁게 — 둥근 화면에서 좌우 여백까지 겹치면 글자 폭이
+            // 9자밖에 안 남아 제목이 자꾸 잘렸다
+            .padding(horizontal = 10.dp, vertical = 10.dp),
         content = content,
     )
 }
@@ -246,9 +270,10 @@ fun GlassCard(
 /**
  * 이 앱의 표준 동작 버튼.
  *
- * <p>Wear 기본 `Button` 의 스타디움 모양·단색 채움을 쓰지 않는다. 대신 홈의 궤도 노드와
- * 같은 문법을 쓴다 — **위→아래 표면 그라데이션(유리) + 기능 색 헤어라인**. 그래야 화면을
- * 넘겨도 같은 앱으로 읽힌다.
+ * <p><b>채움을 걷었다.</b> 표면색 그라데이션(#343947 → #20242F)으로 채웠더니 검은 배경
+ * 위에서 탁한 회색 덩어리가 됐다("더 보기"·"완료"에서 드러났다). 홈의 위성이 채움 없이
+ * 기능 색 빛만 두르고 서 있는 것과 같은 문법으로 바꾼다 — **기능 색을 아주 옅게 깔고
+ * 같은 색 테두리 한 겹**. 검은 배경에서 색이 살고, 화면마다 그 화면의 색을 입는다.
  *
  * <p>라벨에 [maxLines] 를 걸지 않는다. 워치에서 한국어 버튼 글자는 한 줄에 안 들어가는
  * 일이 흔한데, 잘라내면 무슨 버튼인지 알 수 없다 — 높이가 늘어나는 쪽이 항상 낫다.
@@ -278,21 +303,20 @@ fun GlassButton(
             .clip(GlassShape)
             .background(
                 if (primary) {
-                    Brush.verticalGradient(
-                        listOf(WoojuinColor.AccentHover, WoojuinColor.AccentPurple),
-                    )
+                    // 주 동작만 색으로 채운다 — 화면에서 유일하게 채워진 것이어야 눈에 든다
+                    Brush.verticalGradient(listOf(accent, accent.copy(alpha = 0.82f)))
                 } else {
                     Brush.verticalGradient(
-                        listOf(WoojuinColor.SurfaceRaised, WoojuinColor.Surface),
+                        listOf(accent.copy(alpha = 0.14f), accent.copy(alpha = 0.06f)),
                     )
                 },
             )
             .border(
                 width = 1.dp,
                 color = if (primary) {
-                    Color.White.copy(alpha = 0.20f)
+                    Color.White.copy(alpha = 0.24f)
                 } else {
-                    accent.copy(alpha = 0.40f)
+                    accent.copy(alpha = 0.55f)
                 },
                 shape = GlassShape,
             )
@@ -308,7 +332,7 @@ fun GlassButton(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (primary) Color.White else accent,
+                tint = if (primary) onAccent(accent) else accent,
                 modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -316,7 +340,7 @@ fun GlassButton(
         Text(
             text = label,
             style = MaterialTheme.typography.titleSmall,
-            color = if (primary) Color.White else WoojuinColor.TextPrimary,
+            color = if (primary) onAccent(accent) else WoojuinColor.TextPrimary,
             textAlign = TextAlign.Center,
         )
     }
