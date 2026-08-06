@@ -54,6 +54,15 @@
 :root {
   --universe-theme-duration: 1.8s;
   --universe-theme-ease: linear;
+
+  /* 디더 노이즈.
+     화면을 가로지르는 큰 그라데이션에는 색 띠(밴딩)가 진다 — 색은 채널당 8비트뿐인데
+     그 256단계를 화면 높이만큼 늘려 놓으면 한 단계가 몇 픽셀씩 차지해 경계가 보인다.
+     파랑 계열에서 특히 심하다.
+
+     아주 옅은 노이즈를 덮어 그 경계를 흐트러뜨린다(인쇄의 디더링과 같은 원리다).
+     알파를 SVG 안에 박아 둔 이유: 배경 레이어로 얹을 때 레이어별 투명도를 따로 줄 수 없다. */
+  --sky-dither: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
 }
 
 /* 스테이지 바탕색도 같이 흐른다. 이게 없으면 --color-space 가 즉시 갈려서, 하늘이 1.45초에
@@ -65,6 +74,9 @@
 
 .woojuin-universe-sky {
   background: linear-gradient(180deg, #0c68d8 0%, #3389e2 48%, #8cc4f1 100%);
+  background:
+    var(--sky-dither) repeat,
+    linear-gradient(180deg in oklab, #0c68d8 0%, #3389e2 48%, #8cc4f1 100%);
   opacity: 0;
   transition: opacity var(--universe-theme-duration) var(--universe-theme-ease);
 }
@@ -73,7 +85,12 @@
   opacity: 1;
 }
 
+/* 다크에도 **항등 필터**를 명시한다(값은 아무것도 안 한 것과 같다).
+   비워 두면 filter 가 none 이 되는데, none ↔ saturate()·brightness() 사이는 매끄럽게
+   보간되지 않는다. 게다가 필터가 none 이 되는 순간 브라우저가 필터 레이어를 버리고 다시
+   합성해서, 전환이 끝나기 직전에 한 번 번쩍인다. 양쪽을 같은 함수 목록으로 맞추면 사라진다. */
 .woojuin-universe-canvas {
+  filter: saturate(1) brightness(1);
   transition: filter var(--universe-theme-duration) var(--universe-theme-ease);
 }
 
@@ -124,7 +141,7 @@
   -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 35%);
   mask-image: linear-gradient(to right, transparent 0%, #000 35%);
   will-change: transform, opacity;
-  animation: woojuin-wash-sweep var(--universe-theme-duration) var(--universe-theme-ease);
+  animation: woojuin-wash-sweep var(--universe-theme-duration) var(--universe-theme-ease) both;
 }
 
 /* 지평선의 해 — 뜨고 지는 동시에 서쪽으로 흐른다 */
@@ -157,6 +174,7 @@
 }
 
 .woojuin-theme-wash-dawn::before {
+  /* in oklab 을 못 읽는 브라우저용 폴백 — 없으면 선언 전체가 무효가 되어 띠가 안 보인다 */
   background: linear-gradient(
     to top,
     rgba(255, 201, 136, 0.8) 0%,
@@ -165,6 +183,16 @@
     rgba(20, 48, 103, 0.66) 74%,
     rgba(5, 18, 51, 0.82) 100%
   );
+  background:
+    var(--sky-dither) repeat,
+    linear-gradient(
+      to top in oklab,
+      rgba(255, 201, 136, 0.8) 0%,
+      rgba(197, 123, 164, 0.58) 19%,
+      rgba(91, 92, 161, 0.5) 43%,
+      rgba(20, 48, 103, 0.66) 74%,
+      rgba(5, 18, 51, 0.82) 100%
+    );
 }
 
 .woojuin-theme-wash-dawn::after {
@@ -174,10 +202,11 @@
     rgba(255, 183, 113, 0.55) 35%,
     transparent 72%
   );
-  animation: woojuin-dawn-horizon var(--universe-theme-duration) var(--universe-theme-ease);
+  animation: woojuin-dawn-horizon var(--universe-theme-duration) var(--universe-theme-ease) both;
 }
 
 .woojuin-theme-wash-dusk::before {
+  /* in oklab 을 못 읽는 브라우저용 폴백 — 없으면 선언 전체가 무효가 되어 띠가 안 보인다 */
   background: linear-gradient(
     to top,
     rgba(244, 137, 91, 0.78) 0%,
@@ -185,6 +214,15 @@
     rgba(67, 63, 130, 0.62) 52%,
     rgba(9, 26, 67, 0.84) 100%
   );
+  background:
+    var(--sky-dither) repeat,
+    linear-gradient(
+      to top in oklab,
+      rgba(244, 137, 91, 0.78) 0%,
+      rgba(168, 83, 137, 0.62) 24%,
+      rgba(67, 63, 130, 0.62) 52%,
+      rgba(9, 26, 67, 0.84) 100%
+    );
 }
 
 .woojuin-theme-wash-dusk::after {
@@ -194,7 +232,7 @@
     rgba(239, 111, 91, 0.48) 38%,
     transparent 74%
   );
-  animation: woojuin-dusk-horizon var(--universe-theme-duration) var(--universe-theme-ease);
+  animation: woojuin-dusk-horizon var(--universe-theme-duration) var(--universe-theme-ease) both;
 }
 
 /* 키프레임은 0 → 정점 → 0 의 대칭 삼각형이다.
