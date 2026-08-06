@@ -12,12 +12,12 @@ import java.util.Optional;
  *   <li>{@link Optional#of} — 찾았다. 링크가 반드시 있다(없으면 찾은 것으로 보지 않는다)
  *   <li>{@link Optional#empty} — <b>못 찾았다.</b> 주변이 조용했거나 카탈로그에 없는 곡이다.
  *       오류가 아니므로 "노래를 찾지 못했어요"다
- *   <li>{@link MusicRecognitionFailedException} — 인식 자체가 실패했다(사이드카 장애·타임아웃).
+ *   <li>{@link MusicRecognitionFailedException} — 인식 자체가 실패했다(통신·키·제공자 장애).
  *       "잠시 후 다시"다
  * </ul>
  *
- * <p>구현이 둘인 이유는 {@link MusicRecognizerConfig} 에 적어 뒀다 — 기본 경로가 비공식
- * API 라 언제든 깨질 수 있어서, 실패를 정식 API 로 받아 낸다.
+ * <p>구현을 인터페이스 뒤에 두는 이유는 제공자를 바꿀 여지를 남기려는 것이다 — 검토 과정과
+ * 선택 근거는 {@link MusicRecognizerConfig} javadoc 에 적어 뒀다.
  */
 public interface MusicRecognizer {
 

@@ -172,30 +172,6 @@ services:
       retries: 5
       start_period: 30s
 
-  aimusic:
-    # 노래 인식 사이드카 — shazamio(비공식 Shazam)로 오디오 한 토막에서 곡을 알아낸다.
-    # aimix 와 같은 규칙: profile 뒤에 두고 COMPOSE_PROFILES 로 환경별로 켠다.
-    #
-    # ⚠️ **여기서 막힐 수 있다.** 비공식 경로라 데이터센터(EC2) IP 를 먼저 차단하는 편이다.
-    #    막히면 백엔드가 AudD 정식 API 로 폴백하므로 기능은 살아 있다 —
-    #    그때는 .env 에 AI_MUSIC_PRIMARY=audd 를 넣어 **정식 경로를 앞으로** 돌린다
-    #    (막힌 경로를 먼저 두면 타임아웃 8초를 매번 버린다).
-    #
-    # 키가 필요 없어 environment 가 비어 있다(aimix 와 다른 점).
-    profiles: ["aimusic"]
-    image: ${AIMUSIC_IMAGE:-woojuin-aimusic:latest}
-    networks: [internal]
-    logging: *log-rotation
-    restart: always
-    # 지문 계산이 numpy 를 쓰지만 12초 오디오라 메모리는 작다(로컬 실측 이미지 377MB).
-    mem_limit: ${AIMUSIC_MEM_LIMIT:-512m}
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8003/health')\" || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
   backend:
     # Jenkins가 EC2에서 직접 빌드하고 커밋 SHA로 태깅한 이미지(결정 #9).
     # 빌드하는 곳 = 실행하는 곳이라 별도 레지스트리가 필요 없다.
@@ -232,7 +208,6 @@ services:
       AWS_S3_ENDPOINT: http://minio:9000
       CRAWLER_BASE_URL: http://crawler:8001
       AIMIX_BASE_URL: http://aimix:8002
-      AI_MUSIC_BASE_URL: http://aimusic:8003
 
       # ③ 이름 매핑
       JAVA_OPTS: ${BACKEND_JAVA_OPTS:-}
