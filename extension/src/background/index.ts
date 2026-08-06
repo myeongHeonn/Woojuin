@@ -6,9 +6,20 @@ import {
   harvestWebSession,
   OAUTH_CALLBACK_PREFIX,
 } from '@/auth/webSession';
+import { getWorkspaces } from '@/api/workspaces';
 import { getAccessToken, getRefreshToken } from '@/storage/authStorage';
 import { openFromNotification, resumeWatchOnAlarm, watchItem } from '@/background/watchItem';
-import { getSelectedWorkspaceId } from '@/storage/workspaceStorage';
+import {
+  isImageSaveMenu,
+  refreshContextMenus,
+  SAVE_SELECTION_ID,
+  workspaceIdFromMenu,
+} from '@/background/contextMenus';
+import {
+  getSelectedWorkspaceId,
+  setCachedWorkspaces,
+  WORKSPACE_LIST_KEY,
+} from '@/storage/workspaceStorage';
 
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
@@ -16,15 +27,35 @@ const activeSaves = new Set<string>();
 const FEEDBACK_KEY = 'contextSaveFeedback';
 const NOTIFICATION_ICON = chrome.runtime.getURL('icon128.png');
 
-function registerMenus(): void {
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({ id: 'save-image', title: '선택한 이미지를 우주인에 저장', contexts: ['image'] });
-    chrome.contextMenus.create({ id: 'save-selection', title: '선택한 텍스트를 우주인에 저장', contexts: ['selection'] });
-  });
+/**
+ * 워크스페이스 목록을 서버에서 새로 받아 캐시한다.
+ *
+ * 팝업을 한 번도 열지 않아도 우클릭 메뉴에 스페이스가 떠야 한다 — 로그인은 웹앱 세션에서
+ * 자동으로 물려받으므로(webSession.ts) 팝업을 안 거치고 저장부터 하는 경로가 실제로 있다.
+ * 실패는 삼킨다: 목록이 없으면 메뉴가 단일 항목으로 뜰 뿐 저장 자체는 막히지 않는다.
+ */
+async function syncWorkspaces(): Promise<void> {
+  const [accessToken, refreshToken] = await Promise.all([getAccessToken(), getRefreshToken()]);
+  if (!accessToken && !refreshToken) return;
+  try {
+    await setCachedWorkspaces(await getWorkspaces());
+  } catch (error) {
+    console.debug('워크스페이스 목록 동기화 실패:', error);
+  }
 }
 
-chrome.runtime.onInstalled.addListener(registerMenus);
-chrome.runtime.onStartup.addListener(registerMenus);
+function bootstrap(): void {
+  void refreshContextMenus();
+  void syncWorkspaces();
+}
+
+chrome.runtime.onInstalled.addListener(bootstrap);
+chrome.runtime.onStartup.addListener(bootstrap);
+
+// 목록이 바뀌면 메뉴를 다시 짠다 — 팝업이 새로 받아 왔거나, 로그아웃으로 비워졌을 때다.
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && WORKSPACE_LIST_KEY in changes) void refreshContextMenus();
+});
 
 // 아이템 처리 완료 감시 — 팝업은 닫히면 끝나므로 감시는 여기서 한다(watchItem.ts 참고).
 chrome.alarms.onAlarm.addListener(resumeWatchOnAlarm);
@@ -59,13 +90,17 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     void captureTokensFromCallback(url).then((captured) => {
       // 알림·배지를 띄우지 않는다 — 팝업이 storage 변화를 듣고 스스로 로그인 상태로 바뀌므로
       // 따로 알릴 게 없다.
-      if (captured) return closeLoginWindow();
+      if (!captured) return;
+      // 이제 목록을 받을 수 있다 — 우클릭 메뉴의 스페이스 하위 항목이 여기서 채워진다.
+      void syncWorkspaces();
+      return closeLoginWindow();
     });
     return;
   }
 
   if (changeInfo.status === 'complete' && tab.url?.startsWith(WEB_ORIGIN)) {
     void harvestWebSession(tabId).then((harvested) => {
+      if (harvested) void syncWorkspaces();
       // 이미 웹에 로그인돼 있었다는 뜻 — OAuth 를 거칠 필요가 없었으므로 로그인 창이 떠 있으면
       // 바로 닫는다. 우리가 만든 windowId 만 닫으니 사용자가 열어 둔 탭은 그대로다.
       // 콜백 경로와 달리 여유를 두지 않는다: 웹 세션은 이미 저장돼 있다.
@@ -103,13 +138,22 @@ async function showFeedback(success: boolean, message: string): Promise<void> {
   setTimeout(() => void chrome.action.setBadgeText({ text: '' }), 8000);
 }
 
-async function requireSaveContext(): Promise<number> {
-  const [accessToken, refreshToken, workspaceId] = await Promise.all([
+/**
+ * 저장할 스페이스를 정한다.
+ *
+ * 하위 메뉴로 고른 곳이 있으면 그걸 쓰고, 없으면(스페이스가 하나뿐이거나 목록을 아직 못 받아
+ * 단일 메뉴로 떴을 때) 팝업에서 고른 곳으로 떨어진다. 하위 메뉴 선택은 그 저장 한 번에만
+ * 적용한다 — 팝업의 기본 저장 위치까지 바꿔 버리면 우클릭 한 번이 다음 저장들의 목적지를
+ * 조용히 옮겨 놓는다.
+ */
+async function requireSaveContext(chosenWorkspaceId: number | null): Promise<number> {
+  const [accessToken, refreshToken, selectedWorkspaceId] = await Promise.all([
     getAccessToken(),
     getRefreshToken(),
     getSelectedWorkspaceId(),
   ]);
   if (!accessToken && !refreshToken) throw new ApiError('로그인이 필요합니다.', 401);
+  const workspaceId = chosenWorkspaceId ?? selectedWorkspaceId;
   if (!workspaceId) throw new Error('팝업에서 워크스페이스를 먼저 선택해 주세요.');
   return workspaceId;
 }
@@ -139,14 +183,14 @@ async function handleContextSave(
   info: chrome.contextMenus.OnClickData,
   imagePermission?: Promise<boolean>,
 ): Promise<void> {
-  const workspaceId = await requireSaveContext();
+  const workspaceId = await requireSaveContext(workspaceIdFromMenu(info.menuItemId));
   // 저장은 접수까지만이고 완료 알림은 watchItem 이 실제 처리가 끝난 뒤에 띄운다.
-  if (info.menuItemId === 'save-selection') {
+  if (info.menuItemId === SAVE_SELECTION_ID) {
     const content = info.selectionText?.trim();
     if (!content) throw new Error('빈 텍스트는 저장할 수 없습니다.');
     const created = await saveMemo(workspaceId, content);
     await watchItem(created.itemId, created.status, workspaceId);
-  } else if (info.menuItemId === 'save-image' && info.srcUrl) {
+  } else if (isImageSaveMenu(info.menuItemId) && info.srcUrl) {
     if (!imagePermission) throw new Error('이미지 출처 권한을 요청하지 못했습니다.');
     const created = await saveImage(workspaceId, await downloadImage(info.srcUrl, imagePermission));
     await watchItem(created.itemId, created.status, workspaceId);
@@ -157,7 +201,7 @@ chrome.contextMenus.onClicked.addListener((info) => {
   // permissions.request는 사용자 제스처가 유지되는 동기 이벤트 구간에서 즉시 호출해야 한다.
   // 인증/워크스페이스 조회를 await한 뒤 호출하면 Chrome이 요청을 거부한다.
   let imagePermission: Promise<boolean> | undefined;
-  if (info.menuItemId === 'save-image' && info.srcUrl) {
+  if (isImageSaveMenu(info.menuItemId) && info.srcUrl) {
     const url = new URL(info.srcUrl);
     if (url.protocol === 'http:' || url.protocol === 'https:') {
       imagePermission = chrome.permissions.request({ origins: [`${url.origin}/*`] });
