@@ -33,10 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
-import androidx.wear.compose.material3.Card
-import androidx.wear.compose.material3.CardDefaults
 import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
@@ -46,12 +43,16 @@ import com.ssafy.woojuin.domain.model.SavedItem
 import com.ssafy.woojuin.domain.model.SavedItemType
 import com.ssafy.woojuin.domain.repository.SpeechEvent
 import com.ssafy.woojuin.presentation.component.CaptionText
+import com.ssafy.woojuin.presentation.component.GlassButton
+import com.ssafy.woojuin.presentation.component.GlassCard
 import com.ssafy.woojuin.presentation.component.ItemCardContent
+import com.ssafy.woojuin.presentation.component.WoojuinEdgeButton
 import com.ssafy.woojuin.presentation.component.WoojuinListScreen
 import com.ssafy.woojuin.presentation.component.WoojuinListeningLogo
 import com.ssafy.woojuin.presentation.component.WoojuinStatusScreen
 import com.ssafy.woojuin.presentation.component.rememberReduceMotion
 import com.ssafy.woojuin.presentation.theme.WoojuinColor
+import com.ssafy.woojuin.presentation.theme.woojuinRowInset
 import com.ssafy.woojuin.presentation.util.rememberHaptics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -156,7 +157,9 @@ fun VoiceSearchScreen(
 
     // 마이크가 열려 있는 동안만 색을 살린다 — 받아쓰는 중에 말해도 남지 않기 때문이다
     val listening = uiState is SearchUiState.Listening
-    WoojuinStatusScreen {
+    WoojuinStatusScreen(
+        glowColor = if (listening) WoojuinColor.SearchAccent else WoojuinColor.TextMuted,
+    ) {
         WoojuinListeningLogo(
             accent = if (listening) WoojuinColor.SearchAccent else WoojuinColor.TextMuted,
             modifier = Modifier.size(80.dp),
@@ -205,7 +208,16 @@ fun VoiceSearchResultsScreen(
     val interpretation by Repositories.search.lastInterpretation.collectAsState()
 
     if (results.isEmpty()) {
-        WoojuinStatusScreen {
+        WoojuinStatusScreen(
+            glowColor = WoojuinColor.SearchAccent,
+            edgeButton = {
+                WoojuinEdgeButton(
+                    label = "다시 말하기",
+                    onClick = onRetry,
+                    accent = WoojuinColor.SearchAccent,
+                )
+            },
+        ) {
             Text(
                 text = "비슷한 자료를 찾지 못했어요",
                 style = MaterialTheme.typography.titleMedium,
@@ -218,27 +230,18 @@ fun VoiceSearchResultsScreen(
                 Spacer(modifier = Modifier.height(4.dp))
                 CaptionText("‘${it.query}’(으)로 찾았어요")
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            Button(
-                onClick = onRetry,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.SurfaceActive),
-                icon = { androidx.wear.compose.material3.Icon(Icons.Rounded.Mic, contentDescription = null, tint = WoojuinColor.SearchAccent, modifier = Modifier.size(18.dp)) },
-                label = { Text("다시 말하기") },
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Button(
+            Spacer(modifier = Modifier.height(8.dp))
+            GlassButton(
+                label = "휴대폰에서 검색",
                 onClick = onOpenOnPhone,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.Surface),
-                icon = { androidx.wear.compose.material3.Icon(Icons.Rounded.PhoneAndroid, contentDescription = null, tint = WoojuinColor.TextSecondary, modifier = Modifier.size(18.dp)) },
-                label = { Text("휴대폰에서 검색") },
+                icon = Icons.Rounded.PhoneAndroid,
             )
         }
         return
     }
 
     WoojuinListScreen(
+        glowColor = WoojuinColor.SearchAccent,
         edgeButton = {
             EdgeButton(
                 onClick = onRetry,
@@ -260,7 +263,9 @@ fun VoiceSearchResultsScreen(
                         ?: if (query.isEmpty()) "검색 결과" else "‘$query’",
                     style = MaterialTheme.typography.titleSmall,
                     color = WoojuinColor.TextSecondary,
-                    maxLines = 2,
+                    // 목록은 스크롤되므로 줄을 늘리는 게 잘라내는 것보다 낫다 —
+                    // 무엇으로 찾았는지가 결과를 이해하는 유일한 단서다
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -281,14 +286,12 @@ fun VoiceSearchResultsScreen(
 @Composable
 private fun ResultCard(item: SavedItem, hero: Boolean, onClick: () -> Unit) {
     val (icon, tint) = typeIcon(item.type)
-    Card(
+    GlassCard(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = if (hero) 4.dp else 10.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (hero) WoojuinColor.SurfaceActive else WoojuinColor.Surface,
-        ),
+        // 헤어라인에 종류 색을 준다 — 목록을 훑을 때 메모·링크·사진이 먼저 읽힌다.
+        // 맨 위 결과만 색을 살려서 가장 비슷한 것임을 알린다
+        accent = if (hero) tint else WoojuinColor.TextMuted,
+        modifier = Modifier.woojuinRowInset(),
     ) {
         // 목록에는 제목만 — 요약까지 넣으면 카드가 커져 워치에서 두세 개밖에 안 보이고,
         // 어느 것인지 고르는 데는 제목이면 충분하다. 요약은 탭해서 들어가면 나온다
@@ -326,6 +329,7 @@ fun SavedItemDetailScreen(
     val (icon, tint) = typeIcon(detail.type)
 
     WoojuinListScreen(
+        glowColor = tint,
         edgeButton = {
             EdgeButton(
                 onClick = onOpenOnPhone,
@@ -344,21 +348,13 @@ fun SavedItemDetailScreen(
                     text = detail.title,
                     style = MaterialTheme.typography.titleMedium,
                     color = WoojuinColor.TextPrimary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                    // 상세 화면이다 — 제목을 잘라내면 무엇의 상세인지 알 수 없다
                     textAlign = TextAlign.Center,
                 )
             }
         }
         item {
-            Card(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = WoojuinColor.Surface),
-            ) {
+            GlassCard(accent = tint, modifier = Modifier.woojuinRowInset()) {
                 ItemCardContent(
                     icon = icon,
                     iconTint = tint,
@@ -366,19 +362,14 @@ fun SavedItemDetailScreen(
                     summary = detail.summary,
                     metaLabel = listOfNotNull(detail.sourceLabel, detail.savedAtLabel).joinToString(" · "),
                     dotColor = tint,
+                    // 요약을 두 줄에서 자르면 상세로 들어온 의미가 없다
+                    summaryMaxLines = Int.MAX_VALUE,
                 )
             }
         }
         detail.memo?.let { memo ->
             item {
-                Card(
-                    onClick = {},
-                    enabled = false,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = WoojuinColor.SidebarBlack),
-                ) {
+                GlassCard(modifier = Modifier.woojuinRowInset()) {
                     Text(
                         text = "메모",
                         style = MaterialTheme.typography.labelSmall,
@@ -389,8 +380,6 @@ fun SavedItemDetailScreen(
                         text = memo,
                         style = MaterialTheme.typography.bodySmall,
                         color = WoojuinColor.TextSecondary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

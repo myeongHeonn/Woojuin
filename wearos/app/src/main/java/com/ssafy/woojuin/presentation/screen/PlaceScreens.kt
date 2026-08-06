@@ -1,10 +1,13 @@
 package com.ssafy.woojuin.presentation.screen
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Place
@@ -15,6 +18,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -22,8 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.wear.compose.material3.Button
-import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
@@ -31,11 +33,15 @@ import androidx.wear.compose.material3.Text
 import com.ssafy.woojuin.data.fake.Repositories
 import com.ssafy.woojuin.domain.model.PlaceCandidate
 import com.ssafy.woojuin.presentation.component.CaptionText
+import com.ssafy.woojuin.presentation.component.GlassButton
+import com.ssafy.woojuin.presentation.component.GlassCard
+import com.ssafy.woojuin.presentation.component.WoojuinEdgeButton
 import com.ssafy.woojuin.presentation.component.WoojuinListScreen
 import com.ssafy.woojuin.presentation.component.WoojuinListeningLogo
 import com.ssafy.woojuin.presentation.component.WoojuinStatusScreen
 import com.ssafy.woojuin.presentation.component.rememberReduceMotion
 import com.ssafy.woojuin.presentation.theme.WoojuinColor
+import com.ssafy.woojuin.presentation.theme.woojuinRowInset
 import com.ssafy.woojuin.presentation.util.rememberHaptics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -199,7 +205,19 @@ fun PlacePickerScreen(
     }
 
     if (permissionDenied) {
-        WoojuinStatusScreen {
+        WoojuinStatusScreen(
+            glowColor = WoojuinColor.PlaceAccent,
+            edgeButton = {
+                WoojuinEdgeButton(
+                    label = "다시 허용하기",
+                    onClick = {
+                        permissionDenied = false
+                        permissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                    },
+                    primary = true,
+                )
+            },
+        ) {
             Text(
                 text = "위치 권한이 필요해요",
                 style = MaterialTheme.typography.titleMedium,
@@ -208,13 +226,7 @@ fun PlacePickerScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             CaptionText("현재 위치로 장소를 찾으려면 허용해 주세요")
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = {
-                permissionDenied = false
-                permissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
-            }) {
-                Text("다시 허용하기")
-            }
+
         }
         return
     }
@@ -222,7 +234,7 @@ fun PlacePickerScreen(
     when (val state = uiState) {
         PlacePickerUiState.Locating -> {
             val reduceMotion = rememberReduceMotion()
-            WoojuinStatusScreen {
+            WoojuinStatusScreen(glowColor = WoojuinColor.PlaceAccent) {
                 WoojuinListeningLogo(
                     accent = WoojuinColor.PlaceAccent,
                     modifier = Modifier.size(80.dp),
@@ -238,7 +250,16 @@ fun PlacePickerScreen(
             }
         }
         is PlacePickerUiState.Duplicate -> {
-            WoojuinStatusScreen {
+            WoojuinStatusScreen(
+                glowColor = WoojuinColor.PlaceAccent,
+                edgeButton = {
+                    WoojuinEdgeButton(
+                        label = "메모 추가",
+                        onClick = onVoiceCapture,
+                        primary = true,
+                    )
+                },
+            ) {
                 Text(
                     text = "이미 저장한 장소예요",
                     style = MaterialTheme.typography.titleMedium,
@@ -247,28 +268,10 @@ fun PlacePickerScreen(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 CaptionText(state.place.name)
-                Spacer(modifier = Modifier.height(10.dp))
-                Button(
-                    onClick = onVoiceCapture,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.SurfaceActive),
-                    icon = { Icon(Icons.Rounded.Mic, contentDescription = null, tint = WoojuinColor.AccentPurple, modifier = Modifier.size(18.dp)) },
-                    label = { Text("메모 추가") },
-                )
+                Spacer(modifier = Modifier.height(8.dp))
+                GlassButton(label = "다시 저장", onClick = { viewModel.saveAnyway(state.place) })
                 Spacer(modifier = Modifier.height(6.dp))
-                Button(
-                    onClick = { viewModel.saveAnyway(state.place) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.Surface),
-                    label = { Text("다시 저장") },
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Button(
-                    onClick = { onExistingItem("item-pasta") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.Surface),
-                    label = { Text("기존 내용 보기") },
-                )
+                GlassButton(label = "기존 내용 보기", onClick = { onExistingItem("item-pasta") })
             }
         }
         is PlacePickerUiState.Empty -> {
@@ -276,7 +279,7 @@ fun PlacePickerScreen(
             // 반경 안에 저장할 수 있는 장소가 정말로 없다는 뜻이라 더 권할 행동이 없다.
             // 좌표만 저장하는 길도 없다(b111a06에서 좌표 전용 저장 경로를 걷어냄).
             // 나가기는 스와이프로 한다.
-            WoojuinStatusScreen {
+            WoojuinStatusScreen(glowColor = WoojuinColor.PlaceAccent) {
                 Text(
                     text = "주변에서 장소를 찾지 못했어요",
                     style = MaterialTheme.typography.titleMedium,
@@ -288,24 +291,28 @@ fun PlacePickerScreen(
             }
         }
         is PlacePickerUiState.Error -> {
-            WoojuinStatusScreen {
+            WoojuinStatusScreen(
+                glowColor = WoojuinColor.Danger,
+                edgeButton = {
+                    WoojuinEdgeButton(
+                        label = "다시 시도",
+                        onClick = { viewModel.locate() },
+                        accent = WoojuinColor.PlaceAccent,
+                    )
+                },
+            ) {
                 Text(
                     text = state.message,
                     style = MaterialTheme.typography.titleMedium,
                     color = WoojuinColor.TextPrimary,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                Button(
-                    onClick = { viewModel.locate() },
-                    colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.SurfaceActive),
-                    label = { Text("다시 시도") },
-                )
+
             }
         }
         else -> {
             val candidates = (state as? PlacePickerUiState.Candidates)?.places.orEmpty()
-            WoojuinListScreen {
+            WoojuinListScreen(glowColor = WoojuinColor.PlaceAccent) {
                 item {
                     ListHeader {
                         Text(
@@ -317,68 +324,54 @@ fun PlacePickerScreen(
                 }
                 candidates.take(visibleCount).forEach { place ->
                     item {
-                        Button(
+                        GlassCard(
                             onClick = {
                                 haptics.tapStart()
                                 viewModel.select(place)
                             },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = WoojuinColor.Surface,
-                                contentColor = WoojuinColor.TextPrimary,
-                            ),
-                            icon = {
+                            accent = WoojuinColor.PlaceAccent,
+                            modifier = Modifier.woojuinRowInset(),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Rounded.Place,
                                     contentDescription = null,
                                     tint = WoojuinColor.PlaceAccent,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(18.dp),
                                 )
-                            },
-                            label = {
-                                Text(
-                                    text = place.name,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            },
-                            secondaryLabel = {
-                                Text(
-                                    text = "${place.category} · ${place.distanceLabel}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = WoojuinColor.TextSecondary,
-                                    maxLines = 1,
-                                )
-                            },
-                        )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = place.name,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = WoojuinColor.TextPrimary,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = "${place.category} · ${place.distanceLabel}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = WoojuinColor.TextSecondary,
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 val hiddenCount = candidates.size - visibleCount
                 if (hiddenCount > 0 || !expanded) {
                     item {
-                        Button(
-                            onClick = { if (!expanding) viewModel.showMore() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = WoojuinColor.SurfaceActive,
-                                contentColor = WoojuinColor.TextPrimary,
-                            ),
-                            label = {
-                                Text(
-                                    text = when {
-                                        expanding -> "더 찾는 중..."
-                                        hiddenCount > 0 -> "더 보기 ($hiddenCount)"
-                                        // 로컬은 다 보였지만 서버가 음식점·카페만 뒤진 상태
-                                        else -> "주변 더 찾기"
-                                    },
-                                    style = MaterialTheme.typography.titleSmall,
-                                )
+                        GlassButton(
+                            label = when {
+                                expanding -> "더 찾는 중…"
+                                hiddenCount > 0 -> "더 보기 ($hiddenCount)"
+                                // 로컬은 다 보였지만 서버가 음식점·카페만 뒤진 상태
+                                else -> "주변 더 찾기"
                             },
+                            onClick = { if (!expanding) viewModel.showMore() },
+                            accent = WoojuinColor.PlaceAccent,
+                            modifier = Modifier.woojuinRowInset(),
                         )
                     }
                 }
@@ -394,7 +387,7 @@ fun PlaceSaveSuccessScreen(
 ) {
     val place by Repositories.place.lastSavedPlace.collectAsState()
 
-    WoojuinListScreen {
+    WoojuinListScreen(glowColor = WoojuinColor.StarGreen) {
         item {
             Icon(
                 imageVector = Icons.Rounded.Star,
@@ -408,7 +401,8 @@ fun PlaceSaveSuccessScreen(
                 text = "${place?.name ?: "장소"}을 저장했어요",
                 style = MaterialTheme.typography.titleMedium,
                 color = WoojuinColor.TextPrimary,
-                maxLines = 2,
+                // 장소 이름이 들어가는 문장이다 — 목록이라 스크롤되니 줄을 늘린다
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
@@ -416,11 +410,11 @@ fun PlaceSaveSuccessScreen(
         }
         item {
             // 음성 한마디는 2단계(FR-054) 몫이다 — fake 버튼을 남기지 않고 완료만 둔다
-            Button(
+            GlassButton(
+                label = "완료",
                 onClick = onDone,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.SurfaceActive),
-                label = { Text("완료") },
+                accent = WoojuinColor.StarGreen,
+                modifier = Modifier.woojuinRowInset(),
             )
         }
     }

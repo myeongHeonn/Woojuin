@@ -20,20 +20,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.material3.Button
-import androidx.wear.compose.material3.ButtonDefaults
-import androidx.wear.compose.material3.Card
-import androidx.wear.compose.material3.CardDefaults
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.ssafy.woojuin.data.fake.Repositories
 import com.ssafy.woojuin.presentation.component.CaptionText
+import com.ssafy.woojuin.presentation.component.GlassButton
+import com.ssafy.woojuin.presentation.component.GlassCard
 import com.ssafy.woojuin.presentation.component.ItemCardContent
+import com.ssafy.woojuin.presentation.component.WoojuinEdgeButton
 import com.ssafy.woojuin.presentation.component.WoojuinListScreen
 import com.ssafy.woojuin.presentation.component.WoojuinStatusScreen
 import com.ssafy.woojuin.presentation.theme.WoojuinColor
+import com.ssafy.woojuin.presentation.theme.woojuinRowInset
 
 /** 오프라인 큐 — 연결되면 자동 동기화. */
 @Composable
@@ -60,12 +60,7 @@ fun OfflineQueueScreen() {
             }
             pending.forEach { queued ->
                 item {
-                    Card(
-                        onClick = {},
-                        enabled = false,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                        colors = CardDefaults.cardColors(containerColor = WoojuinColor.Surface),
-                    ) {
+                    GlassCard(modifier = Modifier.woojuinRowInset()) {
                         ItemCardContent(
                             icon = Icons.Rounded.CloudQueue,
                             iconTint = WoojuinColor.TextSecondary,
@@ -114,7 +109,23 @@ fun PermissionGuideScreen(feature: PermissionFeature, onBack: () -> Unit) {
         )
     }
 
-    WoojuinStatusScreen {
+    WoojuinStatusScreen(
+        glowColor = tint,
+        edgeButton = {
+            WoojuinEdgeButton(
+                label = "설정 열기",
+                onClick = {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", context.packageName, null),
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                },
+                primary = true,
+            )
+        },
+    ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
@@ -130,27 +141,8 @@ fun PermissionGuideScreen(feature: PermissionFeature, onBack: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(4.dp))
         CaptionText(description, color = WoojuinColor.TextSecondary)
-        Spacer(modifier = Modifier.height(10.dp))
-        Button(
-            onClick = {
-                context.startActivity(
-                    Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.fromParts("package", context.packageName, null),
-                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.SurfaceActive),
-            label = { Text("설정 열기") },
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Button(
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.Surface),
-            label = { Text("나중에") },
-        )
+        Spacer(modifier = Modifier.height(8.dp))
+        GlassButton(label = "나중에", onClick = onBack)
     }
 }
 
@@ -165,7 +157,10 @@ private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, v
  */
 @Composable
 fun OpenOnPhoneScreen(opened: Boolean, onDone: () -> Unit) {
-    WoojuinStatusScreen {
+    WoojuinStatusScreen(
+        glowColor = if (opened) WoojuinColor.StarBlue else WoojuinColor.TextMuted,
+        edgeButton = { WoojuinEdgeButton(label = "확인", onClick = onDone) },
+    ) {
         Icon(
             imageVector = Icons.Rounded.PhoneAndroid,
             contentDescription = null,
@@ -183,11 +178,6 @@ fun OpenOnPhoneScreen(opened: Boolean, onDone: () -> Unit) {
         CaptionText(
             if (opened) "휴대폰에서 이어서 확인하세요" else "휴대폰과 연결한 뒤 다시 시도해 주세요",
         )
-        Spacer(modifier = Modifier.height(10.dp))
-        Button(
-            onClick = onDone,
-            colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.Surface),
-            label = { Text("확인") },
-        )
+
     }
 }
