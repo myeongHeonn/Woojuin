@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.global.error;
 
 import com.ssafy.woojuin.domain.ai.usage.AiUsageLimitExceededException;
+import com.ssafy.woojuin.domain.ai.music.MusicRecognitionFailedException;
 import com.ssafy.woojuin.domain.ai.speech.TranscriptionFailedException;
 import com.ssafy.woojuin.domain.ai.usage.AiUsageUnavailableException;
 import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
@@ -67,6 +68,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleBadRequest(IllegalArgumentException e) {
         return ApiResponse.of(400, e.getMessage(), null);
+    }
+
+    /**
+     * 노래 인식 실패는 503 이다 — 클라이언트가 "곡을 찾지 못했다"(200 + found:false)와
+     * 구분해야 사용자에게 맞는 말을 보여줄 수 있다(다시 들려주세요 vs 잠시 후 다시).
+     */
+    @ExceptionHandler(MusicRecognitionFailedException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiResponse<Void> handleMusicRecognitionFailed(MusicRecognitionFailedException e) {
+        return ApiResponse.of(503, e.getMessage(), null);
     }
 
     /**
