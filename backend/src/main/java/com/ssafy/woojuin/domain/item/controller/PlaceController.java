@@ -26,12 +26,16 @@ public class PlaceController {
         this.currentUserResolver = currentUserResolver;
     }
 
-    /** 좌표 주변의 저장 후보. 좌표는 조회에만 쓰고 남기지 않는다 */
+    /**
+     * 좌표 주변의 저장 후보. 좌표는 조회에만 쓰고 남기지 않는다.
+     * {@code expand=true}는 워치의 "주변 더 찾기" — 음식점·카페 밖 전 카테고리까지 뒤진다.
+     */
     @AuthenticatedUser
     @GetMapping("/api/places/nearby")
     public ApiResponse<NearbyPlacesResponse> nearby(
-            @RequestParam double lat, @RequestParam double lng) {
+            @RequestParam double lat, @RequestParam double lng,
+            @RequestParam(defaultValue = "false") boolean expand) {
         currentUserResolver.resolveUserId();
-        return ApiResponse.success(placeQueryService.nearby(lat, lng));
+        return ApiResponse.success(placeQueryService.nearby(lat, lng, expand));
     }
 }

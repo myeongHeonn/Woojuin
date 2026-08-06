@@ -25,14 +25,15 @@ public class PlaceQueryService {
         this.geocoder = geocoder;
     }
 
-    public NearbyPlacesResponse nearby(double lat, double lng) {
+    public NearbyPlacesResponse nearby(double lat, double lng, boolean expand) {
         GeoPoint point = GeoPoint.of(lat, lng)
                 .orElseThrow(() -> new IllegalArgumentException("좌표가 올바르지 않습니다"));
 
-        List<NearbyPlaceResponse> candidates = geocoder.nearby(point).stream()
+        Geocoder.NearbySearch search = geocoder.nearby(point, expand);
+        List<NearbyPlaceResponse> candidates = search.places().stream()
                 .filter(place -> place.placeUrl() != null)
                 .map(NearbyPlaceResponse::from)
                 .toList();
-        return new NearbyPlacesResponse(candidates);
+        return new NearbyPlacesResponse(candidates, search.expanded());
     }
 }

@@ -5,10 +5,11 @@ import com.ssafy.woojuin.domain.location.NearbyPlace;
 import java.util.List;
 
 /**
- * 주변 장소 후보 목록 (FR-053). 첫 후보는 항상 "현재 위치" — 주변 검색이 0건이어도
- * (지오코딩 꺼짐·허허벌판) 저장할 것이 하나는 남는다.
+ * 주변 장소 후보 목록 (FR-053) — 카카오맵 링크가 있는 실제 장소만, 거리순.
+ * {@code expanded}가 참이면 전 카테고리를 이미 뒤진 결과라는 뜻이다 — 워치는 이때
+ * "주변 더 찾기"를 숨긴다(다시 물어도 같은 답이므로).
  */
-public record NearbyPlacesResponse(List<NearbyPlaceResponse> candidates) {
+public record NearbyPlacesResponse(List<NearbyPlaceResponse> candidates, boolean expanded) {
 
     public record NearbyPlaceResponse(
             String name,
