@@ -38,6 +38,31 @@ class OAuthAccountServiceTest {
     private OAuthAccountService oAuthAccountService;
 
     @Test
+    @DisplayName("같은 provider+providerId 계정이 없으면 신규 계정이다")
+    void isNewAccount_noExistingAccount_returnsTrue() {
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-new"))
+                .thenReturn(Optional.empty());
+
+        assertThat(oAuthAccountService.isNewAccount(AuthProvider.GOOGLE, "google-new")).isTrue();
+    }
+
+    @Test
+    @DisplayName("같은 provider+providerId 계정이 이미 있으면 신규 계정이 아니다")
+    void isNewAccount_existingAccount_returnsFalse() {
+        User existing = User.builder()
+                .email("test@google.com")
+                .provider(AuthProvider.GOOGLE)
+                .providerId("google-existing")
+                .emailVerified(true)
+                .nickname("우주인")
+                .build();
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-existing"))
+                .thenReturn(Optional.of(existing));
+
+        assertThat(oAuthAccountService.isNewAccount(AuthProvider.GOOGLE, "google-existing")).isFalse();
+    }
+
+    @Test
     @DisplayName("이미 같은 provider+providerId 계정이 있으면 그대로 반환하고 저장하지 않는다")
     void findOrCreateUser_existingAccount_returnsExistingUserWithoutSaving() {
         User existing = User.builder()

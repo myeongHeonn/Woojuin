@@ -94,6 +94,30 @@ class OAuth2LoginSuccessHandlerTest {
     }
 
     @Test
+    @DisplayName("신규 가입이면 리다이렉트 URL에 isNewUser=true를 실어 보낸다 — 프론트가 온보딩으로 보낸다")
+    void success_newUser_redirectsWithIsNewUserTrue() throws Exception {
+        when(principal.isNewUser()).thenReturn(true);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        handler.onAuthenticationSuccess(request, response, authentication);
+
+        assertThat(response.getRedirectedUrl()).contains("isNewUser=true");
+    }
+
+    @Test
+    @DisplayName("기존 가입자면 리다이렉트 URL에 isNewUser=false를 실어 보낸다")
+    void success_existingUser_redirectsWithIsNewUserFalse() throws Exception {
+        when(principal.isNewUser()).thenReturn(false);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        handler.onAuthenticationSuccess(request, response, authentication);
+
+        assertThat(response.getRedirectedUrl()).contains("isNewUser=false");
+    }
+
+    @Test
     @DisplayName("User-Agent 가 없어도 로그인은 된다 — 이름만 '알 수 없는 기기'가 된다")
     void success_withoutUserAgent_stillSavesSession() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();

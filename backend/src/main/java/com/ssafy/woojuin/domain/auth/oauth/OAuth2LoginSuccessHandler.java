@@ -32,7 +32,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                          Authentication authentication) throws IOException, ServletException {
-        Long userId = ((CustomOidcUser) authentication.getPrincipal()).getUserId();
+        CustomOidcUser principal = (CustomOidcUser) authentication.getPrincipal();
+        Long userId = principal.getUserId();
 
         // 로그인 = 세션 추가 (LoginService 와 같은 규칙 — 다른 기기의 로그인이 유지된다)
         String sid = UserSession.newSessionId();
@@ -45,9 +46,12 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         // 인증된 것처럼 남는 부작용이 생긴다. 토큰 발급 직후 바로 정리한다.
         new SecurityContextLogoutHandler().logout(request, response, authentication);
 
+        // 신규 가입이면 프론트가 콜백 페이지에서 목적지로 바로 보내지 않고, 이메일 가입 폼과
+        // 동일한 닉네임 설정·개인정보처리방침 동의 온보딩을 먼저 거치게 한다.
         String redirectUrl = UriComponentsBuilder.fromUriString(redirectBaseUrl)
                 .queryParam("accessToken", accessToken)
                 .queryParam("refreshToken", refreshToken)
+                .queryParam("isNewUser", principal.isNewUser())
                 .build()
                 .toUriString();
 

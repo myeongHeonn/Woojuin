@@ -21,6 +21,7 @@ const CanvasPage = lazy(() => import('@/pages/CanvasPage'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
 const SignupPage = lazy(() => import('@/pages/SignupPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/OAuthCallbackPage'));
+const OAuthOnboardingPage = lazy(() => import('@/pages/OAuthOnboardingPage'));
 const InvitePage = lazy(() => import('@/pages/InvitePage'));
 const PrivacyPolicyPage = lazy(() => import('@/pages/PrivacyPolicyPage'));
 const AuthLayout = lazy(() => import('@/layouts/AuthLayout'));
@@ -77,6 +78,8 @@ export const router = createBrowserRouter([
       { path: '/privacy', element: page(<PrivacyPolicyPage />) },
       // 구글 OAuth 콜백 (백엔드 woojuin.oauth.redirect-base-url과 경로 일치 필요)
       { path: '/oauth/callback', element: page(<OAuthCallbackPage />) },
+      // 구글 신규 가입 온보딩(닉네임 설정·개인정보처리방침 동의) — OAuthCallbackPage가 보낸다
+      { path: '/oauth/onboarding', element: page(<OAuthOnboardingPage />) },
       // 로그인해야 들어갈 수 있는 앱 화면들 (사이드바 포함)
       {
         element: page(<AuthLayout />),

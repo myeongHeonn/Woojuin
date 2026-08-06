@@ -32,6 +32,15 @@ public class OAuthAccountService {
         this.eventPublisher = eventPublisher;
     }
 
+    /**
+     * 이 provider+providerId 계정이 아직 없는지(=findOrCreateUser가 새로 만들 것인지) 미리 알려준다.
+     * OAuth 콜백 리다이렉트에 신규 가입 여부를 실어, 프론트가 닉네임 설정·개인정보처리방침
+     * 동의 온보딩 화면을 끼워 넣을지 판단하는 데 쓴다(이메일 가입은 폼 자체가 그 자리다).
+     */
+    public boolean isNewAccount(AuthProvider provider, String providerId) {
+        return userRepository.findByProviderAndProviderId(provider, providerId).isEmpty();
+    }
+
     public User findOrCreateUser(AuthProvider provider, String providerId, String email, String nickname) {
         Optional<User> existing = userRepository.findByProviderAndProviderId(provider, providerId);
         if (existing.isPresent()) {
