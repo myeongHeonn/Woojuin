@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useAtom } from 'jotai';
 import { Link } from 'react-router-dom';
 import Modal from '@/components/ui/Modal';
 import type { AiUsage } from '@/services/auth';
 import TutorialReplayCard from '@/components/domain/mypage/TutorialReplayCard';
 import type { TutorialReplayType } from '@/stores/tutorialAtoms';
+import { themeAtom } from '@/stores/themeAtoms';
 
 interface SettingsCardProps {
   // TODO: 알림 설정 기능을 다시 노출할 때 아래 두 prop과 주석 처리된 UI를 사용한다.
@@ -28,6 +30,8 @@ const SettingsCard = ({
   onTutorialReplay = () => undefined,
 }: SettingsCardProps) => {
   const [helpOpen, setHelpOpen] = useState(false);
+  const [theme, setTheme] = useAtom(themeAtom);
+  const lightOn = theme === 'light';
   const usagePercent =
     aiUsage && aiUsage.limitEnabled && !aiUsage.unlimited && aiUsage.limit > 0
       ? Math.min(100, (aiUsage.used / aiUsage.limit) * 100)
@@ -136,6 +140,34 @@ const SettingsCard = ({
             loading={spacesLoading}
             onReplay={onTutorialReplay}
           />
+        </div>
+        {/* 스위치 모양은 위에 주석으로 남아 있는 알림 설정과 같게 맞춘다 — 설정 카드 안에
+            서로 다른 토글이 섞이면 같은 기능인지 헷갈린다 */}
+        <div className="border-t border-border-soft">
+          <div className="flex items-center gap-3.5 px-4 py-3.5">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-semibold text-text-1">라이트 모드</h2>
+              <p className="mt-0.5 text-xs text-text-3">밝은 배경으로 바꿔요</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-label="라이트 모드"
+              aria-checked={lightOn}
+              onClick={() => setTheme(lightOn ? 'dark' : 'light')}
+              className={[
+                'relative h-6 w-[42px] shrink-0 rounded-pill transition-colors',
+                lightOn ? 'bg-accent' : 'bg-surface-3',
+              ].join(' ')}
+            >
+              <span
+                className={[
+                  'absolute top-[3px] h-[18px] w-[18px] rounded-full transition-[left,background-color]',
+                  lightOn ? 'left-[21px] bg-surface' : 'left-[3px] bg-text-2',
+                ].join(' ')}
+              />
+            </button>
+          </div>
         </div>
         <div className="border-t border-border-soft">
           <button
