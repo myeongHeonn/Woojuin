@@ -56,37 +56,64 @@
   --universe-theme-ease: linear;
 }
 
-/* 스테이지 바탕색도 같이 흐른다. 이게 없으면 --color-space 가 즉시 갈려서, 하늘이 1.45초에
-   걸쳐 떠오르는 동안 그 밑이 이미 흰 바탕이라 밤→낮에서 먼저 하얗게 번쩍인다
-   (낮→밤은 어두운 바탕 위로 하늘이 걷히는 것이라 티가 덜 났다). */
+/* 하늘색을 **보간 가능한 값**으로 등록한다.
+   그냥 커스텀 속성이면 브라우저가 문자열로만 알아서 값이 바뀌는 순간 툭 갈린다 —
+   background-image 자체도 애니메이션되지 않으므로, 예전엔 라이트↔현재시간처럼 그라데이션이
+   통째로 바뀌는 전환이 잘라 붙인 것처럼 보였다. syntax 를 <color> 로 못 박아 두면
+   transition 이 색을 섞어 준다. */
+@property --sky-top {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0e1017;
+}
+
+@property --sky-middle {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0e1017;
+}
+
+@property --sky-bottom {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0e1017;
+}
+
+/* 하늘은 **어느 테마에서도 늘 깔려 있다.** 다크에서는 세 색이 모두 --color-space 와 같은
+   값이라 예전의 민무늬 배경과 똑같이 보인다.
+
+   opacity 를 껐다 켜는 대신 이렇게 한 이유: 켜고 끄는 방식은 다크↔라이트 한 쌍에만 맞는다.
+   현재시간이 끼면 "밤인데 하늘은 있음" 같은 조합이 생겨 어느 쪽으로 가든 색이 한 번 튄다.
+   늘 깔아 두고 색만 흘리면 모든 조합이 같은 방식으로 이어진다.
+
+   바탕색도 함께 흘린다 — 하늘이 반투명해지는 구간에서 그 밑이 먼저 갈리면 번쩍인다. */
 .woojuin-universe-stage {
-  transition: background-color var(--universe-theme-duration) var(--universe-theme-ease);
+  /* 다크의 --color-space 값. var() 로 참조하지 않고 값을 적는 이유: 등록된 커스텀 속성에
+     var() 를 넣으면 브라우저별로 보간 시점이 갈릴 수 있어, 여기서는 확실한 색을 준다. */
+  --sky-top: #0e1017;
+  --sky-middle: #0e1017;
+  --sky-bottom: #0e1017;
+  transition:
+    background-color var(--universe-theme-duration) var(--universe-theme-ease),
+    --sky-top var(--universe-theme-duration) var(--universe-theme-ease),
+    --sky-middle var(--universe-theme-duration) var(--universe-theme-ease),
+    --sky-bottom var(--universe-theme-duration) var(--universe-theme-ease);
+}
+
+/* 라이트의 낮 하늘. 현재시간 모드는 이 값을 인라인 스타일로 덮어쓴다(UniverseCanvas) */
+:root[data-theme='light'] .woojuin-universe-stage {
+  --sky-top: #0c68d8;
+  --sky-middle: #3389e2;
+  --sky-bottom: #8cc4f1;
 }
 
 .woojuin-universe-sky {
-  background: linear-gradient(180deg, #0c68d8 0%, #3389e2 48%, #8cc4f1 100%);
-  opacity: 0;
-  transition: opacity var(--universe-theme-duration) var(--universe-theme-ease);
-}
-
-:root[data-theme='light'] .woojuin-universe-sky {
-  opacity: 1;
-}
-
-/* '현재시간' 테마 — 색을 JS 가 태양 고도로 계산해 넣는다(UniverseCanvas).
-   밤에도 하늘을 깔아 둔다. 진짜 밤하늘은 검정이 아니라 아주 짙은 남색이고, 그게 이 모드가
-   보여 주려는 것이다.
-
-   색 전환에 transition 을 걸지 않는 이유: 1분마다 다시 계산하는데 그 사이 태양은 0.25° 쯤
-   움직여 색 차이가 눈에 잡히지 않는다. 걸어 봐야 애니메이션할 게 없다. */
-.woojuin-universe-stage[data-sky='realtime'] .woojuin-universe-sky {
   background: linear-gradient(
     180deg,
     var(--sky-top) 0%,
     var(--sky-middle) 48%,
     var(--sky-bottom) 100%
   );
-  opacity: 1;
 }
 
 /* 다크에도 **항등 필터**를 명시한다(값은 아무것도 안 한 것과 같다).
@@ -266,7 +293,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .woojuin-universe-stage,
-  .woojuin-universe-sky,
   .woojuin-universe-canvas {
     transition: none;
   }

@@ -195,11 +195,11 @@ const UniverseCanvas = ({
   return (
     // isolate — 아래 캔버스가 라이트에서 screen 합성을 쓰는데, 합성 대상을 이 안으로 가둔다.
     // 없으면 페이지 배경까지 끌어들여 스테이지 밖 색이 같이 밝아진다.
-    // woojuin-universe-stage — 배경색 전환을 이 요소에 건다. 없으면 --color-space 가 즉시
-    // 갈려서, 하늘이 1.45초에 걸쳐 떠오르는 동안 그 밑이 이미 흰 바탕이라 먼저 번쩍인다.
+    // woojuin-universe-stage — 하늘색과 바탕색 전환을 이 요소에 건다(index.css).
+    // 현재시간일 때만 색을 인라인으로 덮어쓴다. 값을 빼면 CSS 가 정해 둔 테마 색으로
+    // 되돌아가고, 등록된 커스텀 속성이라 그 되돌아감도 전환을 탄다.
     <div
       className="woojuin-universe-stage relative isolate h-full w-full overflow-hidden bg-space"
-      data-sky={realtimeSky ? 'realtime' : undefined}
       style={
         realtimeSky
           ? ({
@@ -210,8 +210,8 @@ const UniverseCanvas = ({
           : undefined
       }
     >
-      {/* 라이트에서 드러나는 낮 하늘. 캔버스가 alpha:true 라 별이 없는 곳은 투명해서
-          이 그라데이션이 그대로 비친다(규칙은 index.css 의 .woojuin-universe-sky) */}
+      {/* 하늘. 캔버스가 alpha:true 라 별이 없는 곳은 투명해서 이 그라데이션이 그대로 비친다
+          (규칙은 index.css 의 .woojuin-universe-sky) */}
       <div
         className="woojuin-universe-sky pointer-events-none absolute inset-0"
         aria-hidden="true"

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import {
   effectiveNowAtom,
@@ -28,6 +29,21 @@ const SkyTimeScrubber = () => {
   const [override, setOverride] = useAtom(timeOverrideAtom);
   const effectiveNow = useAtomValue(effectiveNowAtom);
   const elevation = useAtomValue(solarElevationAtom);
+
+  /**
+   * 슬라이더를 쓰는 동안에는 색 전환을 짧게 줄인다.
+   *
+   * 하늘색은 모드가 바뀔 때 1.8초에 걸쳐 섞이는데(index.css), 그 길이 그대로면 슬라이더를
+   * 끄는 내내 색이 1.8초씩 뒤따라와 지금 몇 시의 하늘인지 분간할 수 없다.
+   */
+  useEffect(() => {
+    const root = document.documentElement;
+    if (override === null) root.style.removeProperty('--universe-theme-duration');
+    else root.style.setProperty('--universe-theme-duration', '120ms');
+    return () => {
+      root.style.removeProperty('--universe-theme-duration');
+    };
+  }, [override]);
 
   // 하늘색이 안 바뀌는 모드에서는 슬라이더가 아무것도 못 한다
   if (!import.meta.env.DEV || preference !== 'auto') return null;
