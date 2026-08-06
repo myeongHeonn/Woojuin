@@ -272,21 +272,23 @@ export default function Popup() {
       <main style={styles.main}>
         <h1 style={styles.title}>우주인에 저장</h1>
         <p style={styles.muted}>
-          우주인 계정으로 로그인하면 지금 보는 페이지를 바로 담을 수 있어요.
+          로그인하면 지금 보는 페이지를 바로 담을 수 있어요.
         </p>
         {/* 로그인 수단을 문구에 박지 않는다. 이 버튼이 하는 일은 **우주인 로그인 화면을 여는
             것**이고, 어떤 수단을 쓸지는 그 화면이 정한다(웹앱은 구글과 이메일·비밀번호를 함께
             제공한다). 수단 이름을 적어 두면 웹앱이 로그인 방식을 늘리거나 줄일 때마다 여기까지
             따라 고쳐야 하고, 그 사이에는 버튼이 거짓말을 한다.
-            같은 이유로 마크도 구글 로고가 아니라 우주인 아이콘을 쓴다 — 여는 화면이 우주인이다. */}
+            같은 이유로 마크도 구글 로고가 아니라 우주인 아이콘을 쓴다 — 여는 화면이 우주인이다.
+            '로그인'이 아니라 '시작하기'인 이유: 같은 버튼이 가입으로도 이어진다(열리는 화면에
+            회원가입 링크가 있고, 구글은 첫 로그인이 곧 가입이다). */}
         <button onClick={handleWebLogin} style={styles.login}>
           <img src="/icon128.png" alt="" width={18} height={18} style={{ flexShrink: 0 }} />
-          우주인에서 로그인
+          우주인 계정으로 시작하기
         </button>
         <p style={styles.hint}>
           {loginOpened
             ? '로그인 창은 끝나면 자동으로 닫혀요. 닫힌 뒤 이 아이콘을 다시 눌러 주세요.'
-            : '계정이 없어도 로그인 화면에서 바로 시작할 수 있어요.'}
+            : '로그인과 회원가입 모두 열리는 창에서 할 수 있어요.'}
         </p>
         {loginOpened && (
           <button onClick={handleRecheck} disabled={status === 'loading'} style={styles.secondary}>
