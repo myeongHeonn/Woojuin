@@ -35,15 +35,22 @@ class WoojuinApi(private val tokenStore: TokenStore) {
 
     private val baseUrl = BuildConfig.API_BASE_URL
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .addInterceptor { chain ->
-            chain.proceed(
-                chain.request().newBuilder().header("User-Agent", USER_AGENT).build(),
-            )
-        }
-        .build()
+    /**
+     * 지연 생성이다 — 클라이언트를 만드는 데 실측 260ms 가 들었고(OkHttp 클래스 로딩),
+     * 그게 콜드 스타트의 메인 스레드에 그대로 얹혀 있었다. 첫 요청은 항상 워커
+     * 스레드에서 나가므로 비용을 그쪽으로 넘긴다.
+     */
+    private val client by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                chain.proceed(
+                    chain.request().newBuilder().header("User-Agent", USER_AGENT).build(),
+                )
+            }
+            .build()
+    }
 
     private val refreshLock = Any()
 
