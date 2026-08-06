@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.StickyNote2
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MusicNote
@@ -105,6 +106,8 @@ class VoiceSearchViewModel : ViewModel() {
 
 fun typeIcon(type: SavedItemType): Pair<ImageVector, Color> = when (type) {
     SavedItemType.VOICE -> Icons.Rounded.Mic to WoojuinColor.AccentPurple
+    // StickyNote2 는 AutoMirrored 에만 있다(RTL 에서 뒤집히는 게 맞는 모양이라 옮겨졌다)
+    SavedItemType.MEMO -> Icons.AutoMirrored.Rounded.StickyNote2 to WoojuinColor.StarLavender
     SavedItemType.LINK -> Icons.Rounded.Link to WoojuinColor.StarBlue
     SavedItemType.SONG -> Icons.Rounded.MusicNote to WoojuinColor.StarYellow
     SavedItemType.PLACE -> Icons.Rounded.Place to WoojuinColor.StarGreen

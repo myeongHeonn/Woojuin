@@ -96,7 +96,9 @@ class RemoteSearchRepository(
      * 보고 장소를 갈라낸다 — 안 그러면 워치에서 저장한 장소가 검색 결과에서 링크로 보인다.
      */
     private fun savedItemType(serverType: String, url: String?): SavedItemType = when {
-        serverType == "MEMO" -> SavedItemType.VOICE
+        // MEMO 를 VOICE 로 보면 안 된다 — 서버의 MEMO 에는 웹에서 타이핑한 것도 섞여 있고
+        // 서버는 둘을 구분하지 않는다. 마이크 아이콘은 워치가 직접 받아 적은 것에만 쓴다
+        serverType == "MEMO" -> SavedItemType.MEMO
         serverType == "URL" && url != null && KAKAO_PLACE_HOSTS.any { url.contains(it) } ->
             SavedItemType.PLACE
         else -> SavedItemType.LINK

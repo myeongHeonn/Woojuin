@@ -1,6 +1,13 @@
 package com.ssafy.woojuin.domain.model
 
-enum class SavedItemType { VOICE, LINK, SONG, PLACE }
+/**
+ * 화면이 아이콘·문구를 고르는 기준. 서버의 `ItemType`(URL·IMAGE·MEMO)과 일부러 다르다 —
+ * 워치는 "이걸 어떻게 저장했는지"를 보여주는데, 서버는 "무엇을 저장했는지"만 안다.
+ *
+ * [VOICE] 는 **워치가 방금 음성으로 저장한 것**에만 쓴다. 서버에서 받아온 메모는 타이핑한
+ * 것일 수도 있어(서버가 구분하지 않는다) [MEMO] 다 — 마이크를 붙이면 거짓이 된다.
+ */
+enum class SavedItemType { VOICE, MEMO, LINK, SONG, PLACE }
 
 data class SavedItem(
     val id: String,
