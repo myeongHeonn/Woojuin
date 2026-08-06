@@ -4,6 +4,7 @@ import com.ssafy.woojuin.domain.model.NearbyAlert
 import com.ssafy.woojuin.domain.model.PlaceCandidate
 import com.ssafy.woojuin.domain.model.RecognizedSong
 import com.ssafy.woojuin.domain.model.SavedItem
+import com.ssafy.woojuin.domain.model.SearchInterpretation
 import com.ssafy.woojuin.domain.model.SyncStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,9 +33,14 @@ interface VoiceCaptureRepository {
 
 interface SearchRepository {
     fun listenQuery(): Flow<SpeechEvent>
+
+    /** [query] 는 키워드가 아니라 자연어 문장이다 — "그 파스타집 어디였지?". */
     suspend fun search(query: String): List<SavedItem>
     val lastQuery: StateFlow<String>
     val lastResults: StateFlow<List<SavedItem>>
+
+    /** AI 가 질문을 무엇으로 이해했는지 — 결과 화면이 함께 보여준다. */
+    val lastInterpretation: StateFlow<SearchInterpretation?>
     fun itemById(id: String): SavedItem?
 }
 

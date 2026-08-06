@@ -90,6 +90,13 @@ class WoojuinApi(private val tokenStore: TokenStore) {
                 .header("Authorization", "Bearer $access").get().build()
         }
 
+    /** 본문 없는 DELETE. 401 재시도·토큰 폐기 계약은 다른 인증 호출과 같다. */
+    fun authorizedDelete(path: String): JSONObject =
+        authorizedCall { access ->
+            Request.Builder().url(baseUrl + path)
+                .header("Authorization", "Bearer $access").delete().build()
+        }
+
     private fun authorizedCall(build: (String) -> Request): JSONObject {
         val access = tokenStore.accessTokenBlocking() ?: throw AuthRequiredException()
         val first = call(build(access))

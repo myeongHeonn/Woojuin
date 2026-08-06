@@ -30,6 +30,7 @@ import kotlin.coroutines.resumeWithException
 class RemotePlaceRepository(
     context: Context,
     private val api: WoojuinApi,
+    private val workspaces: WorkspaceResolver,
 ) : PlaceRepository {
 
     private val fusedClient = LocationServices.getFusedLocationProviderClient(context)
@@ -40,10 +41,6 @@ class RemotePlaceRepository(
 
     private val _lastSavedPlace = MutableStateFlow<PlaceCandidate?>(null)
     override val lastSavedPlace: StateFlow<PlaceCandidate?> = _lastSavedPlace.asStateFlow()
-
-    /** 저장할 워크스페이스 — 개인 스페이스 id. 프로필에서 한 번 받아 프로세스 동안 재사용한다 */
-    @Volatile
-    private var personalSpaceId: Long? = null
 
     override suspend fun nearbyCandidates(expand: Boolean): List<PlaceCandidate> =
         withContext(Dispatchers.IO) {
@@ -88,7 +85,7 @@ class RemotePlaceRepository(
             val body = JSONObject()
                 .put("type", "URL")
                 .put("url", placeUrl)
-            val data = api.authorized("/workspaces/${workspaceId()}/items", body)
+            val data = api.authorized("/workspaces/${workspaces.personalSpaceId()}/items", body)
                 .getJSONObject("data")
 
             _lastSavedPlace.value = candidate
@@ -103,24 +100,6 @@ class RemotePlaceRepository(
             )
         }
 
-    private fun workspaceId(): Long {
-        personalSpaceId?.let { return it }
-        // 프로필의 personalSpaceId 가 null 인 계정이 실존한다(구경로 가입) — 목록의
-        // PERSONAL 워크스페이스로 폴백한다. 웹 사이드바가 쓰는 것과 같은 목록이다
-        val profile = api.authorizedGet("/users/me").getJSONObject("data")
-        val id = if (!profile.isNull("personalSpaceId")) {
-            profile.getLong("personalSpaceId")
-        } else {
-            val workspaces = api.authorizedGet("/workspaces").getJSONArray("data")
-            (0 until workspaces.length())
-                .map { workspaces.getJSONObject(it) }
-                .firstOrNull { it.getString("type") == "PERSONAL" }
-                ?.getLong("id")
-                ?: throw IllegalStateException("저장할 워크스페이스가 없습니다")
-        }
-        personalSpaceId = id
-        return id
-    }
 
     /**
      * 현재 좌표 (위도, 경도). 권한은 화면이 먼저 받는다 — 없으면 SecurityException 이

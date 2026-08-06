@@ -13,6 +13,19 @@ data class SavedItem(
     val distanceLabel: String? = null,
 )
 
+/**
+ * AI 검색이 질문을 무엇으로 이해했는지. **결과와 함께 반드시 보여준다** — 결과가 예상과
+ * 다를 때 사용자가 원인을 알 수 있어야 하고, 워치는 화면이 좁아 결과만 보면 짐작할 길이
+ * 아예 없다(서버 DTO 주석의 요구사항).
+ *
+ * [aiPlanned] 가 false 면 LLM 호출이 실패해 규칙 기반으로 폴백한 것이다 — 오타 교정·관련어
+ * 확장이 적용되지 않았다는 뜻이라 결과가 빈약해도 이상한 게 아니다.
+ */
+data class SearchInterpretation(
+    val query: String,
+    val aiPlanned: Boolean,
+)
+
 data class PlaceCandidate(
     val id: String,
     val name: String,

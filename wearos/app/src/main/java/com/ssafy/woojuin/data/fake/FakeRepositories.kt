@@ -5,6 +5,7 @@ import com.ssafy.woojuin.domain.model.PlaceCandidate
 import com.ssafy.woojuin.domain.model.RecognizedSong
 import com.ssafy.woojuin.domain.model.SavedItem
 import com.ssafy.woojuin.domain.model.SavedItemType
+import com.ssafy.woojuin.domain.model.SearchInterpretation
 import com.ssafy.woojuin.domain.model.SyncState
 import com.ssafy.woojuin.domain.model.SyncStatus
 import com.ssafy.woojuin.domain.repository.NearbyAlertRepository
@@ -176,6 +177,10 @@ class FakeSearchRepository(
     private val _lastResults = MutableStateFlow<List<SavedItem>>(emptyList())
     override val lastResults: StateFlow<List<SavedItem>> = _lastResults.asStateFlow()
 
+    private val _lastInterpretation = MutableStateFlow<SearchInterpretation?>(null)
+    override val lastInterpretation: StateFlow<SearchInterpretation?> =
+        _lastInterpretation.asStateFlow()
+
     override fun listenQuery(): Flow<SpeechEvent> = speech.listen()
 
     override suspend fun search(query: String): List<SavedItem> {
@@ -185,6 +190,10 @@ class FakeSearchRepository(
             if (query.isBlank() || query.contains("없는")) emptyList()
             else FakeData.savedItems.take(3)
         _lastResults.value = results
+        // 실서버에서는 AI 가 뽑아낸 검색어가 온다 — fake 는 문장에서 조사만 떼는 흉내
+        _lastInterpretation.value = query
+            .takeIf { it.isNotBlank() }
+            ?.let { SearchInterpretation(it.replace("지난번에 저장한 ", ""), aiPlanned = true) }
         return results
     }
 
@@ -299,11 +308,24 @@ object Repositories {
         androidSpeech ?: FakeSpeechSource(fallbackSentence)
 
     val sync: SyncRepository by lazy { FakeSyncRepository() }
+
+    // 음성 저장·검색도 실서버로 전환됐다(-492). 인식기는 여기가 소유하므로 주입해 넘긴다 —
+    // Preview 는 AppServices 가 없어 fake 로 돈다(위치 저장과 같은 폴백)
     val voiceCapture: VoiceCaptureRepository by lazy {
-        FakeVoiceCaptureRepository(sync, speechSource("성수동 파스타집 온화정 다음 주에 가보기"))
+        val speech = speechSource("성수동 파스타집 온화정 다음 주에 가보기")
+        if (com.ssafy.woojuin.data.AppServices.initialized) {
+            com.ssafy.woojuin.data.AppServices.voiceCapture(speech)
+        } else {
+            FakeVoiceCaptureRepository(sync, speech)
+        }
     }
     val search: SearchRepository by lazy {
-        FakeSearchRepository(speechSource("지난번에 저장한 성수동 파스타집"))
+        val speech = speechSource("지난번에 저장한 성수동 파스타집")
+        if (com.ssafy.woojuin.data.AppServices.initialized) {
+            com.ssafy.woojuin.data.AppServices.search(speech)
+        } else {
+            FakeSearchRepository(speech)
+        }
     }
     val song: SongRepository by lazy { FakeSongRepository(sync) }
     // 위치 저장은 실서버로 전환됐다(-458). Preview 는 AppServices 가 없어 fake 로 돈다

@@ -187,6 +187,7 @@ fun VoiceSearchResultsScreen(
 ) {
     val results by Repositories.search.lastResults.collectAsState()
     val query by Repositories.search.lastQuery.collectAsState()
+    val interpretation by Repositories.search.lastInterpretation.collectAsState()
 
     if (results.isEmpty()) {
         WoojuinStatusScreen {
@@ -196,6 +197,12 @@ fun VoiceSearchResultsScreen(
                 color = WoojuinColor.TextPrimary,
                 textAlign = TextAlign.Center,
             )
+            // 0건일 때 "무엇으로 찾았는지"가 가장 중요하다 — 엉뚱한 검색어로 찾았다면
+            // 사용자가 다시 말해서 고칠 수 있어야 하고, 그 판단 근거가 이것뿐이다
+            interpretation?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                CaptionText("‘${it.query}’(으)로 찾았어요")
+            }
             Spacer(modifier = Modifier.height(10.dp))
             Button(
                 onClick = onRetry,
@@ -232,13 +239,21 @@ fun VoiceSearchResultsScreen(
         item {
             ListHeader {
                 Text(
-                    text = if (query.isEmpty()) "검색 결과" else "‘$query’",
+                    // 말한 문장이 아니라 **AI 가 뽑아낸 검색어**를 보여준다 — 결과가 예상과
+                    // 다를 때 원인을 알 수 있어야 한다(서버 DTO 의 요구사항)
+                    text = interpretation?.let { "‘${it.query}’(으)로 찾았어요" }
+                        ?: if (query.isEmpty()) "검색 결과" else "‘$query’",
                     style = MaterialTheme.typography.titleSmall,
                     color = WoojuinColor.TextSecondary,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+        // LLM 호출이 실패해 규칙 기반으로 찾은 경우 — 오타 교정·관련어 확장이 빠졌으므로
+        // 결과가 빈약해도 이상한 게 아니라는 걸 알린다
+        if (interpretation?.aiPlanned == false) {
+            item { CaptionText("AI 해석 없이 찾았어요") }
         }
         results.take(3).forEachIndexed { index, item ->
             item {
