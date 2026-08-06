@@ -128,7 +128,14 @@ woojuin:
   # 주소가 비면 사이드카를 쓰지 않는다(키도 없으면 기능만 꺼지고 앱은 뜬다).
   music:
     sidecar-base-url: ${AI_MUSIC_BASE_URL:http://localhost:8003}
-    timeout-ms: ${AI_MUSIC_TIMEOUT_MS:25000}
+    # 사이드카 타임아웃. 실측 인식은 0.6초라 넉넉한 값인데, **막혔을 때가 문제다** —
+    # 비공식 경로가 응답 없이 끊으면 여기까지 기다린 뒤에야 폴백으로 넘어가고, 워치에서
+    # 그 합계는 실패와 같다. 그래서 25초가 아니라 8초로 잡는다(정상 응답의 10배 여유).
+    timeout-ms: ${AI_MUSIC_TIMEOUT_MS:8000}
+    # 어느 경로를 먼저 쓰는가: sidecar(무료·비공식) 또는 audd(정식·유료).
+    # 로컬은 sidecar 로 충분하지만 **EC2 에서 막힐 수 있어** 배포 환경은 audd 로 뒤집을 수
+    # 있게 둔다(둘 다 있으면 앞의 것이 실패할 때만 뒤가 불린다).
+    primary: ${AI_MUSIC_PRIMARY:sidecar}
   # 이미지 분석(OCR·설명·태그 추출). OpenRouter 경유 Qwen3-VL — 위 ai(텍스트) 블록과
   # 프로바이더가 달라 별도 블록이다(모델·키·과금 주체가 다르다). 묶음 F의 이미지 모델
   # 평가(ai-test 브랜치 ai/ai-image)에서 확정한 qwen3-vl 8b instruct를 그대로 쓴다.

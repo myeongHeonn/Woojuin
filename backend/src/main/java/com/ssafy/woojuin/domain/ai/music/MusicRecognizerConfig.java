@@ -18,6 +18,11 @@ import org.springframework.context.annotation.Configuration;
  * <p>{@code AUDD_API_TOKEN} 이 없으면 사이드카 단독으로 돈다 — 키 없이도 기능이 동작하는
  * 것이 기본값이다({@link com.ssafy.woojuin.domain.ai.speech.SpeechTranscriberConfig} 와
  * 같은 태도: 설정이 없으면 조용히 기능만 꺼지고 앱은 뜬다).
+ *
+ * <p><b>배포 환경에서는 순서를 뒤집을 수 있다</b>({@code AI_MUSIC_PRIMARY=audd}). 로컬에서
+ * 되는 것이 EC2 에서 된다는 보장이 없기 때문이다 — 비공식 경로는 데이터센터 IP 를 먼저
+ * 막는 편이고, 막는 방식이 "빠른 거부"가 아니라 "응답 없음"이면 폴백까지 타임아웃(수십 초)을
+ * 다 기다린다. 워치에서 그 시간은 실패와 같으므로, 막힌 환경에서는 정식 API 를 앞에 둔다.
  */
 @Slf4j
 @Configuration
@@ -28,6 +33,7 @@ public class MusicRecognizerConfig {
             ObjectMapper objectMapper,
             @Value("${woojuin.music.sidecar-base-url:}") String sidecarBaseUrl,
             @Value("${woojuin.music.timeout-ms}") long timeoutMs,
+            @Value("${woojuin.music.primary}") String primaryName,
             @Value("${AUDD_API_TOKEN:}") String auddToken) {
 
         Duration timeout = Duration.ofMillis(timeoutMs);
@@ -43,7 +49,12 @@ public class MusicRecognizerConfig {
         }
 
         if (sidecar != null && audd != null) {
-            log.info("노래 인식: 사이드카({}) + AudD 폴백", sidecarBaseUrl);
+            boolean auddFirst = "audd".equalsIgnoreCase(primaryName == null ? "" : primaryName.trim());
+            if (auddFirst) {
+                log.info("노래 인식: AudD 우선 + 사이드카({}) 폴백", sidecarBaseUrl);
+                return new FallbackMusicRecognizer(audd, sidecar);
+            }
+            log.info("노래 인식: 사이드카({}) 우선 + AudD 폴백", sidecarBaseUrl);
             return new FallbackMusicRecognizer(sidecar, audd);
         }
         if (sidecar != null) {
