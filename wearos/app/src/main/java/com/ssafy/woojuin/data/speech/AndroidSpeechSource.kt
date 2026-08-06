@@ -3,11 +3,15 @@ package com.ssafy.woojuin.data.speech
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.speech.RecognitionListener
 import android.speech.RecognitionService
+import android.speech.RecognitionSupport
+import android.speech.RecognitionSupportCallback
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
@@ -23,6 +27,12 @@ private const val TAG = "WoojuinSpeech"
 
 /** BUSY 재시도 전 대기 — 엔진이 이전 세션을 정리할 틈을 준다 */
 private const val BUSY_RETRY_DELAY_MS = 250L
+
+/**
+ * API 31+ 온디바이스 전용 팩토리를 쓸지. 우리가 서비스를 직접 고르던 경로와 초기화
+ * 거동이 다른지 재는 실험 스위치다 — 결과가 나쁘면 false 로 되돌린다.
+ */
+private const val USE_ON_DEVICE_FACTORY = true
 
 /**
  * Android SpeechRecognizer 기반 실음성 인식.
@@ -50,6 +60,15 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
      */
     private var activeSession: Any? = null
 
+    private fun elapsed(): Long =
+        if (sessionStartedAt == 0L) -1 else SystemClock.elapsedRealtime() - sessionStartedAt
+
+    /** 어떤 팩토리로 만든 인식기인지 — 실험 결과를 로그에서 구분하려고 남긴다 */
+    private var recognizerKind: String = "?"
+
+    /** startListening 시점(ms). 준비까지 얼마나 걸리는지 로그로 재려고 둔다 */
+    private var sessionStartedAt = 0L
+
     /**
      * 앱 진입 시 미리 호출해 서비스 바인딩을 데워 둔다.
      *
@@ -65,6 +84,8 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
      */
     fun warmUp() {
         main.post { ensureRecognizer() }
+        // 기기 지원 현황을 로그로 확정한다 — 서버 STT 판단의 근거가 된다
+        diagnose()
     }
 
     /**
@@ -96,10 +117,29 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
             putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
         }
 
+    /**
+     * 인식기를 만든다. **API 31+ 의 온디바이스 전용 팩토리를 먼저 쓴다.**
+     *
+     * 우리가 서비스를 직접 골라 바인딩하던 경로(`createSpeechRecognizer(context, component)`)는
+     * `applicationDomain: AMBIENT_ONESHOT` 으로 잡혀 첫 초기화가 8초대였다. 온디바이스
+     * 팩토리는 시스템이 자기 방식으로 경로를 고르므로 초기화 거동이 다를 수 있다 —
+     * 실험이고, 나쁘면 [USE_ON_DEVICE_FACTORY] 를 false 로 두면 예전 경로로 돌아간다.
+     */
     private fun ensureRecognizer(): SpeechRecognizer? {
         recognizer?.let { return it }
         if (!SpeechRecognizer.isRecognitionAvailable(context)) return null
+
+        if (USE_ON_DEVICE_FACTORY && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        ) {
+            recognizerKind = "onDevice"
+            Log.d(TAG, "creating recognizer: createOnDeviceSpeechRecognizer")
+            return SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+                .also { recognizer = it }
+        }
+
         val service = pickRecognitionService()
+        recognizerKind = if (service != null) "explicit(${service.packageName})" else "systemDefault"
         Log.d(TAG, "creating recognizer, service: ${service ?: "system default"}")
         val r = if (service != null) {
             SpeechRecognizer.createSpeechRecognizer(context, service)
@@ -108,6 +148,41 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
         }
         recognizer = r
         return r
+    }
+
+    /**
+     * 이 기기가 뭘 지원하는지 **코드가 직접 확인한다**(API 33+). 지금까지 adb 로 추측했던
+     * 것들(온디바이스뿐인가, 한국어 팩이 설치돼 있나)을 로그로 확정한다.
+     *
+     * 언어팩이 `pending` 이면 [SpeechRecognizer.triggerModelDownload] 로 받아올 수 있다 —
+     * 그 판단 근거도 이 결과에서 나온다.
+     */
+    fun diagnose() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            Log.d(TAG, "checkRecognitionSupport 미지원(API ${Build.VERSION.SDK_INT})")
+            return
+        }
+        main.post {
+            val r = ensureRecognizer() ?: return@post
+            Log.d(TAG, "지원 조회 시작 — kind=$recognizerKind, onDeviceAvailable=" +
+                "${SpeechRecognizer.isOnDeviceRecognitionAvailable(context)}")
+            r.checkRecognitionSupport(
+                recognizeIntent(),
+                context.mainExecutor,
+                object : RecognitionSupportCallback {
+                    override fun onSupportResult(support: RecognitionSupport) {
+                        Log.d(TAG, "지원 결과 — 설치된 온디바이스: ${support.installedOnDeviceLanguages}")
+                        Log.d(TAG, "지원 결과 — 받을 수 있는 온디바이스: ${support.supportedOnDeviceLanguages}")
+                        Log.d(TAG, "지원 결과 — 다운로드 대기: ${support.pendingOnDeviceLanguages}")
+                        Log.d(TAG, "지원 결과 — 온라인: ${support.onlineLanguages}")
+                    }
+
+                    override fun onError(error: Int) {
+                        Log.d(TAG, "지원 조회 실패($error)")
+                    }
+                },
+            )
+        }
     }
 
     /** 복구 불가능한 오류가 났을 때만 폐기 — 다음 listen에서 새로 만든다. */
@@ -179,6 +254,7 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
                         ?.firstOrNull()
                         .orEmpty()
                     if (text.isNotBlank()) {
+                        if (lastText.isEmpty()) Log.d(TAG, "첫 부분 결과 — ${elapsed()}ms")
                         lastText = text
                         trySend(SpeechEvent.Partial(text, 0.5f))
                     }
@@ -186,6 +262,7 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
 
                 override fun onResults(results: Bundle?) {
                     if (stale()) return
+                    Log.d(TAG, "onResults — ${elapsed()}ms")
                     val text = results
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         ?.firstOrNull()
@@ -205,6 +282,7 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
 
                 override fun onError(error: Int) {
                     if (stale()) return
+                    Log.d(TAG, "onError($error) — ${elapsed()}ms")
                     when (error) {
                         SpeechRecognizer.ERROR_NO_MATCH,
                         SpeechRecognizer.ERROR_SPEECH_TIMEOUT,
@@ -243,6 +321,8 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
 
                 override fun onReadyForSpeech(params: Bundle?) {
                     if (stale()) return
+                    // 준비까지 걸린 시간이 이 실험의 측정값이다(기존 경로는 첫 회 8.8초였다)
+                    Log.d(TAG, "onReadyForSpeech — ${elapsed()}ms (kind=$recognizerKind)")
                     // 여기부터 실제로 들린다 — 화면이 "준비 중"을 "듣는 중"으로 바꾼다
                     trySend(SpeechEvent.Ready)
                 }
@@ -253,6 +333,8 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
                 override fun onEvent(eventType: Int, params: Bundle?) {}
             })
 
+            sessionStartedAt = SystemClock.elapsedRealtime()
+            Log.d(TAG, "startListening — kind=$recognizerKind")
             r.startListening(recognizeIntent())
         }
 
