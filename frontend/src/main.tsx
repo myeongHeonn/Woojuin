@@ -5,7 +5,12 @@ import { Provider as JotaiProvider } from 'jotai';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './routes/router';
 import { jotaiStore } from './stores/jotaiStore';
+import { startThemeRuntime } from './stores/themeRuntime';
 import './styles/index.css';
+
+// 첫 적용은 index.html 의 부팅 스크립트가 이미 해 뒀다(깜빡임 방지) — 여기서 다시 거는 건
+// 그 값과 스토어를 맞추고, 이후 변화를 이어받기 위해서다.
+startThemeRuntime();
 
 // 배포가 새 빌드를 올리면, 열려 있던 탭은 자기(옛) index.html 이 가리키는 옛 해시 청크를
 // 계속 요청한다. 파이프라인이 옛 청크를 7일간 남겨 두므로 대부분은 그대로 동작하지만,

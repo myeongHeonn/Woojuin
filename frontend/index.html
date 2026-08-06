@@ -3,8 +3,43 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <!-- 브라우저 UI 바 색. theme.css 의 --color-space 와 같은 값이어야 앱 배경과 이어져 보인다 -->
+    <!-- 브라우저 UI 바 색. theme.css 의 --color-space 와 같은 값이어야 앱 배경과 이어져 보인다.
+         라이트 테마일 때의 값은 아래 부팅 스크립트가 바꿔 준다 -->
     <meta name="theme-color" content="#0e1017" />
+
+    <!--
+      테마 선점 — 번들이 뜨기 전에 <html data-theme> 를 세운다.
+
+      기본값이 다크라 첫 페인트는 언제나 다크다. 이 스크립트가 없으면 라이트를 켜 둔 사용자는
+      **새로고침할 때마다 다크가 한 번 번쩍인 뒤** 라이트로 바뀐다 — 번들이 로드되고 React 가
+      마운트되기 전까지는 저장된 설정을 읽을 방법이 없기 때문이다. head 안의 동기 스크립트라
+      첫 페인트를 앞선다.
+
+      저장 키와 값 형식은 stores/themeAtoms.ts 의 atomWithStorage 와 같아야 한다
+      (JSON 문자열이라 따옴표째 들어 있다). 한쪽을 바꾸면 다른 쪽도 바꾼다.
+
+      설정이 'auto'(현재시간)면 여기서는 낮인지 밤인지 알 수 없다 — 태양 고도 계산을 이
+      인라인 스크립트에 넣을 수는 없다. 그래서 직전에 판정한 결과(woojuin:theme-resolved)를
+      대신 쓴다. 하늘은 1분 만에 낮에서 밤이 되지 않으므로 그 값이면 충분하고, 번들이 뜨는
+      즉시 다시 계산해 바로잡는다(stores/themeRuntime.ts).
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = JSON.parse(localStorage.getItem('woojuin:theme'));
+          if (stored === 'auto') {
+            stored = JSON.parse(localStorage.getItem('woojuin:theme-resolved'));
+          }
+          if (stored !== 'light' && stored !== 'dark') return;
+          document.documentElement.dataset.theme = stored;
+          if (stored === 'light') {
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f4f5f8');
+          }
+        } catch (error) {
+          /* 저장값이 깨졌거나 스토리지가 막힌 환경(사파리 프라이빗 등) — 기본 다크로 둔다 */
+        }
+      })();
+    </script>
 
     <title>우주인 — 올인원 AI 스크랩북</title>
     <meta

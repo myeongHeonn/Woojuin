@@ -32,7 +32,9 @@ const ConstellationLabels = ({ labels, onSelect, registerNode }: ConstellationLa
         onClick={() => onSelect(label.categoryId)}
         // 첫 프레임이 좌표를 쓰기 전엔 화면 밖에 숨겨 둔다(왼쪽 위에 잠깐 튀는 것 방지)
         style={{ transform: 'translate3d(-9999px,-9999px,0)', opacity: 0 }}
-        className="pointer-events-auto absolute left-0 top-0 cursor-pointer whitespace-nowrap text-[12.5px] font-semibold text-[rgba(232,234,238,.92)] transition-opacity duration-200 [text-shadow:0_1px_8px_rgba(0,0,0,.95)]"
+        // 색·글로우는 index.css 의 .woojuin-constellation-label 에 둔다 — 라이트에서
+        // 낮 하늘 위에 얹히므로 어두운 글자 + 흰 글로우로 뒤집어야 읽힌다
+        className="woojuin-constellation-label pointer-events-auto absolute left-0 top-0 cursor-pointer whitespace-nowrap text-[12.5px] font-semibold transition-opacity duration-200"
       >
         {label.name}
       </button>

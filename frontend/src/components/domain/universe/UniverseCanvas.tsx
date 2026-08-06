@@ -12,6 +12,10 @@ import ConstellationLabels, {
   type ConstellationLabel,
 } from '@/components/domain/universe/ConstellationLabels';
 import StarTooltip from '@/components/ui/StarTooltip';
+import ThemeWash from '@/components/domain/universe/ThemeWash';
+import { useAtomValue } from 'jotai';
+import { solarElevationAtom, themeAtom } from '@/stores/themeAtoms';
+import { skyColorsForElevation } from '@/utils/solar';
 
 interface UniverseCanvasProps {
   /** GET /workspaces/{id}/universe 응답을 화면용으로 정규화한 데이터 */
@@ -46,6 +50,14 @@ const UniverseCanvas = ({
 }: UniverseCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<UniverseScene | null>(null);
+
+  /**
+   * '현재시간' 테마에서는 하늘색을 태양 고도로 직접 계산해 깐다 — 낮/밤 두 장이 아니라
+   * 지금 바깥 하늘에 가까운 색이 나온다. 다크·라이트일 때는 CSS 가 정해 둔 색을 쓴다.
+   */
+  const themePreference = useAtomValue(themeAtom);
+  const elevation = useAtomValue(solarElevationAtom);
+  const realtimeSky = themePreference === 'auto' ? skyColorsForElevation(elevation) : null;
 
   /**
    * 라벨은 "목록"과 "좌표"를 분리한다. 목록(이름·개수)만 React state 로 두고,
@@ -181,8 +193,34 @@ const UniverseCanvas = ({
   }, [activeCategoryId]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-space">
-      <canvas ref={canvasRef} className="block h-full w-full" />
+    // isolate — 아래 캔버스가 라이트에서 screen 합성을 쓰는데, 합성 대상을 이 안으로 가둔다.
+    // 없으면 페이지 배경까지 끌어들여 스테이지 밖 색이 같이 밝아진다.
+    // woojuin-universe-stage — 하늘색과 바탕색 전환을 이 요소에 건다(index.css).
+    // 현재시간일 때만 색을 인라인으로 덮어쓴다. 값을 빼면 CSS 가 정해 둔 테마 색으로
+    // 되돌아가고, 등록된 커스텀 속성이라 그 되돌아감도 전환을 탄다.
+    <div
+      className="woojuin-universe-stage relative isolate h-full w-full overflow-hidden bg-space"
+      style={
+        realtimeSky
+          ? ({
+              '--sky-top': realtimeSky.top,
+              '--sky-middle': realtimeSky.middle,
+              '--sky-bottom': realtimeSky.bottom,
+            } as React.CSSProperties)
+          : undefined
+      }
+    >
+      {/* 하늘. 캔버스가 alpha:true 라 별이 없는 곳은 투명해서 이 그라데이션이 그대로 비친다
+          (규칙은 index.css 의 .woojuin-universe-sky) */}
+      <div
+        className="woojuin-universe-sky pointer-events-none absolute inset-0"
+        aria-hidden="true"
+      />
+      {/* relative — 절대배치된 하늘보다 위에 오게 한다(정적 요소는 배치된 형제 아래에 깔린다) */}
+      <canvas ref={canvasRef} className="woojuin-universe-canvas relative block h-full w-full" />
+
+      {/* 전환 중에만 나타나 하늘을 한 번 훑고 사라진다(여명·노을) */}
+      <ThemeWash />
 
       <ConstellationLabels
         labels={labelList}
