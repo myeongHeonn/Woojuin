@@ -181,7 +181,9 @@ private fun MainVoiceButton(onClick: () -> Unit) {
             color = WoojuinColor.TextPrimary,
         )
         Text(
-            text = "탭하고 바로 말하세요",
+            // 인식 엔진이 마이크를 여는 데 2초쯤 걸린다. "바로 말하세요"는 그 사이에 한 말이
+            // 버려지게 만드는 안내였다 — 준비되면 진동이 오니 그것을 기다리라고 말한다.
+            text = "탭하고 진동 후 말하세요",
             style = MaterialTheme.typography.bodySmall,
             color = WoojuinColor.TextMuted,
         )
