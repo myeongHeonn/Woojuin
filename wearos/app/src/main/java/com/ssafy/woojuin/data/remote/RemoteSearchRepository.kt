@@ -74,18 +74,34 @@ class RemoteSearchRepository(
         _lastResults.value.firstOrNull { it.id == id }
 
     private fun toSavedItem(json: JSONObject): SavedItem {
-        val title = json.optString("title", "").takeIf { !json.isNull("title") } ?: ""
-        val summary = json.optString("summary", "").takeIf { !json.isNull("summary") } ?: ""
+        val title = text(json, "title")
+        val summary = text(json, "summary")
+        // 목록 응답에는 본문(content)이 없다 — 페이로드를 줄이려 서버가 뺐고, 대신 조립기가
+        // 다듬은 preview.description 을 준다(ItemSummaryResponse javadoc). 처리 중 아이템의
+        // 유일한 사람이 읽을 문구라 폴백으로 쓴다
+        val previewDescription = json.optJSONObject("preview")?.let { text(it, "description") }
+        // 아직 AI 가 돌기 전이면 제목·요약이 비어 온다. "제목 없음"으로 뭉개지 말고
+        // 처리 중임을 정직하게 알린다 — 방금 저장한 것을 찾은 사용자가 헷갈리지 않게
+        val processing = json.optString("status", "") == "PROCESSING"
         return SavedItem(
             id = json.getLong("itemId").toString(),
             type = savedItemType(json.optString("type", "")),
-            // 저장 직후엔 AI 가 아직 제목을 못 붙였을 수 있다 — 빈 제목으로 카드가 비지 않게 채운다
-            title = title.ifBlank { summary.ifBlank { "제목 없음" } },
-            summary = summary.ifBlank { "AI가 정리하고 있어요" },
+            title = title.ifBlank { previewDescription?.ifBlank { null } ?: fallbackTitle(processing) },
+            summary = summary.ifBlank {
+                previewDescription.takeIf { title.isNotBlank() }
+                    ?: if (processing) "AI가 정리하고 있어요" else ""
+            },
             savedAtLabel = savedAtLabel(json.optString("createdAt", "")),
             sourceLabel = null,
         )
     }
+
+    private fun fallbackTitle(processing: Boolean): String =
+        if (processing) "정리 중인 저장물" else "제목 없음"
+
+    /** JSON null 을 문자열 "null" 로 주는 org.json 함정을 피한다 */
+    private fun text(json: JSONObject, key: String): String =
+        if (json.isNull(key)) "" else json.optString(key, "")
 
     /** 서버 타입을 그대로 옮긴다 — 워치가 따로 갈라 두는 종류는 없다. */
     private fun savedItemType(serverType: String): SavedItemType = when (serverType) {
