@@ -54,15 +54,6 @@
 :root {
   --universe-theme-duration: 1.8s;
   --universe-theme-ease: linear;
-
-  /* 디더 노이즈.
-     화면을 가로지르는 큰 그라데이션에는 색 띠(밴딩)가 진다 — 색은 채널당 8비트뿐인데
-     그 256단계를 화면 높이만큼 늘려 놓으면 한 단계가 몇 픽셀씩 차지해 경계가 보인다.
-     파랑 계열에서 특히 심하다.
-
-     아주 옅은 노이즈를 덮어 그 경계를 흐트러뜨린다(인쇄의 디더링과 같은 원리다).
-     알파를 SVG 안에 박아 둔 이유: 배경 레이어로 얹을 때 레이어별 투명도를 따로 줄 수 없다. */
-  --sky-dither: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
 }
 
 /* 스테이지 바탕색도 같이 흐른다. 이게 없으면 --color-space 가 즉시 갈려서, 하늘이 1.45초에
@@ -74,9 +65,6 @@
 
 .woojuin-universe-sky {
   background: linear-gradient(180deg, #0c68d8 0%, #3389e2 48%, #8cc4f1 100%);
-  background:
-    var(--sky-dither) repeat,
-    linear-gradient(180deg in oklab, #0c68d8 0%, #3389e2 48%, #8cc4f1 100%);
   opacity: 0;
   transition: opacity var(--universe-theme-duration) var(--universe-theme-ease);
 }
@@ -173,26 +161,22 @@
   }
 }
 
+/* 위로 갈수록 사라진다.
+   원래는 천정 쪽이 rgba(5,18,51,.82) 로 가장 짙었다. 그 상태로 띠가 가로지르면 화면
+   꼭대기를 어두운 벽이 지나가는 꼴이라, 가로 마스크로 아무리 흐려 놔도 경계가 그대로
+   보였다 — 위쪽은 배경(하늘)과의 명도 차가 가장 큰 자리다.
+
+   실제 노을도 지평선 근처에서 진하고 천정은 거의 물들지 않는다. 색을 아래에 몰아 두면
+   보기에도 맞고 경계도 사라진다. */
 .woojuin-theme-wash-dawn::before {
-  /* in oklab 을 못 읽는 브라우저용 폴백 — 없으면 선언 전체가 무효가 되어 띠가 안 보인다 */
   background: linear-gradient(
     to top,
     rgba(255, 201, 136, 0.8) 0%,
-    rgba(197, 123, 164, 0.58) 19%,
-    rgba(91, 92, 161, 0.5) 43%,
-    rgba(20, 48, 103, 0.66) 74%,
-    rgba(5, 18, 51, 0.82) 100%
+    rgba(197, 123, 164, 0.5) 22%,
+    rgba(91, 92, 161, 0.26) 48%,
+    rgba(20, 48, 103, 0.08) 76%,
+    transparent 100%
   );
-  background:
-    var(--sky-dither) repeat,
-    linear-gradient(
-      to top in oklab,
-      rgba(255, 201, 136, 0.8) 0%,
-      rgba(197, 123, 164, 0.58) 19%,
-      rgba(91, 92, 161, 0.5) 43%,
-      rgba(20, 48, 103, 0.66) 74%,
-      rgba(5, 18, 51, 0.82) 100%
-    );
 }
 
 .woojuin-theme-wash-dawn::after {
@@ -206,23 +190,14 @@
 }
 
 .woojuin-theme-wash-dusk::before {
-  /* in oklab 을 못 읽는 브라우저용 폴백 — 없으면 선언 전체가 무효가 되어 띠가 안 보인다 */
   background: linear-gradient(
     to top,
     rgba(244, 137, 91, 0.78) 0%,
-    rgba(168, 83, 137, 0.62) 24%,
-    rgba(67, 63, 130, 0.62) 52%,
-    rgba(9, 26, 67, 0.84) 100%
+    rgba(168, 83, 137, 0.5) 26%,
+    rgba(67, 63, 130, 0.24) 56%,
+    rgba(9, 26, 67, 0.07) 80%,
+    transparent 100%
   );
-  background:
-    var(--sky-dither) repeat,
-    linear-gradient(
-      to top in oklab,
-      rgba(244, 137, 91, 0.78) 0%,
-      rgba(168, 83, 137, 0.62) 24%,
-      rgba(67, 63, 130, 0.62) 52%,
-      rgba(9, 26, 67, 0.84) 100%
-    );
 }
 
 .woojuin-theme-wash-dusk::after {
