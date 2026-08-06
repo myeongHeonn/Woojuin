@@ -151,4 +151,26 @@ describe('UniverseCanvas 라벨 — 좌표는 DOM 에 직접 쓴다', () => {
     });
     await expect.poll(() => container.querySelectorAll('button').length).toBe(2);
   });
+
+  it('데이터가 빈 우주로 바뀌면 이전 장면의 라벨을 제거한다', async () => {
+    const { container, rerender } = await render(<UniverseCanvas data={universe} />);
+    await expect.poll(() => sceneCallbacks).toBeDefined();
+
+    flushSync(() => {
+      sceneCallbacks!.onLabels([
+        { categoryId: 1, name: '여행', x: 10, y: 20, visible: true },
+      ]);
+    });
+    await expect.poll(() => container.querySelectorAll('button').length).toBe(1);
+
+    const emptyUniverse: UniverseResponse = { constellations: [], unclassified: [] };
+    await rerender(<UniverseCanvas data={emptyUniverse} />);
+    await expect.poll(() => createSceneCalls.length).toBe(2);
+
+    flushSync(() => {
+      sceneCallbacks!.onLabels([]);
+    });
+
+    await expect.poll(() => container.querySelectorAll('button').length).toBe(0);
+  });
 });
