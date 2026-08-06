@@ -34,9 +34,9 @@ const ItemCardView = ({ item, onClick }: ItemCardProps) => {
       type="button"
       onClick={() => onClick?.(item.itemId)}
       disabled={processing}
-      className="group w-[124px] rounded-[14px] px-1 py-2.5 text-center hover:bg-white/[0.03] disabled:cursor-default disabled:hover:bg-transparent"
+      className="group w-[124px] rounded-[14px] px-1 py-2.5 text-center hover:bg-surface-2/50 disabled:cursor-default disabled:hover:bg-transparent"
     >
-      <div className="relative mx-auto h-[88px] w-[88px] overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-surface-2 to-surface transition-transform group-hover:-translate-y-[3px]">
+      <div className="relative mx-auto h-[88px] w-[88px] overflow-hidden rounded-2xl border border-border-soft bg-gradient-to-b from-surface-2 to-surface transition-transform group-hover:-translate-y-[3px]">
         <ItemSquare item={item} />
       </div>
 
