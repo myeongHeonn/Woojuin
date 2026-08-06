@@ -28,28 +28,16 @@ export const themeAtom = atomWithStorage<ThemePreference>(THEME_STORAGE_KEY, 'da
 
 /**
  * 지금 시각. auto 일 때만 의미가 있고, 아래 resolvedThemeAtom 과 하늘색이 이 값을 따라 다시
- * 계산된다. 갱신은 ThemeClock 이 맡는다.
+ * 계산된다. 갱신은 themeRuntime 이 맡는다.
  *
  * 시계를 atom 으로 두는 이유: 하늘색과 UI 밝기가 같은 시각을 봐야 한다. 각자 Date.now() 를
  * 부르면 몇 밀리초 차이로 서로 다른 판단을 할 수 있다.
  */
 export const nowAtom = atom<number>(Date.now());
 
-/**
- * 개발용 시간 덮어쓰기. null 이면 실제 시각을 쓴다.
- *
- * 하늘색을 눈으로 확인하려면 그 시각이 될 때까지 기다려야 하는데, 노을은 하루 두 번뿐이고
- * 몇 분이면 지나간다. SkyTimeScrubber 가 이 값을 움직여 아무 시각이나 바로 볼 수 있게 한다.
- * 프로덕션에서는 그 컴포넌트가 렌더되지 않아 항상 null 이다.
- */
-export const timeOverrideAtom = atom<number | null>(null);
-
-/** 하늘 계산이 실제로 보는 시각. */
-export const effectiveNowAtom = atom((get) => get(timeOverrideAtom) ?? get(nowAtom));
-
 /** 지금 태양 고도(도). auto 가 아니면 화면에 쓰이지 않는다. */
 export const solarElevationAtom = atom((get) => {
-  const at = new Date(get(effectiveNowAtom));
+  const at = new Date(get(nowAtom));
   return solarElevation(at, approximateCoordinates(at));
 });
 
