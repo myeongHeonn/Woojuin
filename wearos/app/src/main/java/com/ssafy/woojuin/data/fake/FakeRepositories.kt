@@ -1,6 +1,5 @@
 package com.ssafy.woojuin.data.fake
 
-import com.ssafy.woojuin.domain.model.NearbyAlert
 import com.ssafy.woojuin.domain.model.PlaceCandidate
 import com.ssafy.woojuin.domain.model.RecognizedSong
 import com.ssafy.woojuin.domain.model.SavedItem
@@ -8,7 +7,6 @@ import com.ssafy.woojuin.domain.model.SavedItemType
 import com.ssafy.woojuin.domain.model.SearchInterpretation
 import com.ssafy.woojuin.domain.model.SyncState
 import com.ssafy.woojuin.domain.model.SyncStatus
-import com.ssafy.woojuin.domain.repository.NearbyAlertRepository
 import com.ssafy.woojuin.domain.repository.PlaceRepository
 import com.ssafy.woojuin.domain.repository.SearchRepository
 import com.ssafy.woojuin.domain.repository.SongRecognitionEvent
@@ -86,14 +84,6 @@ object FakeData {
         albumLabel = "Armageddon · 2024",
     )
 
-    val nearbyAlert = NearbyAlert(
-        placeId = "item-pasta",
-        placeName = "온화정",
-        distanceMeters = 120,
-        summary = "성수에서 가볼 파스타집",
-        memo = "지현이랑 가기로 한 곳",
-        savedAtLabel = "5월 12일",
-    )
 }
 
 private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -270,19 +260,6 @@ class FakePlaceRepository(private val sync: SyncRepository) : PlaceRepository {
     }
 }
 
-class FakeNearbyAlertRepository : NearbyAlertRepository {
-    private val _activeAlert = MutableStateFlow<NearbyAlert?>(FakeData.nearbyAlert)
-    override val activeAlert: StateFlow<NearbyAlert?> = _activeAlert.asStateFlow()
-
-    override fun muteToday(placeId: String) {
-        if (_activeAlert.value?.placeId == placeId) _activeAlert.value = null
-    }
-
-    override fun disableAlert(placeId: String) {
-        if (_activeAlert.value?.placeId == placeId) _activeAlert.value = null
-    }
-}
-
 /** 간단한 service locator. 실서버 연결 시 여기서 실제 구현으로 교체한다. */
 object Repositories {
     private var appContext: android.content.Context? = null
@@ -335,5 +312,4 @@ object Repositories {
             FakePlaceRepository(sync)
         }
     }
-    val nearby: NearbyAlertRepository by lazy { FakeNearbyAlertRepository() }
 }

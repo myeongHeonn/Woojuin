@@ -35,48 +35,35 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
-import androidx.wear.compose.material3.Card
-import androidx.wear.compose.material3.CardDefaults
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.ssafy.woojuin.data.fake.Repositories
-import com.ssafy.woojuin.domain.model.NearbyAlert
 import com.ssafy.woojuin.domain.model.SyncState
 import com.ssafy.woojuin.domain.model.SyncStatus
-import com.ssafy.woojuin.presentation.component.ColorDot
 import com.ssafy.woojuin.presentation.component.WoojuinListScreen
 import com.ssafy.woojuin.presentation.component.WoojuinLogo
 import com.ssafy.woojuin.presentation.theme.WoojuinColor
 import com.ssafy.woojuin.presentation.util.rememberHaptics
 
 class HomeViewModel : ViewModel() {
-    val nearbyAlert = Repositories.nearby.activeAlert
     val syncStatus = Repositories.sync.status
 }
 
-/**
- * 홈. 로고가 가장 중요한 입력 장치다 — 탭 한 번으로 음성 저장을 시작한다.
- * 주변 장소 카드는 상황이 있을 때만 나타난다.
- */
+/** 홈. 로고가 가장 중요한 입력 장치다 — 탭 한 번으로 음성 저장을 시작한다. */
 @Composable
 fun HomeScreen(
     onVoiceCapture: () -> Unit,
     onSearch: () -> Unit,
     onSong: () -> Unit,
     onPlace: () -> Unit,
-    onNearby: () -> Unit,
     onSyncStatus: () -> Unit,
     viewModel: HomeViewModel = viewModel(),
 ) {
-    val nearbyAlert by viewModel.nearbyAlert.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
     val haptics = rememberHaptics()
 
     WoojuinListScreen {
-        nearbyAlert?.let { alert ->
-            item { NearbyChip(alert = alert, onClick = onNearby) }
-        }
         item {
             MainVoiceButton(onClick = {
                 haptics.tapStart()
@@ -111,32 +98,6 @@ fun HomeScreen(
             )
         }
         item { SyncStatusRow(status = syncStatus, onClick = onSyncStatus) }
-    }
-}
-
-/**
- * 상황형 주변 장소 칩 — 홈 최상단에 작게만 노출된다.
- * 상세 정보(거리·요약·메모)는 탭하면 NearbyPlaceDetail에서 보여준다.
- */
-@Composable
-private fun NearbyChip(alert: NearbyAlert, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(WoojuinColor.Surface)
-            .clickable(role = Role.Button, onClickLabel = "근처 저장 장소 보기") { onClick() }
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    ) {
-        ColorDot(color = WoojuinColor.NearbyAccent, size = 6.dp)
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = if (alert.lowAccuracy) "근처 저장 장소 보기" else "근처 · ‘${alert.placeName}’ 보기",
-            style = MaterialTheme.typography.labelSmall,
-            color = WoojuinColor.TextSecondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 
