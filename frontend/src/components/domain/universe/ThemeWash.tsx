@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
-import { resolvedThemeAtom } from '@/stores/themeAtoms';
+import { resolvedThemeAtom, themeAtom } from '@/stores/themeAtoms';
 
 /** 밤→낮은 여명(dawn), 낮→밤은 노을(dusk). */
 type Wash = 'dawn' | 'dusk';
@@ -28,18 +28,33 @@ const WASH_FALLBACK_MS = 4000;
  * 남는다.
  */
 const ThemeWash = () => {
+  const preference = useAtomValue(themeAtom);
   const theme = useAtomValue(resolvedThemeAtom);
-  const previousTheme = useRef(theme);
+  const previous = useRef({ preference, theme });
   // key 는 연타 대응이다 — 같은 방향으로 다시 눌렀을 때 애니메이션을 처음부터 다시 돌린다
   const [wash, setWash] = useState<{ kind: Wash; key: number } | null>(null);
 
   useEffect(() => {
-    if (previousTheme.current === theme) return;
-    previousTheme.current = theme;
+    const before = previous.current;
+    previous.current = { preference, theme };
+    if (before.theme === theme) return;
+
+    /*
+     * 현재시간 모드에서 **시간이 흘러** 낮/밤이 갈린 경우에는 훑지 않는다.
+     *
+     * 그 화면은 이미 실제 하늘이 스스로 물들고 있다. 위에 한 번 더 훑으면 사용자는 아무것도
+     * 안 했는데 화면이 갑자기 쓸려 지나가는 것으로 보인다. 훑기는 **누른 것에 대한 응답**이라
+     * 누르지 않았는데 나오면 놀랄 일이 된다.
+     *
+     * 설정을 바꿔서 넘어온 경우는(밤 → 현재시간 같은) 사용자가 누른 것이므로 그대로 훑는다.
+     * 그래서 테마가 아니라 **설정이 그대로였는지**로 가른다.
+     */
+    if (before.preference === 'auto' && preference === 'auto') return;
+
     setWash({ kind: theme === 'light' ? 'dawn' : 'dusk', key: Date.now() });
     const timer = setTimeout(() => setWash(null), WASH_FALLBACK_MS);
     return () => clearTimeout(timer);
-  }, [theme]);
+  }, [preference, theme]);
 
   if (!wash) return null;
 
