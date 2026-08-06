@@ -189,6 +189,9 @@ fun VoiceCaptureScreen(
 
     LaunchedEffect(uiState) {
         when (uiState) {
+            // 엔진 준비에 수 초 걸린다 — 워치는 화면을 계속 보고 있지 않으므로
+            // 이제 말해도 된다는 것을 진동으로 알린다
+            is VoiceCaptureUiState.Listening -> haptics.tapStart()
             is VoiceCaptureUiState.LocalSaved -> {
                 haptics.success()
                 onSaved()

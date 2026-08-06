@@ -237,11 +237,21 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
                 /** BUSY 재시도는 한 번만 — 두 번째 실패는 진짜 오류다 */
                 private var retried = false
 
+                /** 오디오가 흐르기 시작했는지 — Ready 를 한 번만 보내려고 둔다 */
+                private var audioFlowing = false
+
                 /** 이 리스너가 여전히 현재 세션의 것인지 — 아니면 콜백을 버린다 */
                 private fun stale(): Boolean = activeSession !== session
 
                 override fun onRmsChanged(rmsdB: Float) {
                     if (stale()) return
+                    // 음량 보고가 오기 시작했다 = 엔진이 오디오를 실제로 받고 있다.
+                    // 화면이 "준비 중"을 "듣는 중"으로 바꾸는 **믿을 수 있는** 신호다
+                    if (!audioFlowing) {
+                        audioFlowing = true
+                        Log.d(TAG, "실제 청취 시작 — ${elapsed()}ms")
+                        trySend(SpeechEvent.Ready)
+                    }
                     // 대략 -2..10dB 범위를 0..1로
                     val normalized = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
                     trySend(SpeechEvent.Partial(lastText, normalized))
@@ -319,12 +329,15 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
                     }
                 }
 
+                /**
+                 * **이 콜백은 "이제 들린다"는 뜻이 아니다.** 실기기 로그에서 이 콜백이
+                 * 2.2초에 왔는데 엔진의 실제 청취 시작(`start detection`)은 6.4초였다 —
+                 * 그 사이 한 말은 버려진다. 그래서 화면 전환 신호로 쓰지 않고 계측만 한다.
+                 * 실제 신호는 [onRmsChanged] 다(오디오가 흘러야 음량이 보고된다).
+                 */
                 override fun onReadyForSpeech(params: Bundle?) {
                     if (stale()) return
-                    // 준비까지 걸린 시간이 이 실험의 측정값이다(기존 경로는 첫 회 8.8초였다)
-                    Log.d(TAG, "onReadyForSpeech — ${elapsed()}ms (kind=$recognizerKind)")
-                    // 여기부터 실제로 들린다 — 화면이 "준비 중"을 "듣는 중"으로 바꾼다
-                    trySend(SpeechEvent.Ready)
+                    Log.d(TAG, "onReadyForSpeech — ${elapsed()}ms (아직 청취 아님, kind=$recognizerKind)")
                 }
 
                 override fun onBeginningOfSpeech() {}
