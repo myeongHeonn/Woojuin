@@ -12,6 +12,7 @@ import ConstellationLabels, {
   type ConstellationLabel,
 } from '@/components/domain/universe/ConstellationLabels';
 import StarTooltip from '@/components/ui/StarTooltip';
+import ThemeWash from '@/components/domain/universe/ThemeWash';
 
 interface UniverseCanvasProps {
   /** GET /workspaces/{id}/universe 응답을 화면용으로 정규화한 데이터 */
@@ -183,7 +184,9 @@ const UniverseCanvas = ({
   return (
     // isolate — 아래 캔버스가 라이트에서 screen 합성을 쓰는데, 합성 대상을 이 안으로 가둔다.
     // 없으면 페이지 배경까지 끌어들여 스테이지 밖 색이 같이 밝아진다.
-    <div className="relative isolate h-full w-full overflow-hidden bg-space">
+    // woojuin-universe-stage — 배경색 전환을 이 요소에 건다. 없으면 --color-space 가 즉시
+    // 갈려서, 하늘이 1.45초에 걸쳐 떠오르는 동안 그 밑이 이미 흰 바탕이라 먼저 번쩍인다.
+    <div className="woojuin-universe-stage relative isolate h-full w-full overflow-hidden bg-space">
       {/* 라이트에서 드러나는 낮 하늘. 캔버스가 alpha:true 라 별이 없는 곳은 투명해서
           이 그라데이션이 그대로 비친다(규칙은 index.css 의 .woojuin-universe-sky) */}
       <div
@@ -192,6 +195,9 @@ const UniverseCanvas = ({
       />
       {/* relative — 절대배치된 하늘보다 위에 오게 한다(정적 요소는 배치된 형제 아래에 깔린다) */}
       <canvas ref={canvasRef} className="woojuin-universe-canvas relative block h-full w-full" />
+
+      {/* 전환 중에만 나타나 하늘을 한 번 훑고 사라진다(여명·노을) */}
+      <ThemeWash />
 
       <ConstellationLabels
         labels={labelList}

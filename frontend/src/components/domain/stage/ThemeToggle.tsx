@@ -13,8 +13,8 @@ import { themeAtom } from '@/stores/themeAtoms';
  * 뷰바와 달리 모바일에서도 보인다 — 모바일은 뷰 전환을 하단 탭바가 대신하지만 테마는 대신할
  * 곳이 없다.
  *
- * 아이콘은 **바뀔 테마**를 가리킨다(다크에서 해, 라이트에서 달). 지금 상태를 그리면 눌렀을 때
- * 무엇이 되는지 알 수 없다.
+ * 아이콘은 **지금 하늘**을 가리킨다(라이트=해, 다크=달). 무엇으로 바뀔지는 툴팁과 aria-label 이
+ * 말해 준다. 화면은 낮인데 버튼에 달이 떠 있으면 그림과 배경이 어긋나 그게 먼저 눈에 걸린다.
  */
 const ICON_TRANSITION =
   'absolute h-[17px] w-[17px] transition-[opacity,transform] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:transition-none';
@@ -39,14 +39,14 @@ const ThemeToggle = () => {
         aria-hidden="true"
         className={classNames(
           ICON_TRANSITION,
-          light ? 'rotate-[80deg] scale-[.55] opacity-0' : 'rotate-0 scale-100 opacity-100',
+          light ? 'rotate-0 scale-100 opacity-100' : 'rotate-[80deg] scale-[.55] opacity-0',
         )}
       />
       <MoonIcon
         aria-hidden="true"
         className={classNames(
           ICON_TRANSITION,
-          light ? 'rotate-0 scale-100 opacity-100' : '-rotate-[70deg] scale-[.55] opacity-0',
+          light ? '-rotate-[70deg] scale-[.55] opacity-0' : 'rotate-0 scale-100 opacity-100',
         )}
       />
     </button>
