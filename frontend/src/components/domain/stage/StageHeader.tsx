@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { classNames } from '@/utils/classNames';
 import { STAGE_PX } from '@/constants/stage';
+import SkyClock from './SkyClock';
 import ThemeToggle from './ThemeToggle';
 import ViewBar from './ViewBar';
 import WorkspaceSwitcher from '@/components/domain/nav/WorkspaceSwitcher';
@@ -45,10 +46,15 @@ const StageHeader = ({ title, meta, actions }: StageHeaderProps) => (
       {meta && <p className="mt-[3px] truncate text-xs text-text-2 desktop:text-sm">{meta}</p>}
     </div>
 
-    <div className="pointer-events-auto flex shrink-0 items-center gap-2">
-      {actions}
-      <ThemeToggle />
-      <ViewBar />
+    {/* 세로로 쌓는다 — 버튼 줄 아래에 남는 자리를 시계가 쓴다(현재시간 테마에서만 나온다).
+        items-end 로 오른쪽 끝을 맞춰야 시계와 뷰바의 오른쪽 선이 이어진다. */}
+    <div className="pointer-events-auto flex shrink-0 flex-col items-end gap-2">
+      <div className="flex items-center gap-2">
+        {actions}
+        <ThemeToggle />
+        <ViewBar />
+      </div>
+      <SkyClock />
     </div>
   </header>
 );
