@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -30,7 +29,6 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.ssafy.woojuin.data.fake.Repositories
-import com.ssafy.woojuin.domain.model.RecognizedSong
 import com.ssafy.woojuin.domain.repository.SongRecognitionEvent
 import com.ssafy.woojuin.presentation.component.CaptionText
 import com.ssafy.woojuin.presentation.component.GlassButton

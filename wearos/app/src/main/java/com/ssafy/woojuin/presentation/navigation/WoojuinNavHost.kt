@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
@@ -14,8 +13,6 @@ import com.ssafy.woojuin.presentation.component.WoojuinLaunchMotion
 import com.ssafy.woojuin.presentation.screen.HomeScreen
 import com.ssafy.woojuin.presentation.screen.LinkScreen
 import com.ssafy.woojuin.presentation.screen.OpenOnPhoneScreen
-import com.ssafy.woojuin.presentation.screen.PermissionFeature
-import com.ssafy.woojuin.presentation.screen.PermissionGuideScreen
 import com.ssafy.woojuin.presentation.screen.PlacePickerScreen
 import com.ssafy.woojuin.presentation.screen.PlaceSaveSuccessScreen
 import com.ssafy.woojuin.presentation.screen.SavedItemDetailScreen
@@ -180,8 +177,7 @@ fun WoojuinNavHost(
                         popUpTo(Routes.PLACE_PICKER) { inclusive = true }
                     }
                 },
-                onExistingItem = { id -> navController.navigate(Routes.savedItemDetail(id)) },
-                onVoiceCapture = { navController.navigate(Routes.VOICE_CAPTURE) },
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.PLACE_SAVE_SUCCESS) {
@@ -190,12 +186,6 @@ fun WoojuinNavHost(
             )
         }
 
-        composable(Routes.PERMISSION_GUIDE) { backStackEntry ->
-            PermissionGuideScreen(
-                feature = PermissionFeature.from(backStackEntry.arguments?.getString("feature")),
-                onBack = { navController.popBackStack() },
-            )
-        }
         composable(Routes.OPEN_ON_PHONE) { backStackEntry ->
             OpenOnPhoneScreen(
                 opened = backStackEntry.arguments?.getString("opened")?.toBoolean() ?: false,

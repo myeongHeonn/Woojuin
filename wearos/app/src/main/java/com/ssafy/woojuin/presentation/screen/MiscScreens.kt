@@ -5,7 +5,6 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LocationOn
@@ -25,15 +24,8 @@ import com.ssafy.woojuin.presentation.component.WoojuinEdgeButton
 import com.ssafy.woojuin.presentation.component.WoojuinStatusScreen
 import com.ssafy.woojuin.presentation.theme.WoojuinColor
 
-enum class PermissionFeature(val route: String) {
-    MIC("mic"),
-    LOCATION("location");
-
-    companion object {
-        fun from(value: String?): PermissionFeature =
-            entries.firstOrNull { it.route == value } ?: MIC
-    }
-}
+/** 권한 안내 화면이 어느 기능 이야기를 할지. 화면이 직접 부르므로 경로 인자가 없다. */
+enum class PermissionFeature { MIC, LOCATION }
 
 /**
  * 권한 안내 — 필요한 순간에만, 기능 중심 문구로.

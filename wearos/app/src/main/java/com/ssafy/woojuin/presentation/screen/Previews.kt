@@ -121,11 +121,7 @@ fun PreviewSongRecognition() = PreviewShell {
 @Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true)
 @Composable
 fun PreviewPlacePicker() = PreviewShell {
-    PlacePickerScreen(
-        onSaved = {},
-        onExistingItem = {},
-        onVoiceCapture = {},
-    )
+    PlacePickerScreen(onSaved = {}, onBack = {})
 }
 
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)

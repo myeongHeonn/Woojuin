@@ -19,8 +19,6 @@ object Routes {
     const val PLACE_PICKER = "placePicker"
     const val PLACE_SAVE_SUCCESS = "placeSaveSuccess"
 
-    const val PERMISSION_GUIDE = "permissionGuide/{feature}"
-    fun permissionGuide(feature: String) = "permissionGuide/$feature"
     /**
      * 휴대폰에서 열기 결과. **성공 여부를 경로에 담는다** — 화면이 "열었어요"와
      * "연결된 휴대폰이 없어요"를 갈라 말해야 하고, 그 판단은 실제 호출 결과다.

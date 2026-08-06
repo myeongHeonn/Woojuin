@@ -38,7 +38,6 @@ data class PlaceCandidate(
     val name: String,
     val category: String,
     val distanceMeters: Int,
-    val alreadySaved: Boolean = false,
     // 실서버 저장에 그대로 실리는 값들 — fake 는 기본값으로 둔다 (화면은 안 쓴다)
     val lat: Double = 0.0,
     val lng: Double = 0.0,

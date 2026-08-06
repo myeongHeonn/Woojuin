@@ -10,7 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,16 +35,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.wear.compose.material3.ButtonDefaults
-import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.ssafy.woojuin.data.fake.Repositories
 import com.ssafy.woojuin.domain.repository.SpeechEvent
 import com.ssafy.woojuin.presentation.component.CaptionText
-import com.ssafy.woojuin.presentation.component.GlassButton
 import com.ssafy.woojuin.presentation.component.WoojuinEdgeButton
 import com.ssafy.woojuin.presentation.component.WoojuinListScreen
 import com.ssafy.woojuin.presentation.component.WoojuinListeningLogo

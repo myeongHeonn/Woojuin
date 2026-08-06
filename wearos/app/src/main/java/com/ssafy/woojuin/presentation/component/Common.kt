@@ -130,8 +130,6 @@ fun ItemCardContent(
     titleMaxLines: Int = 2,
     /** 상세 화면처럼 전문을 보여야 하는 곳은 [Int.MAX_VALUE] 를 준다 — 목록에서만 자른다 */
     summaryMaxLines: Int = 2,
-    /** 메타 줄(출처·저장 시각)도 상세에서는 접지 않는다 — "장소 저장 · 5월 …"로 잘렸다 */
-    metaMaxLines: Int = 1,
 ) {
     Row(verticalAlignment = Alignment.Top) {
         Icon(
@@ -170,7 +168,7 @@ fun ItemCardContent(
                         text = metaLabel,
                         style = MaterialTheme.typography.labelSmall,
                         color = WoojuinColor.TextMuted,
-                        maxLines = metaMaxLines,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }

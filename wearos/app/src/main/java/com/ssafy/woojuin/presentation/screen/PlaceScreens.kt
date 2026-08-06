@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.runtime.Composable
@@ -17,7 +16,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -51,7 +49,6 @@ sealed interface PlacePickerUiState {
     data object Locating : PlacePickerUiState
     data class Candidates(val places: List<PlaceCandidate>) : PlacePickerUiState
     data object Empty : PlacePickerUiState
-    data class Duplicate(val place: PlaceCandidate) : PlacePickerUiState
     data object Saved : PlacePickerUiState
     data class Error(val message: String) : PlacePickerUiState
 }
@@ -130,16 +127,13 @@ class PlacePickerViewModel : ViewModel() {
         }
     }
 
-    /** 후보를 누르면 추가 확인 없이 바로 저장한다. 중복 장소만 예외. */
+    /**
+     * 후보를 누르면 추가 확인 없이 바로 저장한다.
+     *
+     * <p>예전에는 "이미 저장한 장소"를 갈라 확인 화면을 띄웠지만, 서버 후보 응답에 그
+     * 표시가 없어 실기기에서는 한 번도 도달할 수 없는 화면이었다.
+     */
     fun select(place: PlaceCandidate) {
-        if (place.alreadySaved) {
-            _uiState.value = PlacePickerUiState.Duplicate(place)
-            return
-        }
-        saveAnyway(place)
-    }
-
-    fun saveAnyway(place: PlaceCandidate) {
         viewModelScope.launch {
             // 오프라인은 게이트가 앱째로 막는다 — 여기 오는 실패는 서버 오류나 전송 중
             // 끊긴 찰나다. 예외가 새면 앱이 죽으므로(코루틴) 가드는 남긴다
@@ -169,8 +163,7 @@ private const val PLACE_PAGE_SIZE = 5
 @Composable
 fun PlacePickerScreen(
     onSaved: () -> Unit,
-    onExistingItem: (String) -> Unit,
-    onVoiceCapture: () -> Unit,
+    onBack: () -> Unit,
     viewModel: PlacePickerViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -205,29 +198,10 @@ fun PlacePickerScreen(
     }
 
     if (permissionDenied) {
-        WoojuinStatusScreen(
-            glowColor = WoojuinColor.PlaceAccent,
-            edgeButton = {
-                WoojuinEdgeButton(
-                    label = "다시 허용하기",
-                    onClick = {
-                        permissionDenied = false
-                        permissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
-                    },
-                    primary = true,
-                )
-            },
-        ) {
-            Text(
-                text = "위치 권한이 필요해요",
-                style = MaterialTheme.typography.titleMedium,
-                color = WoojuinColor.TextPrimary,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            CaptionText("현재 위치로 장소를 찾으려면 허용해 주세요")
-
-        }
+        // 직접 만든 "다시 허용하기" 화면을 두었었다. 두 번 거절한 뒤에는 안드로이드가
+        // 대화상자를 띄우지 않아 그 버튼이 아무 일도 하지 않는다 — 공용 권한 안내로
+        // 넘겨 설정으로 가는 길만 보여준다(마이크 권한과 같은 화면이다)
+        PermissionGuideScreen(feature = PermissionFeature.LOCATION, onBack = onBack)
         return
     }
 
@@ -247,31 +221,6 @@ fun PlacePickerScreen(
                     color = WoojuinColor.TextPrimary,
                     textAlign = TextAlign.Center,
                 )
-            }
-        }
-        is PlacePickerUiState.Duplicate -> {
-            WoojuinStatusScreen(
-                glowColor = WoojuinColor.PlaceAccent,
-                edgeButton = {
-                    WoojuinEdgeButton(
-                        label = "메모 추가",
-                        onClick = onVoiceCapture,
-                        primary = true,
-                    )
-                },
-            ) {
-                Text(
-                    text = "이미 저장한 장소예요",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = WoojuinColor.TextPrimary,
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                CaptionText(state.place.name)
-                Spacer(modifier = Modifier.height(8.dp))
-                GlassButton(label = "다시 저장", onClick = { viewModel.saveAnyway(state.place) })
-                Spacer(modifier = Modifier.height(6.dp))
-                GlassButton(label = "기존 내용 보기", onClick = { onExistingItem("item-pasta") })
             }
         }
         is PlacePickerUiState.Empty -> {

@@ -14,16 +14,12 @@ import com.ssafy.woojuin.domain.repository.SpeechSource
 import com.ssafy.woojuin.domain.repository.VoiceCaptureRepository
 import java.util.UUID
 import kotlin.math.sin
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.launch
 
 /**
  * API 연결 전 전체 UX를 검증하기 위한 Fake 구현.
@@ -65,7 +61,7 @@ object FakeData {
         PlaceCandidate("p1", "스타벅스 광주장덕점", "카페", 34),
         PlaceCandidate("p2", "롯데마트 수완점", "대형마트", 82),
         PlaceCandidate("p3", "장덕동 손칼국수", "한식", 121),
-        PlaceCandidate("p4", "온화정", "양식", 180, alreadySaved = true),
+        PlaceCandidate("p4", "온화정", "양식", 180),
         PlaceCandidate("p5", "수완 호수공원", "공원", 240),
     )
 
@@ -75,8 +71,6 @@ object FakeData {
     )
 
 }
-
-private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
 /** 부분 인식 텍스트를 점진적으로 흘려보내는 공용 시뮬레이터. */
 private fun fakeSpeech(sentence: String, chunkDelayMs: Long = 350L): Flow<SpeechEvent> = flow {
