@@ -187,10 +187,12 @@ fun VoiceCaptureScreen(
         return
     }
 
-    LaunchedEffect(uiState) {
+    // 키는 상태 객체가 아니라 상태의 종류다. Listening 은 부분 텍스트와 음량을 담고 있어
+    // 1초에 여러 번 새로 만들어지므로, uiState 를 그대로 키로 쓰면 그 횟수만큼 진동이 울린다.
+    LaunchedEffect(uiState::class) {
         when (uiState) {
             // 엔진 준비에 수 초 걸린다 — 워치는 화면을 계속 보고 있지 않으므로
-            // 이제 말해도 된다는 것을 진동으로 알린다
+            // 이제 말해도 된다는 것을 진동 한 번으로 알린다
             is VoiceCaptureUiState.Listening -> haptics.tapStart()
             is VoiceCaptureUiState.LocalSaved -> {
                 haptics.success()
