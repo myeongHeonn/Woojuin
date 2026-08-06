@@ -4,7 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { MapAdapter } from '@/components/domain/map/mapAdapter';
 import { createOpenFreeMapAdapter } from '@/components/domain/map/openFreeMapAdapter';
 import { MAP_ITEM_TYPE_COLOR, MAP_ITEM_TYPE_LABEL } from '@/constants/map';
-import { themeAtom } from '@/stores/themeAtoms';
+import { resolvedThemeAtom } from '@/stores/themeAtoms';
 import type { Category } from '@/types/category';
 import type { MapPlace } from '@/types/map';
 
@@ -29,7 +29,7 @@ const MapCanvas = ({
 }: MapCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<MapAdapter | null>(null);
-  const theme = useAtomValue(themeAtom);
+  const theme = useAtomValue(resolvedThemeAtom);
   // 생성 이펙트는 deps 가 비어 있어야 한다(지도를 다시 만들면 카메라·마커가 날아간다).
   // 그래서 첫 테마는 ref 로 넘기고, 이후 변경은 아래 별도 이펙트가 setTheme 으로 전한다.
   const themeRef = useRef(theme);

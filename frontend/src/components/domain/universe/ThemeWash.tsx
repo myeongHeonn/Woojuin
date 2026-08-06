@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
-import { themeAtom } from '@/stores/themeAtoms';
+import { resolvedThemeAtom } from '@/stores/themeAtoms';
 
 /** 밤→낮은 여명(dawn), 낮→밤은 노을(dusk). */
 type Wash = 'dawn' | 'dusk';
@@ -28,7 +28,7 @@ const WASH_FALLBACK_MS = 4000;
  * 남는다.
  */
 const ThemeWash = () => {
-  const theme = useAtomValue(themeAtom);
+  const theme = useAtomValue(resolvedThemeAtom);
   const previousTheme = useRef(theme);
   // key 는 연타 대응이다 — 같은 방향으로 다시 눌렀을 때 애니메이션을 처음부터 다시 돌린다
   const [wash, setWash] = useState<{ kind: Wash; key: number } | null>(null);

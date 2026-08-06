@@ -73,6 +73,22 @@
   opacity: 1;
 }
 
+/* '현재시간' 테마 — 색을 JS 가 태양 고도로 계산해 넣는다(UniverseCanvas).
+   밤에도 하늘을 깔아 둔다. 진짜 밤하늘은 검정이 아니라 아주 짙은 남색이고, 그게 이 모드가
+   보여 주려는 것이다.
+
+   색 전환에 transition 을 걸지 않는 이유: 1분마다 다시 계산하는데 그 사이 태양은 0.25° 쯤
+   움직여 색 차이가 눈에 잡히지 않는다. 걸어 봐야 애니메이션할 게 없다. */
+.woojuin-universe-stage[data-sky='realtime'] .woojuin-universe-sky {
+  background: linear-gradient(
+    180deg,
+    var(--sky-top) 0%,
+    var(--sky-middle) 48%,
+    var(--sky-bottom) 100%
+  );
+  opacity: 1;
+}
+
 /* 다크에도 **항등 필터**를 명시한다(값은 아무것도 안 한 것과 같다).
    비워 두면 filter 가 none 이 되는데, none ↔ saturate()·brightness() 사이는 매끄럽게
    보간되지 않는다. 게다가 필터가 none 이 되는 순간 브라우저가 필터 레이어를 버리고 다시

@@ -13,6 +13,9 @@ import ConstellationLabels, {
 } from '@/components/domain/universe/ConstellationLabels';
 import StarTooltip from '@/components/ui/StarTooltip';
 import ThemeWash from '@/components/domain/universe/ThemeWash';
+import { useAtomValue } from 'jotai';
+import { solarElevationAtom, themeAtom } from '@/stores/themeAtoms';
+import { skyColorsForElevation } from '@/utils/solar';
 
 interface UniverseCanvasProps {
   /** GET /workspaces/{id}/universe 응답을 화면용으로 정규화한 데이터 */
@@ -47,6 +50,14 @@ const UniverseCanvas = ({
 }: UniverseCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<UniverseScene | null>(null);
+
+  /**
+   * '현재시간' 테마에서는 하늘색을 태양 고도로 직접 계산해 깐다 — 낮/밤 두 장이 아니라
+   * 지금 바깥 하늘에 가까운 색이 나온다. 다크·라이트일 때는 CSS 가 정해 둔 색을 쓴다.
+   */
+  const themePreference = useAtomValue(themeAtom);
+  const elevation = useAtomValue(solarElevationAtom);
+  const realtimeSky = themePreference === 'auto' ? skyColorsForElevation(elevation) : null;
 
   /**
    * 라벨은 "목록"과 "좌표"를 분리한다. 목록(이름·개수)만 React state 로 두고,
@@ -186,7 +197,19 @@ const UniverseCanvas = ({
     // 없으면 페이지 배경까지 끌어들여 스테이지 밖 색이 같이 밝아진다.
     // woojuin-universe-stage — 배경색 전환을 이 요소에 건다. 없으면 --color-space 가 즉시
     // 갈려서, 하늘이 1.45초에 걸쳐 떠오르는 동안 그 밑이 이미 흰 바탕이라 먼저 번쩍인다.
-    <div className="woojuin-universe-stage relative isolate h-full w-full overflow-hidden bg-space">
+    <div
+      className="woojuin-universe-stage relative isolate h-full w-full overflow-hidden bg-space"
+      data-sky={realtimeSky ? 'realtime' : undefined}
+      style={
+        realtimeSky
+          ? ({
+              '--sky-top': realtimeSky.top,
+              '--sky-middle': realtimeSky.middle,
+              '--sky-bottom': realtimeSky.bottom,
+            } as React.CSSProperties)
+          : undefined
+      }
+    >
       {/* 라이트에서 드러나는 낮 하늘. 캔버스가 alpha:true 라 별이 없는 곳은 투명해서
           이 그라데이션이 그대로 비친다(규칙은 index.css 의 .woojuin-universe-sky) */}
       <div
