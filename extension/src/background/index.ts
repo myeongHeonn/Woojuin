@@ -101,11 +101,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
   if (changeInfo.status === 'complete' && tab.url?.startsWith(WEB_ORIGIN)) {
     void harvestWebSession(tabId).then((harvested) => {
-      if (harvested) void syncWorkspaces();
       // 이미 웹에 로그인돼 있었다는 뜻 — OAuth 를 거칠 필요가 없었으므로 로그인 창이 떠 있으면
       // 바로 닫는다. 우리가 만든 windowId 만 닫으니 사용자가 열어 둔 탭은 그대로다.
       // 콜백 경로와 달리 여유를 두지 않는다: 웹 세션은 이미 저장돼 있다.
-      if (harvested) return closeLoginWindow(0);
+      if (!harvested) return;
+      void syncWorkspaces();
+      return closeLoginWindow(0);
     });
   }
 });
