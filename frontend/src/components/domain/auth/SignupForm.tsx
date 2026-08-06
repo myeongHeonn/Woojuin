@@ -9,7 +9,7 @@ import { signupSchema, type SignupFormValues } from '@/schemas/authSchemas';
 import { useDebounce } from '@/hooks/useDebounce';
 import FormTextField from '@/components/ui/form/FormTextField';
 import SubmitButton from '@/components/ui/button/SubmitButton';
-import PrivacyPolicyConsentModal from '@/components/domain/auth/PrivacyPolicyConsentModal';
+import PrivacyPolicyConsentCheckbox from '@/components/domain/auth/PrivacyPolicyConsentCheckbox';
 
 // 백엔드 SignupService가 중복 이메일일 때 던지는 메시지와 동일해야 한다.
 // 코드 없이 메시지 문자열로만 구분 가능한 유일한 signup 실패 사유라 이 값으로 매칭한다.
@@ -21,10 +21,7 @@ const SignupForm = () => {
   const formMethods = useForm<SignupFormValues>({ resolver: zodResolver(signupSchema) });
   const { handleSubmit, watch, setError, clearErrors } = formMethods;
 
-  // 체크박스는 직접 체크되지 않는다 — 눌러도 모달이 뜨고, 모달을 끝까지 읽고 확인해야
-  // 이 값이 true가 된다(은행 상품 가입 약관 동의 UX).
   const [agreedToPrivacyPolicy, setAgreedToPrivacyPolicy] = useState(false);
-  const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
 
   // 형식이 맞을 때만 서버에 물어본다 — 타이핑 중간값으로 매번 호출하지 않기 위해
   const email = watch('email');
@@ -84,27 +81,10 @@ const SignupForm = () => {
         <FormTextField type="text" placeholder="닉네임" name="nickname" formMethods={formMethods} />
         {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
 
-        {/* 체크박스는 직접 토글되지 않는다 — 클릭하면 모달이 뜨고, 끝까지 읽고 확인해야 체크된다 */}
-        <div className="flex items-center gap-2 text-xs text-text-3">
-          <input
-            type="checkbox"
-            checked={agreedToPrivacyPolicy}
-            readOnly
-            onClick={(e) => {
-              e.preventDefault();
-              setPrivacyModalOpen(true);
-            }}
-            aria-label="개인정보처리방침에 동의"
-            className="h-4 w-4 shrink-0 rounded border-border-soft accent-accent"
-          />
-          <button
-            type="button"
-            onClick={() => setPrivacyModalOpen(true)}
-            className="text-left underline underline-offset-2 hover:text-text-2"
-          >
-            개인정보처리방침에 동의합니다
-          </button>
-        </div>
+        <PrivacyPolicyConsentCheckbox
+          agreed={agreedToPrivacyPolicy}
+          onAgree={() => setAgreedToPrivacyPolicy(true)}
+        />
 
         <SubmitButton
           pending={signupMutation.isPending}
@@ -114,14 +94,6 @@ const SignupForm = () => {
           회원가입
         </SubmitButton>
       </form>
-
-      <PrivacyPolicyConsentModal
-        open={privacyModalOpen}
-        onConfirm={() => {
-          setAgreedToPrivacyPolicy(true);
-          setPrivacyModalOpen(false);
-        }}
-      />
 
       <p className="text-center text-sm text-text-3">
         이미 계정이 있으신가요? {/* replace — 이유는 LoginForm 의 반대쪽 링크에 적어 뒀다 */}
