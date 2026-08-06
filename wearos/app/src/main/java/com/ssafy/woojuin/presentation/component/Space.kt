@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +39,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.material3.ButtonDefaults
+import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
@@ -162,8 +166,82 @@ private fun DrawScope.drawSparkle(center: Offset, halfLength: Float) {
     }
 }
 
-/** [GlassButton] 의 모서리 — 스타디움(반원)이 아니라 부드러운 사각형이다. */
+/** [GlassButton]·[GlassCard] 의 모서리 — 스타디움(반원)이 아니라 부드러운 사각형이다. */
 private val GlassShape = RoundedCornerShape(18.dp)
+
+/**
+ * 화면의 **주 동작** — 아래 베젤을 따라 휘는 버튼.
+ *
+ * <p>둥근 화면 아래쪽은 쓸 수 있는 폭이 급격히 좁아진다. 사각 버튼을 화면 아래에 두면
+ * 아래 두 모서리가 곡면 밖으로 나가 잘려 보였다(노래 청취 화면의 "취소"에서 실측).
+ * `EdgeButton` 은 그 곡면을 따라 모양이 휘므로 잘릴 자리가 없고, 워치에만 있는 모양이라
+ * 화면이 워치답게 보인다.
+ *
+ * @param primary 되돌릴 수 없거나 화면의 목적인 동작이면 true — 색으로 채운다
+ */
+@Composable
+fun WoojuinEdgeButton(
+    label: String,
+    onClick: () -> Unit,
+    accent: Color = WoojuinColor.TextPrimary,
+    primary: Boolean = false,
+) {
+    EdgeButton(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (primary) WoojuinColor.AccentPurple else WoojuinColor.SurfaceRaised,
+            contentColor = if (primary) Color.White else accent,
+        ),
+    ) {
+        Text(text = label, style = MaterialTheme.typography.titleSmall)
+    }
+}
+
+/**
+ * 목록의 한 칸. 유리 표면 + 헤어라인, 필요하면 탭도 받는다.
+ *
+ * <p>Wear 기본 `Card` 는 단색 채움이라 검은 배경 위에서 회색 사각형으로 보인다. 홈의
+ * 문법(위→아래 표면 그라데이션 + 기능 색 헤어라인)을 목록에도 그대로 쓴다.
+ *
+ * @param accent 헤어라인 색 — 항목의 종류 색을 주면 목록을 훑을 때 종류가 먼저 읽힌다
+ */
+@Composable
+fun GlassCard(
+    modifier: Modifier = Modifier,
+    accent: Color = WoojuinColor.TextMuted,
+    onClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed && onClick != null) 0.97f else 1f, label = "cardPress")
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(GlassShape)
+            .background(
+                Brush.verticalGradient(
+                    listOf(WoojuinColor.SurfaceRaised, WoojuinColor.Surface),
+                ),
+            )
+            .border(1.dp, accent.copy(alpha = 0.30f), GlassShape)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = interaction,
+                        indication = null,
+                        role = Role.Button,
+                    ) { onClick() }
+                } else {
+                    Modifier
+                },
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        content = content,
+    )
+}
 
 /**
  * 이 앱의 표준 동작 버튼.

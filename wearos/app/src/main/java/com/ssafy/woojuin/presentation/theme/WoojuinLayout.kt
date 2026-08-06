@@ -29,17 +29,15 @@ object WoojuinLayout {
      */
     private const val LIST_SIDE_FRACTION = 0.09f
 
-    /** 화면 가운데의 상태 화면(청취·오류)은 글이 중심이라 조금 더 넓게 쓴다 */
-    private const val STATUS_SIDE_FRACTION = 0.10f
+    /**
+     * 상태 화면(청취·오류)의 좌우 여백. 10% 였을 때 화면 아래쪽의 버튼 모서리가 곡면
+     * 밖으로 나갔다 — 아래로 갈수록 쓸 수 있는 폭이 줄기 때문이다. 주 동작은 EdgeButton
+     * 으로 옮겼고, 남는 보조 버튼을 위해 여백을 12% 로 넓힌다.
+     */
+    private const val STATUS_SIDE_FRACTION = 0.12f
 
     /** 행 사이 간격 — 손가락이 옆 행을 누르지 않을 만큼만 */
     val RowGap: Dp = 6.dp
-
-    /** 알약 행의 높이. 워치 최소 터치 크기(48dp)보다 크게 잡는다 */
-    val RowHeight: Dp = 56.dp
-
-    /** 아이콘을 담는 색 원의 지름 — 크면 글자 자리를 먹고 목록이 무거워진다 */
-    val IconBubble: Dp = 30.dp
 
     @Composable
     private fun sideInset(fraction: Float): Dp {
