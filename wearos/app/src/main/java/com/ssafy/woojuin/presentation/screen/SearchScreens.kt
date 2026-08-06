@@ -10,11 +10,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.StickyNote2
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,7 +58,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 sealed interface SearchUiState {
+    /** 마이크가 열리기 전(실측 100ms 안이라 스쳐 지나간다) */
+    data object Preparing : SearchUiState
     data class Listening(val partialText: String) : SearchUiState
+
+    /** 녹음은 끝났고 서버가 받아쓰는 중 — 마이크는 닫혀 있다 */
+    data object Transcribing : SearchUiState
     data class Searching(val query: String) : SearchUiState
     data object Done : SearchUiState
 }
@@ -66,7 +71,7 @@ sealed interface SearchUiState {
 class VoiceSearchViewModel : ViewModel() {
     private val repository = Repositories.search
 
-    private val _uiState = MutableStateFlow<SearchUiState>(SearchUiState.Listening(""))
+    private val _uiState = MutableStateFlow<SearchUiState>(SearchUiState.Preparing)
     val uiState = _uiState.asStateFlow()
 
     private var started = false
@@ -79,10 +84,12 @@ class VoiceSearchViewModel : ViewModel() {
             try {
                 repository.listenQuery().collect { event ->
                     when (event) {
+                        SpeechEvent.Ready -> _uiState.value = SearchUiState.Listening("")
                         is SpeechEvent.Partial -> {
                             if (event.text.isNotBlank()) lastPartial = event.text
                             _uiState.value = SearchUiState.Listening(event.text)
                         }
+                        SpeechEvent.Transcribing -> _uiState.value = SearchUiState.Transcribing
                         is SpeechEvent.Final -> runSearch(event.text)
                         SpeechEvent.SilenceTimeout -> runSearch(lastPartial)
                     }
@@ -104,10 +111,10 @@ class VoiceSearchViewModel : ViewModel() {
 }
 
 fun typeIcon(type: SavedItemType): Pair<ImageVector, Color> = when (type) {
-    SavedItemType.VOICE -> Icons.Rounded.Mic to WoojuinColor.AccentPurple
+    // StickyNote2 는 AutoMirrored 에만 있다(RTL 에서 뒤집히는 게 맞는 모양이라 옮겨졌다)
+    SavedItemType.MEMO -> Icons.AutoMirrored.Rounded.StickyNote2 to WoojuinColor.AccentPurple
     SavedItemType.LINK -> Icons.Rounded.Link to WoojuinColor.StarBlue
-    SavedItemType.SONG -> Icons.Rounded.MusicNote to WoojuinColor.StarYellow
-    SavedItemType.PLACE -> Icons.Rounded.Place to WoojuinColor.StarGreen
+    SavedItemType.IMAGE -> Icons.Rounded.Image to WoojuinColor.StarYellow
 }
 
 /** “저장한 자료 찾기” — 즉시 음성 검색 시작. */
@@ -147,21 +154,29 @@ fun VoiceSearchScreen(
 
     KeepScreenOn()
 
+    // 마이크가 열려 있는 동안만 색을 살린다 — 받아쓰는 중에 말해도 남지 않기 때문이다
+    val listening = uiState is SearchUiState.Listening
     WoojuinStatusScreen {
         WoojuinListeningLogo(
-            accent = WoojuinColor.SearchAccent,
+            accent = if (listening) WoojuinColor.SearchAccent else WoojuinColor.TextMuted,
             modifier = Modifier.size(80.dp),
             reduceMotion = reduceMotion,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = when (uiState) {
+                is SearchUiState.Preparing -> "준비 중…"
+                is SearchUiState.Transcribing -> "알아듣고 있어요"
                 is SearchUiState.Searching -> "찾고 있어요"
                 else -> "무엇을 찾아볼까요?"
             },
             style = MaterialTheme.typography.titleMedium,
-            color = WoojuinColor.TextPrimary,
+            color = if (listening) WoojuinColor.TextPrimary else WoojuinColor.TextMuted,
         )
+        if (uiState is SearchUiState.Listening) {
+            Spacer(modifier = Modifier.height(4.dp))
+            CaptionText("찾을 내용을 말하세요")
+        }
         val partial = (uiState as? SearchUiState.Listening)?.partialText
             ?: (uiState as? SearchUiState.Searching)?.query.orEmpty()
         if (partial.isNotEmpty()) {
@@ -187,6 +202,7 @@ fun VoiceSearchResultsScreen(
 ) {
     val results by Repositories.search.lastResults.collectAsState()
     val query by Repositories.search.lastQuery.collectAsState()
+    val interpretation by Repositories.search.lastInterpretation.collectAsState()
 
     if (results.isEmpty()) {
         WoojuinStatusScreen {
@@ -196,6 +212,12 @@ fun VoiceSearchResultsScreen(
                 color = WoojuinColor.TextPrimary,
                 textAlign = TextAlign.Center,
             )
+            // 0건일 때 "무엇으로 찾았는지"가 가장 중요하다 — 엉뚱한 검색어로 찾았다면
+            // 사용자가 다시 말해서 고칠 수 있어야 하고, 그 판단 근거가 이것뿐이다
+            interpretation?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                CaptionText("‘${it.query}’(으)로 찾았어요")
+            }
             Spacer(modifier = Modifier.height(10.dp))
             Button(
                 onClick = onRetry,
@@ -232,13 +254,21 @@ fun VoiceSearchResultsScreen(
         item {
             ListHeader {
                 Text(
-                    text = if (query.isEmpty()) "검색 결과" else "‘$query’",
+                    // 말한 문장이 아니라 **AI 가 뽑아낸 검색어**를 보여준다 — 결과가 예상과
+                    // 다를 때 원인을 알 수 있어야 한다(서버 DTO 의 요구사항)
+                    text = interpretation?.let { "‘${it.query}’(으)로 찾았어요" }
+                        ?: if (query.isEmpty()) "검색 결과" else "‘$query’",
                     style = MaterialTheme.typography.titleSmall,
                     color = WoojuinColor.TextSecondary,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+        // LLM 호출이 실패해 규칙 기반으로 찾은 경우 — 오타 교정·관련어 확장이 빠졌으므로
+        // 결과가 빈약해도 이상한 게 아니라는 걸 알린다
+        if (interpretation?.aiPlanned == false) {
+            item { CaptionText("AI 해석 없이 찾았어요") }
         }
         results.take(3).forEachIndexed { index, item ->
             item {
@@ -260,14 +290,15 @@ private fun ResultCard(item: SavedItem, hero: Boolean, onClick: () -> Unit) {
             containerColor = if (hero) WoojuinColor.SurfaceActive else WoojuinColor.Surface,
         ),
     ) {
+        // 목록에는 제목만 — 요약까지 넣으면 카드가 커져 워치에서 두세 개밖에 안 보이고,
+        // 어느 것인지 고르는 데는 제목이면 충분하다. 요약은 탭해서 들어가면 나온다
         ItemCardContent(
             icon = icon,
             iconTint = tint,
             title = item.title,
-            summary = if (hero) item.summary else item.summary.take(40),
             metaLabel = item.distanceLabel ?: item.savedAtLabel,
             dotColor = tint,
-            titleMaxLines = if (hero) 2 else 1,
+            titleMaxLines = if (hero) 3 else 2,
         )
     }
 }
@@ -277,7 +308,6 @@ private fun ResultCard(item: SavedItem, hero: Boolean, onClick: () -> Unit) {
 fun SavedItemDetailScreen(
     itemId: String,
     onOpenOnPhone: () -> Unit,
-    onRetry: () -> Unit,
 ) {
     val detail = Repositories.search.itemById(itemId)
 
@@ -364,17 +394,6 @@ fun SavedItemDetailScreen(
                     )
                 }
             }
-        }
-        item {
-            Button(
-                onClick = onRetry,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.Surface),
-                icon = { androidx.wear.compose.material3.Icon(Icons.Rounded.Refresh, contentDescription = null, tint = WoojuinColor.SearchAccent, modifier = Modifier.size(18.dp)) },
-                label = { Text("다시 검색") },
-            )
         }
     }
 }

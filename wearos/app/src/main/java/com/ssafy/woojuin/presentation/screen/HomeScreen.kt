@@ -142,6 +142,8 @@ private fun MainVoiceButton(onClick: () -> Unit) {
             color = WoojuinColor.TextPrimary,
         )
         Text(
+            // 이제 우리가 직접 녹음하므로 마이크가 100ms 안에 열린다 — 기다릴 것이 없다.
+            // (기기 인식기를 쓰던 때는 2~4초가 걸려 "진동 후"를 기다리라고 안내했다)
             text = "탭하고 바로 말하세요",
             style = MaterialTheme.typography.bodySmall,
             color = WoojuinColor.TextMuted,

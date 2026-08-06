@@ -10,7 +10,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
   ?? DEFAULT_API_BASE_URLS[import.meta.env.MODE]
   ?? DEFAULT_API_BASE_URLS.production;
 
-// 웹앱 origin. 로그인은 웹앱의 구글 OAuth 를 그대로 쓰고(확장은 자체 로그인 폼이 없다)
+// 웹앱 origin. 로그인은 웹앱 로그인 화면을 그대로 쓰고(확장은 자체 로그인 폼이 없다)
 // 그 세션을 물려받으므로, API 주소와 짝을 맞춰 모드별로 둔다.
 const DEFAULT_WEB_ORIGINS: Record<string, string> = {
   development: 'http://localhost:5173',

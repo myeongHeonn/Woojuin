@@ -34,6 +34,23 @@
   `adb pair <ip>:<port>` → `adb connect <ip>:<port>` → `./gradlew installDebug`
 - minSdk 30 (Wear OS 3+)
 
+### 콜드 스타트가 느려 보이면 빌드 종류를 먼저 보라
+
+갤럭시 워치 실기기 실측(`adb shell am start -W`, 3회):
+
+| 빌드 | TotalTime |
+| --- | --- |
+| debug | 6.1~7.3초 |
+| release (레포 설정 그대로, `optimization` 꺼짐) | 1.1~1.4초 |
+| release + R8 켬 | 1.5~1.7초 |
+
+같은 코드다. **R8 은 시작 시간과 무관했고**, 차이는 debug 냐 release 냐였다(디버그
+빌드의 dexopt·JIT·디버깅 계측). 그러니 **디버그의 6초는 고칠 대상이 아니고**,
+빠르게 하려고 `optimization` 을 켤 이유도 없다 — 데모·발표만 릴리스로 하면 된다.
+
+앱 코드에서 줄일 수 있는 몫(서비스 생성·토큰 읽기)은 이미 걷어냈다:
+`Application.onCreate` → `setContent` 구간이 1.28초에서 0.65초가 됐다.
+
 ## 구조
 
 - `presentation/` — Compose 화면·내비게이션·테마
