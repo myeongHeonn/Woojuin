@@ -79,16 +79,32 @@ class MicRecorder(
     }
 
     /**
+     * **고정 길이 녹음.** 노래 인식이 쓴다 — 음악은 말과 달리 침묵으로 끝을 판단할 수 없고,
+     * 지문 매칭에 필요한 최소 길이가 있다(12초면 충분하다는 것을 실측으로 확인했다).
+     * 무음 감지·조기 종료가 없으므로 [finish] 로만 앞당길 수 있다.
+     *
+     * @param seconds 녹음할 시간
+     * @param isActive [record] 와 같은 의미 — 호출자가 아직 결과를 원하는지
+     */
+    fun recordFixed(seconds: Int, isActive: () -> Boolean = { true }): Recording? =
+        record(fixedDurationMs = seconds * 1_000, isActive = isActive)
+
+    /**
      * 녹음이 끝날 때까지 블로킹한다 — 호출자가 IO 디스패처에서 부른다.
      * 끝나는 조건: 말 뒤 [SILENCE_TO_STOP_MS] 침묵 / 처음부터 [NO_SPEECH_TIMEOUT_MS] 무음 /
      * [MAX_DURATION_MS] 초과 / [finish] / [isActive] 가 false.
      *
+     * @param fixedDurationMs 정해진 시간만 녹음한다(노래 인식). null 이면 무음으로 끝낸다
      * @param isActive 호출자가 아직 결과를 원하는지. **블로킹 루프라 코루틴 취소가 저절로
-     *   전달되지 않으므로** 화면을 벗어났을 때 마이크를 놓으려면 이걸 봐야 한다
+     *   전달되지 않으므로** 화면을 벗어났을 때 마이크를 놓으려면 이걸 봐야 한다.
+     *   마지막 파라미터로 둔 것은 `record { 아직 원하는가 }` 로 쓰이기 때문이다
      * @return 모은 PCM(16kHz 모노 16bit). 마이크를 열 수 없으면 null
      */
     @SuppressLint("MissingPermission")
-    fun record(isActive: () -> Boolean = { true }): Recording? {
+    fun record(
+        fixedDurationMs: Int? = null,
+        isActive: () -> Boolean = { true },
+    ): Recording? {
         val createdAt = SystemClock.elapsedRealtime()
         val minBuffer = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
@@ -124,7 +140,7 @@ class MicRecorder(
             record.startRecording()
             Log.d(TAG, "startRecording 반환 — 준비 ${beforeStart - createdAt}ms, 시작 " +
                 "${SystemClock.elapsedRealtime() - beforeStart}ms")
-            pump(record, collected, isActive)
+            pump(record, collected, isActive, fixedDurationMs)
         } finally {
             runCatching { record.stop() }
             record.release()
@@ -143,6 +159,7 @@ class MicRecorder(
         record: AudioRecord,
         collected: ByteArrayOutputStream,
         isActive: () -> Boolean,
+        fixedDurationMs: Int?,
     ) {
         val samples = ShortArray(CHUNK_SAMPLES)
         val bytes = ByteArray(CHUNK_SAMPLES * 2)
@@ -150,7 +167,9 @@ class MicRecorder(
         var elapsedMs = 0
         speechChunks = 0
 
-        while (!finished && isActive() && elapsedMs < MAX_DURATION_MS) {
+        // 고정 길이면 그 시간까지, 아니면 안전 상한까지
+        val limitMs = fixedDurationMs ?: MAX_DURATION_MS
+        while (!finished && isActive() && elapsedMs < limitMs) {
             val read = record.read(samples, 0, samples.size)
             if (read <= 0) continue
             if (elapsedMs == 0) {
@@ -178,7 +197,9 @@ class MicRecorder(
             if (rms >= SPEECH_RMS_THRESHOLD) {
                 speechChunks++
                 silentMs = 0
-            } else {
+            } else if (fixedDurationMs == null) {
+                // 무음 감지는 말할 때만 쓴다 — 노래는 조용한 구간(간주·페이드)이 있어
+                // 침묵으로 끊으면 지문에 쓸 길이가 모자란다
                 silentMs += chunkMs
                 // 말이 한 번이라도 있었으면 침묵으로 끝낸다. 아직 없었다면 더 기다린다
                 val limit = if (speechChunks > 0) SILENCE_TO_STOP_MS else NO_SPEECH_TIMEOUT_MS
