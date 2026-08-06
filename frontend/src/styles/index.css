@@ -40,6 +40,53 @@
   height: var(--cluster-size);
 }
 
+/* ── 성좌뷰: 라이트에서 우주 스테이지가 낮 하늘이 된다 ──────────────────
+   전환이 1.4초대로 느린 건 의도다. 해가 뜨고 지는 것처럼 보여야 하는데, 즉시 바뀌면
+   그냥 배경색이 튄 것으로 읽힌다. */
+:root {
+  --universe-theme-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.woojuin-universe-sky {
+  background: linear-gradient(180deg, #0c68d8 0%, #3389e2 48%, #8cc4f1 100%);
+  opacity: 0;
+  transition: opacity 1.45s var(--universe-theme-ease);
+}
+
+:root[data-theme='light'] .woojuin-universe-sky {
+  opacity: 1;
+}
+
+.woojuin-universe-canvas {
+  transition: filter 1.35s var(--universe-theme-ease);
+}
+
+/* screen 합성은 라이트에서만 건다 — 다크는 지금 모습이 검증돼 있어 건드리지 않는다.
+   밝은 하늘 위에서는 별 스프라이트의 어두운 가장자리가 그대로 얹혀 지저분해지는데,
+   screen 은 어두운 값을 투명하게 만들어 별빛만 남긴다. */
+:root[data-theme='light'] .woojuin-universe-canvas {
+  mix-blend-mode: screen;
+  filter: saturate(0.9) brightness(1.32);
+}
+
+.woojuin-constellation-label {
+  color: rgba(232, 234, 238, 0.92);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
+}
+
+/* 낮 하늘 위에서는 밝은 글자 + 검은 글로우가 읽히지 않는다 — 대비를 뒤집는다 */
+:root[data-theme='light'] .woojuin-constellation-label {
+  color: #102a4d;
+  text-shadow: 0 1px 10px rgba(255, 255, 255, 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .woojuin-universe-sky,
+  .woojuin-universe-canvas {
+    transition: none;
+  }
+}
+
 /* 지도 좌우 가장자리 비네트 — 색을 --color-space 에서 뽑아 테마를 따라간다 */
 .woojuin-map-vignette {
   background: linear-gradient(

@@ -181,8 +181,17 @@ const UniverseCanvas = ({
   }, [activeCategoryId]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-space">
-      <canvas ref={canvasRef} className="block h-full w-full" />
+    // isolate — 아래 캔버스가 라이트에서 screen 합성을 쓰는데, 합성 대상을 이 안으로 가둔다.
+    // 없으면 페이지 배경까지 끌어들여 스테이지 밖 색이 같이 밝아진다.
+    <div className="relative isolate h-full w-full overflow-hidden bg-space">
+      {/* 라이트에서 드러나는 낮 하늘. 캔버스가 alpha:true 라 별이 없는 곳은 투명해서
+          이 그라데이션이 그대로 비친다(규칙은 index.css 의 .woojuin-universe-sky) */}
+      <div
+        className="woojuin-universe-sky pointer-events-none absolute inset-0"
+        aria-hidden="true"
+      />
+      {/* relative — 절대배치된 하늘보다 위에 오게 한다(정적 요소는 배치된 형제 아래에 깔린다) */}
+      <canvas ref={canvasRef} className="woojuin-universe-canvas relative block h-full w-full" />
 
       <ConstellationLabels
         labels={labelList}
