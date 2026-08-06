@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.global.error;
 
 import com.ssafy.woojuin.domain.ai.usage.AiUsageLimitExceededException;
+import com.ssafy.woojuin.domain.ai.speech.TranscriptionFailedException;
 import com.ssafy.woojuin.domain.ai.usage.AiUsageUnavailableException;
 import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
 import com.ssafy.woojuin.domain.auth.exception.UserNotFoundException;
@@ -66,6 +67,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleBadRequest(IllegalArgumentException e) {
         return ApiResponse.of(400, e.getMessage(), null);
+    }
+
+    /**
+     * 받아쓰기 실패는 503 이다 — 클라이언트가 "말이 없었다"(200 + 빈 문자열)와 구분해야
+     * 사용자에게 맞는 말을 보여줄 수 있다(다시 말해보세요 vs 잠시 후 다시).
+     */
+    @ExceptionHandler(TranscriptionFailedException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiResponse<Void> handleTranscriptionFailed(TranscriptionFailedException e) {
+        return ApiResponse.of(503, e.getMessage(), null);
     }
 
     @ExceptionHandler(AiUsageLimitExceededException.class)

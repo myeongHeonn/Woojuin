@@ -116,6 +116,12 @@ woojuin:
     base-url: ${AI_BASE_URL:https://gms.ssafy.io/gmsapi/api.openai.com/v1}
     model: ${AI_MODEL:gpt-5-mini}
     timeout-ms: ${AI_TIMEOUT_MS:8000}
+    # 워치 음성 저장의 받아쓰기(SpeechTranscriber). 위 base-url·키를 그대로 쓴다.
+    # whisper-1 만 GMS 프록시에 있다(gpt-4o-transcribe 계열은 없음 — 라이브로 확인).
+    # timeout 이 텍스트(8s)보다 긴 것은 오디오 업로드 시간이 더해지기 때문이다 —
+    # 30초 녹음이면 1MB 가 블루투스 프록시를 타고 올라온다.
+    stt-model: ${AI_STT_MODEL:whisper-1}
+    stt-timeout-ms: ${AI_STT_TIMEOUT_MS:20000}
   # 이미지 분석(OCR·설명·태그 추출). OpenRouter 경유 Qwen3-VL — 위 ai(텍스트) 블록과
   # 프로바이더가 달라 별도 블록이다(모델·키·과금 주체가 다르다). 묶음 F의 이미지 모델
   # 평가(ai-test 브랜치 ai/ai-image)에서 확정한 qwen3-vl 8b instruct를 그대로 쓴다.

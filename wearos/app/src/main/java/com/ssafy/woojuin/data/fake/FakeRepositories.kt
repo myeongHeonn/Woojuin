@@ -4,6 +4,7 @@ import com.ssafy.woojuin.domain.model.PlaceCandidate
 import com.ssafy.woojuin.domain.model.RecognizedSong
 import com.ssafy.woojuin.domain.model.SavedItem
 import com.ssafy.woojuin.domain.model.SavedItemType
+import com.ssafy.woojuin.domain.model.SearchInterpretation
 import com.ssafy.woojuin.domain.model.SyncState
 import com.ssafy.woojuin.domain.model.SyncStatus
 import com.ssafy.woojuin.domain.repository.PlaceRepository
@@ -35,7 +36,7 @@ object FakeData {
     val savedItems = listOf(
         SavedItem(
             id = "item-pasta",
-            type = SavedItemType.PLACE,
+            type = SavedItemType.LINK,
             title = "온화정",
             summary = "성수에서 가볼 파스타집. 웨이팅은 평일 저녁이 낫다",
             savedAtLabel = "5월 12일",
@@ -53,15 +54,15 @@ object FakeData {
         ),
         SavedItem(
             id = "item-jeju",
-            type = SavedItemType.VOICE,
+            type = SavedItemType.MEMO,
             title = "제주도 여행 메모",
             summary = "협재 근처 스테이, 렌터카는 공항점이 더 저렴",
             savedAtLabel = "4월 28일",
-            sourceLabel = "음성 메모",
+            sourceLabel = "메모",
         ),
         SavedItem(
             id = "item-song",
-            type = SavedItemType.SONG,
+            type = SavedItemType.LINK,
             title = "Supernova — aespa",
             summary = "어제 카페에서 저장한 노래",
             savedAtLabel = "어제",
@@ -108,6 +109,7 @@ class FakeSyncRepository : SyncRepository {
 
 /** 부분 인식 텍스트를 점진적으로 흘려보내는 공용 시뮬레이터. */
 private fun fakeSpeech(sentence: String, chunkDelayMs: Long = 350L): Flow<SpeechEvent> = flow {
+    emit(SpeechEvent.Ready)
     val words = sentence.split(" ")
     var acc = ""
     words.forEachIndexed { index, word ->
@@ -133,15 +135,17 @@ class FakeVoiceCaptureRepository(
 
     override fun listen(): Flow<SpeechEvent> = speech.listen()
 
+    override fun finishListening() = speech.finishNow()
+
     override suspend fun saveLocal(text: String): SavedItem {
         // 로컬 저장은 즉시 끝난다 — 서버/AI를 기다리지 않는다.
         val item = SavedItem(
             id = UUID.randomUUID().toString(),
-            type = SavedItemType.VOICE,
+            type = SavedItemType.MEMO,
             title = text,
             summary = "AI가 정리하고 있어요",
             savedAtLabel = "방금",
-            sourceLabel = "음성 메모",
+            sourceLabel = "메모",
         )
         _lastSaved.value = item
         sync.reportLocalSaved(item)
@@ -166,6 +170,10 @@ class FakeSearchRepository(
     private val _lastResults = MutableStateFlow<List<SavedItem>>(emptyList())
     override val lastResults: StateFlow<List<SavedItem>> = _lastResults.asStateFlow()
 
+    private val _lastInterpretation = MutableStateFlow<SearchInterpretation?>(null)
+    override val lastInterpretation: StateFlow<SearchInterpretation?> =
+        _lastInterpretation.asStateFlow()
+
     override fun listenQuery(): Flow<SpeechEvent> = speech.listen()
 
     override suspend fun search(query: String): List<SavedItem> {
@@ -175,6 +183,10 @@ class FakeSearchRepository(
             if (query.isBlank() || query.contains("없는")) emptyList()
             else FakeData.savedItems.take(3)
         _lastResults.value = results
+        // 실서버에서는 AI 가 뽑아낸 검색어가 온다 — fake 는 문장에서 조사만 떼는 흉내
+        _lastInterpretation.value = query
+            .takeIf { it.isNotBlank() }
+            ?.let { SearchInterpretation(it.replace("지난번에 저장한 ", ""), aiPlanned = true) }
         return results
     }
 
@@ -198,7 +210,7 @@ class FakeSongRepository(private val sync: SyncRepository) : SongRepository {
     override suspend fun saveSong(song: RecognizedSong): SavedItem {
         val item = SavedItem(
             id = UUID.randomUUID().toString(),
-            type = SavedItemType.SONG,
+            type = SavedItemType.LINK,
             title = "${song.title} — ${song.artist}",
             summary = song.albumLabel,
             savedAtLabel = "방금",
@@ -232,7 +244,7 @@ class FakePlaceRepository(private val sync: SyncRepository) : PlaceRepository {
     override suspend fun savePlace(candidate: PlaceCandidate): SavedItem {
         val item = SavedItem(
             id = UUID.randomUUID().toString(),
-            type = SavedItemType.PLACE,
+            type = SavedItemType.LINK,
             title = candidate.name,
             summary = "${candidate.category} · ${candidate.distanceLabel}",
             savedAtLabel = "방금",
@@ -257,30 +269,39 @@ object Repositories {
         appContext = context.applicationContext
     }
 
-    /** 음성 저장·검색이 공유하는 단일 인식기 — 바인딩을 데워 재사용한다. */
-    private val androidSpeech: com.ssafy.woojuin.data.speech.AndroidSpeechSource? by lazy {
-        val context = appContext
-        if (context != null && android.speech.SpeechRecognizer.isRecognitionAvailable(context)) {
-            com.ssafy.woojuin.data.speech.AndroidSpeechSource(context)
-        } else {
-            null
-        }
-    }
-
-    /** 앱 진입 시 호출 — 탭 → 첫 인식까지의 콜드 스타트를 줄인다. */
-    fun warmUpSpeech() {
-        androidSpeech?.warmUp()
-    }
-
+    /**
+     * 음성 저장·검색이 공유하는 인식기 — 손목에서 녹음해 서버로 보낸다
+     * ([com.ssafy.woojuin.data.speech.ServerSpeechSource]). 기기 인식기를 쓰지 않는 이유는
+     * [com.ssafy.woojuin.data.speech.MicRecorder] javadoc 에 있다.
+     *
+     * <p>Preview 는 [AppServices] 가 없어 정해진 문장을 흘리는 fake 로 떨어진다.
+     */
     private fun speechSource(fallbackSentence: String): SpeechSource =
-        androidSpeech ?: FakeSpeechSource(fallbackSentence)
+        if (com.ssafy.woojuin.data.AppServices.initialized) {
+            com.ssafy.woojuin.data.speech.ServerSpeechSource(com.ssafy.woojuin.data.AppServices.api)
+        } else {
+            FakeSpeechSource(fallbackSentence)
+        }
 
     val sync: SyncRepository by lazy { FakeSyncRepository() }
+
+    // 음성 저장·검색도 실서버로 전환됐다(-492). 인식기는 여기가 소유하므로 주입해 넘긴다 —
+    // Preview 는 AppServices 가 없어 fake 로 돈다(위치 저장과 같은 폴백)
     val voiceCapture: VoiceCaptureRepository by lazy {
-        FakeVoiceCaptureRepository(sync, speechSource("성수동 파스타집 온화정 다음 주에 가보기"))
+        val speech = speechSource("성수동 파스타집 온화정 다음 주에 가보기")
+        if (com.ssafy.woojuin.data.AppServices.initialized) {
+            com.ssafy.woojuin.data.AppServices.voiceCapture(speech)
+        } else {
+            FakeVoiceCaptureRepository(sync, speech)
+        }
     }
     val search: SearchRepository by lazy {
-        FakeSearchRepository(speechSource("지난번에 저장한 성수동 파스타집"))
+        val speech = speechSource("지난번에 저장한 성수동 파스타집")
+        if (com.ssafy.woojuin.data.AppServices.initialized) {
+            com.ssafy.woojuin.data.AppServices.search(speech)
+        } else {
+            FakeSearchRepository(speech)
+        }
     }
     val song: SongRepository by lazy { FakeSongRepository(sync) }
     // 위치 저장은 실서버로 전환됐다(-458). Preview 는 AppServices 가 없어 fake 로 돈다
