@@ -301,6 +301,23 @@ pipeline {
             }
         }
 
+        stage('AI Music Build Image') {
+            // 노래 인식 사이드카(FR-055) — shazamio 로 오디오 한 토막에서 곡을 알아낸다.
+            // aimix 와 같은 규칙(서버에서 직접 빌드, 커밋 SHA 태그).
+            //
+            // ai-mix(922MB)·crawler(2.29GB)보다 가볍다(로컬 실측 377MB) — ffmpeg 를 넣지
+            // 않아서다. shazamio 는 WAV 를 표준 라이브러리로 읽고, 워치가 보내는 것이 WAV 라
+            // 외부 바이너리가 필요 없다. mp3 를 받게 되면 그때 ffmpeg 를 더한다.
+            when { expression { env.CHANGED_BE == 'true' } }
+            steps {
+                sh """
+                    docker build \
+                        -t woojuin-aimusic:${env.SHORT_SHA} \
+                        -f ai/ai-music/Dockerfile ai/ai-music
+                """
+            }
+        }
+
         stage('Crawler Build Image') {
             // crawler = Scrapling(브라우저 렌더) 기반 본문 추출 폴백 사이드카.
             // Jsoup 으로 본문이 안 나오는 SPA·봇차단 페이지에서만 호출된다.
@@ -432,6 +449,7 @@ pipeline {
                         sh """
                             BACKEND_IMAGE=woojuin-backend:${env.SHORT_SHA} \
                             AIMIX_IMAGE=woojuin-aimix:${env.SHORT_SHA} \
+                            AIMUSIC_IMAGE=woojuin-aimusic:${env.SHORT_SHA} \
                             CRAWLER_IMAGE=woojuin-crawler:${env.SHORT_SHA} \
                             docker compose -p ${STACK} \
                                 --env-file "\$ENV_FILE" \
@@ -505,6 +523,7 @@ pipeline {
                     //    동작하는 사례가 알려져 있다. for 루프는 그 위험이 없다.
                     def sidecars = [
                         [name: 'aimix',   port: 8002, feature: '요약·분류·임베딩·우주 뷰'],
+                        [name: 'aimusic', port: 8003, feature: '워치 노래 인식(막히면 AudD 로 폴백)'],
                         [name: 'crawler', port: 8001, feature: 'SPA·봇차단 페이지 본문 추출 폴백'],
                     ]
                     for (s in sidecars) {
