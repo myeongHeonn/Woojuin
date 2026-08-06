@@ -65,7 +65,6 @@ fun PreviewHome() = PreviewShell {
         onSearch = {},
         onSong = {},
         onPlace = {},
-        onNearby = {},
         onSyncStatus = {},
     )
 }
@@ -137,13 +136,6 @@ fun PreviewPlaceSaveSuccess() = PreviewShell {
 }
 
 // ─── 주변 장소 / 기타 ───
-
-@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
-@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true)
-@Composable
-fun PreviewNearbyPlaceDetail() = PreviewShell {
-    NearbyPlaceDetailScreen(onOpenOnPhone = {}, onDisabled = {})
-}
 
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
 @Composable

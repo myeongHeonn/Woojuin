@@ -1,6 +1,5 @@
 package com.ssafy.woojuin.domain.repository
 
-import com.ssafy.woojuin.domain.model.NearbyAlert
 import com.ssafy.woojuin.domain.model.PlaceCandidate
 import com.ssafy.woojuin.domain.model.RecognizedSong
 import com.ssafy.woojuin.domain.model.SavedItem
@@ -64,13 +63,6 @@ interface PlaceRepository {
 
     suspend fun savePlace(candidate: PlaceCandidate): SavedItem
     val lastSavedPlace: StateFlow<PlaceCandidate?>
-}
-
-interface NearbyAlertRepository {
-    /** 근처에 저장한 장소가 있을 때만 non-null. */
-    val activeAlert: StateFlow<NearbyAlert?>
-    fun muteToday(placeId: String)
-    fun disableAlert(placeId: String)
 }
 
 interface SyncRepository {

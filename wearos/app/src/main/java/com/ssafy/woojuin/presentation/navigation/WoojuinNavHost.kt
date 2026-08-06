@@ -12,7 +12,6 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.ssafy.woojuin.presentation.component.WoojuinLaunchMotion
 import com.ssafy.woojuin.presentation.screen.HomeScreen
 import com.ssafy.woojuin.presentation.screen.LinkScreen
-import com.ssafy.woojuin.presentation.screen.NearbyPlaceDetailScreen
 import com.ssafy.woojuin.presentation.screen.OfflineQueueScreen
 import com.ssafy.woojuin.presentation.screen.OpenOnPhoneScreen
 import com.ssafy.woojuin.presentation.screen.PermissionFeature
@@ -81,7 +80,6 @@ fun WoojuinNavHost(
                 onSearch = { navController.navigate(Routes.VOICE_SEARCH) },
                 onSong = { navController.navigate(Routes.SONG_RECOGNITION) },
                 onPlace = { navController.navigate(Routes.PLACE_PICKER) },
-                onNearby = { navController.navigate(Routes.NEARBY_PLACE_DETAIL) },
                 onSyncStatus = { navController.navigate(Routes.OFFLINE_QUEUE) },
             )
         }
@@ -165,13 +163,6 @@ fun WoojuinNavHost(
         composable(Routes.PLACE_SAVE_SUCCESS) {
             PlaceSaveSuccessScreen(
                 onDone = { backToHome() },
-            )
-        }
-
-        composable(Routes.NEARBY_PLACE_DETAIL) {
-            NearbyPlaceDetailScreen(
-                onOpenOnPhone = { navController.navigate(Routes.OPEN_ON_PHONE) },
-                onDisabled = { backToHome() },
             )
         }
 

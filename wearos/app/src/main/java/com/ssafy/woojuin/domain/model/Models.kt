@@ -34,16 +34,6 @@ data class RecognizedSong(
     val albumLabel: String,
 )
 
-data class NearbyAlert(
-    val placeId: String,
-    val placeName: String,
-    val distanceMeters: Int,
-    val summary: String,
-    val memo: String?,
-    val savedAtLabel: String,
-    val lowAccuracy: Boolean = false,
-)
-
 enum class SyncState { SYNCED, SYNCING, PENDING, OFFLINE, FAILED }
 
 data class SyncStatus(
