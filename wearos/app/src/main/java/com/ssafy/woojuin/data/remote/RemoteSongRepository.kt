@@ -41,10 +41,6 @@ class RemoteSongRepository(
     private val _lastMatched = MutableStateFlow<RecognizedSong?>(null)
     override val lastMatched: StateFlow<RecognizedSong?> = _lastMatched.asStateFlow()
 
-    /** 인식된 곡의 링크 — 저장할 때 쓴다. 화면 모델(RecognizedSong)에는 링크가 없다. */
-    @Volatile
-    private var lastLink: String? = null
-
     override fun recognize(): Flow<SongRecognitionEvent> = channelFlow {
         val recorder = MicRecorder(
             onStarted = { Log.d(TAG, "녹음 시작") },
@@ -100,8 +96,8 @@ class RemoteSongRepository(
             Log.d(TAG, "곡을 찾지 못했다")
             return null
         }
-        lastLink = text(data, "link")
-        if (lastLink == null) {
+        val link = text(data, "link")
+        if (link == null) {
             // 링크가 없으면 저장할 수 없다 — 서버가 걸러 주지만 여기서도 지킨다
             Log.d(TAG, "링크 없는 결과 — 못 찾은 것으로 본다")
             return null
@@ -110,6 +106,7 @@ class RemoteSongRepository(
             title = text(data, "title") ?: "제목 없음",
             artist = text(data, "artist") ?: "",
             albumLabel = "",
+            link = link,
         )
     }
 
@@ -118,7 +115,7 @@ class RemoteSongRepository(
      * 201 이면 끝이고 폴링하지 않는다. 제목·썸네일은 서버 파이프라인이 채운다.
      */
     override suspend fun saveSong(song: RecognizedSong): SavedItem = withContext(Dispatchers.IO) {
-        val link = lastLink ?: throw IllegalStateException("저장할 곡 링크가 없습니다")
+        val link = song.link ?: throw IllegalStateException("저장할 곡 링크가 없습니다")
         val workspaceId = workspaces.personalSpaceId()
         val body = JSONObject().put("type", "URL").put("url", link)
         val data = api.authorized("/workspaces/$workspaceId/items", body).getJSONObject("data")

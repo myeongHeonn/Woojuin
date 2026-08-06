@@ -156,25 +156,33 @@ fun PermissionGuideScreen(feature: PermissionFeature, onBack: () -> Unit) {
 
 private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
-/** 긴 원문·상세 지도·수정은 휴대폰에서 잇는다. */
+/**
+ * 휴대폰에서 열기 결과.
+ *
+ * **예전에는 무엇을 하든 "휴대폰으로 보냈어요"라고 했다** — 실제로는 아무것도 보내지 않는
+ * 화면이었다. 지금은 [com.ssafy.woojuin.presentation.util.PhoneLauncher] 의 호출 결과를
+ * 받아 성공·실패를 갈라 말한다(페어링이 없으면 실패한다).
+ */
 @Composable
-fun OpenOnPhoneScreen(onDone: () -> Unit) {
+fun OpenOnPhoneScreen(opened: Boolean, onDone: () -> Unit) {
     WoojuinStatusScreen {
         Icon(
             imageVector = Icons.Rounded.PhoneAndroid,
             contentDescription = null,
-            tint = WoojuinColor.StarBlue,
+            tint = if (opened) WoojuinColor.StarBlue else WoojuinColor.TextMuted,
             modifier = Modifier.size(28.dp),
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "휴대폰으로 보냈어요",
+            text = if (opened) "휴대폰에서 열었어요" else "연결된 휴대폰이 없어요",
             style = MaterialTheme.typography.titleMedium,
             color = WoojuinColor.TextPrimary,
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(4.dp))
-        CaptionText("휴대폰에서 이어서 확인하세요")
+        CaptionText(
+            if (opened) "휴대폰에서 이어서 확인하세요" else "휴대폰과 연결한 뒤 다시 시도해 주세요",
+        )
         Spacer(modifier = Modifier.height(10.dp))
         Button(
             onClick = onDone,

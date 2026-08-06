@@ -46,6 +46,25 @@ fun WoojuinNavHost(
         navController.popBackStack(Routes.HOME, inclusive = false)
     }
 
+    // "휴대폰에서 열기" — 저장한 것을 **우주인 웹**에서 이어 본다. 원본 사이트가 아니라
+    // 우리 보관함으로 보내는 게 요점이다(메모·사진처럼 원본 링크가 없는 것도 열린다).
+    //
+    // 웹에 아이템별 경로가 아직 없어 개인 스페이스로 보낸다 — 방금 저장한 것이 목록
+    // 맨 앞이라 바로 보인다. 아이템을 정확히 짚는 딥링크는 프론트에 경로가 생기면 붙인다.
+    //
+    // 예전에는 폰에 아무것도 보내지 않고 결과 화면에서 "보냈어요"라고만 했다.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    fun openOnPhone() {
+        scope.launch {
+            val opened = com.ssafy.woojuin.presentation.util.PhoneLauncher.open(
+                context,
+                com.ssafy.woojuin.BuildConfig.WEB_BASE_URL + "/home",
+            )
+            navController.navigate(Routes.openOnPhone(opened))
+        }
+    }
+
     // 웹 기기 관리에서 이 워치를 해제하면(-460) 다음 요청이 거부되며 토큰이 지워진다.
     // 그 순간을 여기서 받아 재시작 없이 링크 화면으로 보낸다 — AC "해제하면 로그인 상태를 잃는다".
     if (com.ssafy.woojuin.data.AppServices.initialized) {
@@ -127,13 +146,13 @@ fun WoojuinNavHost(
             VoiceSearchResultsScreen(
                 onItem = { id -> navController.navigate(Routes.savedItemDetail(id)) },
                 onRetry = { navController.navigate(Routes.VOICE_SEARCH) },
-                onOpenOnPhone = { navController.navigate(Routes.OPEN_ON_PHONE) },
+                onOpenOnPhone = { openOnPhone() },
             )
         }
         composable(Routes.SAVED_ITEM_DETAIL) { backStackEntry ->
             SavedItemDetailScreen(
                 itemId = backStackEntry.arguments?.getString("itemId").orEmpty(),
-                onOpenOnPhone = { navController.navigate(Routes.OPEN_ON_PHONE) },
+                onOpenOnPhone = { openOnPhone() },
             )
         }
 
@@ -149,7 +168,7 @@ fun WoojuinNavHost(
         }
         composable(Routes.SONG_RESULT) {
             SongResultScreen(
-                onOpenOnPhone = { navController.navigate(Routes.OPEN_ON_PHONE) },
+                onOpenOnPhone = { openOnPhone() },
                 onRetry = { navController.navigate(Routes.SONG_RECOGNITION) },
             )
         }
@@ -180,8 +199,11 @@ fun WoojuinNavHost(
                 onBack = { navController.popBackStack() },
             )
         }
-        composable(Routes.OPEN_ON_PHONE) {
-            OpenOnPhoneScreen(onDone = { navController.popBackStack() })
+        composable(Routes.OPEN_ON_PHONE) { backStackEntry ->
+            OpenOnPhoneScreen(
+                opened = backStackEntry.arguments?.getString("opened")?.toBoolean() ?: false,
+                onDone = { navController.popBackStack() },
+            )
         }
     }
 }

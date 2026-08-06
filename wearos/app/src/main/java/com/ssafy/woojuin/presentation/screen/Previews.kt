@@ -158,5 +158,5 @@ fun PreviewPermissionGuideLocation() = PreviewShell {
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
 @Composable
 fun PreviewOpenOnPhone() = PreviewShell {
-    OpenOnPhoneScreen(onDone = {})
+    OpenOnPhoneScreen(opened = true, onDone = {})
 }

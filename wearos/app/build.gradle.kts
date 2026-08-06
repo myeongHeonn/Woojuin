@@ -24,6 +24,12 @@ android {
         val apiBaseUrl = providers.gradleProperty("apiBaseUrl")
             .getOrElse("https://api.dev.woojuin.store/api")
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+
+        // "휴대폰에서 열기"가 웹 앱으로 보낼 주소. 웹에는 아이템별·검색 경로가 없어
+        // 홈으로 보낸다(거기서 이어 찾는다). release 가 prod 로 덮어쓴다.
+        val webBaseUrl = providers.gradleProperty("webBaseUrl")
+            .getOrElse("https://dev.woojuin.store")
+        buildConfigField("String", "WEB_BASE_URL", "\"$webBaseUrl\"")
     }
 
     buildTypes {
@@ -32,6 +38,7 @@ android {
                 enable = false
             }
             buildConfigField("String", "API_BASE_URL", "\"https://api.woojuin.store/api\"")
+            buildConfigField("String", "WEB_BASE_URL", "\"https://woojuin.store\"")
         }
     }
     compileOptions {
@@ -59,6 +66,8 @@ dependencies {
     implementation(libs.protolayout.expression)
     implementation(libs.watchface.complications.data.source.ktx)
     implementation(libs.concurrent.futures.ktx)
+    // 저장한 링크를 페어링된 휴대폰에서 열기(RemoteActivityHelper)
+    implementation(libs.wear.remote.interactions)
     implementation(libs.core.splashscreen)
     implementation(libs.play.services.wearable)
     implementation(libs.play.services.location)
