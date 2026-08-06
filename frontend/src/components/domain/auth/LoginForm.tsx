@@ -12,16 +12,6 @@ import SubmitButton from '@/components/ui/button/SubmitButton';
 import GoogleAuthButton from './GoogleAuthButton';
 
 /**
- * 구글 로그인 버튼을 띄울지 여부.
- *
- * 우리 구글 Cloud 프로젝트가 정책 위반으로 정지돼 동의 화면이 열리지 않는다(2026-08-04, 재심사 요청 상태).
- * 버튼을 그대로 두면 누른 사람 전원이 우리 화면 밖 구글 오류 페이지로 떨어져 돌아올 방법이 없으므로
- * 심사가 끝날 때까지 감춘다. 컴포넌트·백엔드 ClientRegistration·콜백 라우트는 손대지 않았으니
- * 심사가 통과하면 이 값만 true 로 되돌리면 된다.
- */
-const GOOGLE_LOGIN_ENABLED: boolean = false;
-
-/**
  * 로그인 폼 — /login 페이지와 모바일 랜딩이 함께 쓴다.
  *
  * 페이지 레이아웃(가운데 정렬·배경)은 쓰는 쪽이 정하고 여기서는 폼만 그린다.
@@ -74,7 +64,9 @@ const LoginForm = () => {
         </SubmitButton>
       </form>
 
-      {GOOGLE_LOGIN_ENABLED && <GoogleAuthButton />}
+      {/* 구글 Cloud 프로젝트 정지 기간(2026-08-04~08-06) 동안 감춰 뒀던 버튼 — 계정이 복구돼 되살린다.
+          이메일 로그인은 그대로 남긴다: 그 기간에 가입한 LOCAL 계정들이 유일한 진입로를 잃는다. */}
+      <GoogleAuthButton />
 
       {/* 구글은 첫 로그인이 곧 가입이라(OAuthAccountService.findOrCreateUser) 여기에도 고지한다 */}
       <p className="text-center text-xs text-text-3">
