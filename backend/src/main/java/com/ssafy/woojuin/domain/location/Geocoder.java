@@ -33,4 +33,21 @@ public interface Geocoder {
 
     /** 좌표 → 주소 문자열. EXIF GPS로 좌표만 얻은 IMAGE 아이템의 address를 채운다. */
     Optional<String> reverse(GeoPoint point);
+
+    /**
+     * 좌표 주변의 장소 후보 (거리순). 워치 위치 저장(FR-053)이 "지금 있는 곳 고르기"에 쓴다.
+     * 다른 메서드와 같은 계약 — 실패·0건 모두 빈 목록이고 예외를 던지지 않는다.
+     * NoOp(키 없음)에서는 빈 목록이라, 워치 화면엔 "현재 위치" 후보만 남는다.
+     *
+     * <p>기본은 음식점·카페만 뒤진다(쿼터 2). {@code expand}가 참이면 전 카테고리로
+     * 넓힌다 — 워치의 "주변 더 찾기"가 그것이다. 기본 검색이 <b>0건</b>이면 요청하지
+     * 않아도 넓힌다(그때는 확장이 유일한 선택지다). 몇 개만 나온 경우엔 넓히지 않는다.
+     */
+    NearbySearch nearby(GeoPoint point, boolean expand);
+
+    /**
+     * {@link #nearby} 결과. {@code expanded}는 전 카테고리를 이미 뒤졌다는 뜻으로,
+     * 클라이언트가 이 응답에 대고 확장 요청을 또 보내봐야 같은 결과라는 신호다.
+     */
+    record NearbySearch(java.util.List<NearbyPlace> places, boolean expanded) {}
 }

@@ -27,4 +27,10 @@ public class NoOpGeocoder implements Geocoder {
     public Optional<String> reverse(GeoPoint point) {
         return Optional.empty();
     }
+
+    @Override
+    public NearbySearch nearby(GeoPoint point, boolean expand) {
+        // expanded=true — 키가 없는데 확장을 다시 요청해 봐야 소용없다는 신호
+        return new NearbySearch(java.util.List.of(), true);
+    }
 }
