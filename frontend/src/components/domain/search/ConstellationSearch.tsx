@@ -128,7 +128,7 @@ const ConstellationSearch = ({ onSearchResults, aboveBar }: ConstellationSearchP
         )}
 
         {/* 입력 바 바로 위 우측. 바가 하단 고정이라 검색해도 바는 안 움직이고 패널이 위로 쌓인다 */}
-        <AiModeHint className="mb-1.5 pr-1.5 text-right" />
+        <AiModeHint className="woojuin-on-sky-sub mb-1.5 pr-1.5 text-right" />
 
         {/* 모바일 전용 추가 버튼 + 검색 바. 헤더의 + 는 상단이라 엄지로 닿기 멀어
             하단 바 왼쪽에도 둔다(데스크톱은 헤더에만 있어 숨긴다) */}

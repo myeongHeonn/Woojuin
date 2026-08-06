@@ -49,7 +49,7 @@ const LibrarySearch = () => {
       왼쪽 여백 102px · 오른쪽 20px).
     */
     <div className="mx-auto mb-2 w-full max-w-100 desktop:ml-auto desktop:mr-0">
-      <AiModeHint className="mb-1 pr-1 text-right" />
+      <AiModeHint className="mb-1 pr-1 text-right text-text-3" />
 
       <form
         onSubmit={submit}
