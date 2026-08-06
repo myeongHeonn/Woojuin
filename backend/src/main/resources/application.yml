@@ -122,6 +122,13 @@ woojuin:
     # 30초 녹음이면 1MB 가 블루투스 프록시를 타고 올라온다.
     stt-model: ${AI_STT_MODEL:whisper-1}
     stt-timeout-ms: ${AI_STT_TIMEOUT_MS:20000}
+  # 노래 인식(FR-055). 기본 경로는 ai-music 사이드카(shazamio)이고 키가 필요 없다.
+  # AUDD_API_TOKEN 이 있으면 사이드카 실패 시에만 AudD 정식 API 로 폴백한다 —
+  # AudD 는 무료 300건 뒤 초과분이 자동 과금되므로 "못 찾음"에는 재시도하지 않는다.
+  # 주소가 비면 사이드카를 쓰지 않는다(키도 없으면 기능만 꺼지고 앱은 뜬다).
+  music:
+    sidecar-base-url: ${AI_MUSIC_BASE_URL:http://localhost:8003}
+    timeout-ms: ${AI_MUSIC_TIMEOUT_MS:25000}
   # 이미지 분석(OCR·설명·태그 추출). OpenRouter 경유 Qwen3-VL — 위 ai(텍스트) 블록과
   # 프로바이더가 달라 별도 블록이다(모델·키·과금 주체가 다르다). 묶음 F의 이미지 모델
   # 평가(ai-test 브랜치 ai/ai-image)에서 확정한 qwen3-vl 8b instruct를 그대로 쓴다.
