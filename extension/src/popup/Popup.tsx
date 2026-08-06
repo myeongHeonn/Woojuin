@@ -15,7 +15,13 @@ import {
   getRefreshToken,
   setAutoLoginSuppressed,
 } from '@/storage/authStorage';
-import { clearSelectedWorkspaceId, getSelectedWorkspaceId, setSelectedWorkspaceId } from '@/storage/workspaceStorage';
+import {
+  clearCachedWorkspaces,
+  clearSelectedWorkspaceId,
+  getSelectedWorkspaceId,
+  setCachedWorkspaces,
+  setSelectedWorkspaceId,
+} from '@/storage/workspaceStorage';
 
 type Status = 'idle' | 'loading' | 'saving' | 'analyzing' | 'done' | 'error';
 interface ContextSaveFeedback {
@@ -87,6 +93,8 @@ export default function Popup() {
         ?? items.find((item) => item.type === 'PERSONAL') ?? items[0] ?? null;
       setWorkspaces(items);
       setWorkspaceId(selected?.id ?? null);
+      // 우클릭 메뉴가 이 목록으로 저장할 곳 하위 메뉴를 짠다(background/contextMenus.ts).
+      await setCachedWorkspaces(items);
       if (selected) await setSelectedWorkspaceId(selected.id);
       setStatus('idle');
     } catch (error) {
@@ -112,14 +120,32 @@ export default function Popup() {
     })();
   }, [loadWorkspaces]);
 
+  /**
+   * 우클릭 저장의 **실패**만 받아 온다. 성공은 배지·툴팁과 완료 알림으로 이미 알리므로
+   * 여기까지 띄우면 같은 말을 네 번 하게 되고, 팝업을 안 여는 게 요점인 기능의 결과를
+   * 팝업에서 확인시키는 꼴이 된다(background 의 showFeedback 주석 참고).
+   *
+   * 받은 뒤에는 **지운다.** 안 지우면 팝업을 열 때마다 지나간 실패가 다시 뜬다 —
+   * 배지는 8초, 저장 완료 표시는 1.4초 만에 사라지는데 이 줄만 남는 게 지금 문제였다.
+   */
   useEffect(() => {
+    const consume = (feedback: ContextSaveFeedback | undefined) => {
+      // success 검사는 예전 버전이 남긴 성공 기록을 걸러 낸다(그때는 성공도 저장했다).
+      if (!feedback || feedback.success) return false;
+      setContextFeedback(feedback);
+      return true;
+    };
     void chrome.storage.local.get(CONTEXT_FEEDBACK_KEY).then((result) => {
       const feedback = result[CONTEXT_FEEDBACK_KEY] as ContextSaveFeedback | undefined;
-      if (feedback && Date.now() - feedback.createdAt < 60_000) setContextFeedback(feedback);
+      if (!feedback) return;
+      // 오래된 실패는 되살리지 않는다 — 지금 하려는 일과 무관한 이야기가 된다.
+      if (Date.now() - feedback.createdAt < 60_000) consume(feedback);
+      void chrome.storage.local.remove(CONTEXT_FEEDBACK_KEY);
     });
     const handleStorageChange = (changes: Record<string, chrome.storage.StorageChange>) => {
       const feedback = changes[CONTEXT_FEEDBACK_KEY]?.newValue as ContextSaveFeedback | undefined;
-      if (feedback) setContextFeedback(feedback);
+      // 아래 remove 가 부르는 변경은 newValue 가 없어 여기서 걸러진다(되돌이 없음).
+      if (consume(feedback)) void chrome.storage.local.remove(CONTEXT_FEEDBACK_KEY);
     };
     chrome.storage.onChanged.addListener(handleStorageChange);
     return () => chrome.storage.onChanged.removeListener(handleStorageChange);
@@ -254,7 +280,12 @@ export default function Popup() {
 
   async function handleLogout() {
     // 토큰만 지우면 팝업을 다시 열 때 우주인 탭에서 곧바로 재수확되어 로그아웃이 무의미해진다.
-    await Promise.all([logout(), clearSelectedWorkspaceId(), setAutoLoginSuppressed(true)]);
+    await Promise.all([
+      logout(),
+      clearSelectedWorkspaceId(),
+      clearCachedWorkspaces(),
+      setAutoLoginSuppressed(true),
+    ]);
     setAuthenticated(false);
     setWorkspaces([]);
     setWorkspaceId(null);
@@ -387,9 +418,7 @@ export default function Popup() {
         <p style={styles.error}>사용 가능한 워크스페이스가 없습니다.</p>}
       {message && <p style={styles.error}>{message}</p>}
       {contextFeedback && (
-        <p style={contextFeedback.success ? styles.success : styles.error}>
-          우클릭 저장: {contextFeedback.message}
-        </p>
+        <p style={styles.error}>우클릭 저장: {contextFeedback.message}</p>
       )}
 
       <div style={styles.footer}>
@@ -437,7 +466,6 @@ const TEXT_2 = '#b0b6c3';
 const TEXT_3 = '#7b8290';
 const ACCENT = '#7c6cf0';
 const DANGER = '#ef7a72';
-const SUCCESS = '#b8e6a3';
 
 const buttonBase: React.CSSProperties = {
   boxSizing: 'border-box',
@@ -520,5 +548,4 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent', color: ACCENT, fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
   error: { margin: 0, color: DANGER, fontSize: 12, lineHeight: 1.5 },
-  success: { margin: 0, color: SUCCESS, fontSize: 12 },
 };
