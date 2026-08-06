@@ -58,6 +58,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 sealed interface SearchUiState {
+    /** 엔진 초기화 대기 — 여기서 한 말은 버려진다(음성 저장 화면과 같은 이유) */
+    data object Preparing : SearchUiState
     data class Listening(val partialText: String) : SearchUiState
     data class Searching(val query: String) : SearchUiState
     data object Done : SearchUiState
@@ -66,7 +68,9 @@ sealed interface SearchUiState {
 class VoiceSearchViewModel : ViewModel() {
     private val repository = Repositories.search
 
-    private val _uiState = MutableStateFlow<SearchUiState>(SearchUiState.Listening(""))
+    private val _uiState = MutableStateFlow<SearchUiState>(
+        if (repository.speechReady) SearchUiState.Listening("") else SearchUiState.Preparing,
+    )
     val uiState = _uiState.asStateFlow()
 
     private var started = false
@@ -79,6 +83,7 @@ class VoiceSearchViewModel : ViewModel() {
             try {
                 repository.listenQuery().collect { event ->
                     when (event) {
+                        SpeechEvent.Ready -> _uiState.value = SearchUiState.Listening("")
                         is SpeechEvent.Partial -> {
                             if (event.text.isNotBlank()) lastPartial = event.text
                             _uiState.value = SearchUiState.Listening(event.text)
@@ -147,21 +152,28 @@ fun VoiceSearchScreen(
 
     KeepScreenOn()
 
+    val preparing = uiState is SearchUiState.Preparing
     WoojuinStatusScreen {
         WoojuinListeningLogo(
-            accent = WoojuinColor.SearchAccent,
+            // 준비 중에는 색을 죽여 "아직 듣지 않는다"를 눈으로도 알린다
+            accent = if (preparing) WoojuinColor.TextMuted else WoojuinColor.SearchAccent,
             modifier = Modifier.size(80.dp),
             reduceMotion = reduceMotion,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = when (uiState) {
+                is SearchUiState.Preparing -> "준비 중…"
                 is SearchUiState.Searching -> "찾고 있어요"
                 else -> "무엇을 찾아볼까요?"
             },
             style = MaterialTheme.typography.titleMedium,
-            color = WoojuinColor.TextPrimary,
+            color = if (preparing) WoojuinColor.TextMuted else WoojuinColor.TextPrimary,
         )
+        if (preparing) {
+            Spacer(modifier = Modifier.height(4.dp))
+            CaptionText("잠시 후 말씀하세요")
+        }
         val partial = (uiState as? SearchUiState.Listening)?.partialText
             ?: (uiState as? SearchUiState.Searching)?.query.orEmpty()
         if (partial.isNotEmpty()) {

@@ -60,6 +60,12 @@ import kotlinx.coroutines.launch
 
 sealed interface VoiceCaptureUiState {
     data object Ready : VoiceCaptureUiState
+
+    /**
+     * 엔진 초기화 대기 — 아직 마이크가 열리지 않았다. 여기서 한 말은 버려지므로
+     * "듣는 중"과 반드시 구분해 보여준다(온디바이스 엔진 첫 초기화가 수 초다).
+     */
+    data object Preparing : VoiceCaptureUiState
     data class Listening(val partialText: String, val rms: Float) : VoiceCaptureUiState
     data class Confirm(val text: String) : VoiceCaptureUiState
     data object LocalSaved : VoiceCaptureUiState
@@ -77,11 +83,19 @@ class VoiceCaptureViewModel : ViewModel() {
 
     fun start() {
         if (listenJob != null) return
-        _uiState.value = VoiceCaptureUiState.Listening("", 0.5f)
+        // 엔진이 이미 데워져 있으면 곧바로 듣는 중으로, 아니면 준비 중부터
+        _uiState.value = if (repository.speechReady) {
+            VoiceCaptureUiState.Listening("", 0.5f)
+        } else {
+            VoiceCaptureUiState.Preparing
+        }
         listenJob = viewModelScope.launch {
             try {
                 repository.listen().collect { event ->
                     when (event) {
+                        SpeechEvent.Ready -> {
+                            _uiState.value = VoiceCaptureUiState.Listening("", 0.5f)
+                        }
                         is SpeechEvent.Partial -> {
                             if (event.text.isNotBlank()) latestText = event.text
                             _uiState.value = VoiceCaptureUiState.Listening(event.text, event.rms)
@@ -230,6 +244,26 @@ fun VoiceCaptureScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.Surface),
                     label = { Text("홈으로") },
                 )
+            }
+        }
+        // 엔진 초기화 대기 — 여기서 한 말은 버려지므로 "듣고 있어요"라고 하지 않는다.
+        // 탭도 받지 않는다(저장할 내용이 없어 "들린 내용이 없어요"만 뜬다)
+        VoiceCaptureUiState.Preparing -> {
+            WoojuinStatusScreen {
+                WoojuinListeningLogo(
+                    accent = WoojuinColor.TextMuted,
+                    modifier = Modifier.size(88.dp),
+                    breathScale = 0.98f,
+                    reduceMotion = reduceMotion,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "준비 중…",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = WoojuinColor.TextMuted,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                CaptionText("잠시 후 말씀하세요")
             }
         }
         else -> {

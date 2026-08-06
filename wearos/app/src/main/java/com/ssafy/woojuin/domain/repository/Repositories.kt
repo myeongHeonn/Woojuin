@@ -14,6 +14,12 @@ import kotlinx.coroutines.flow.StateFlow
  * Fake 구현은 지연을 흉내 낸 시뮬레이션이다.
  */
 sealed interface SpeechEvent {
+    /**
+     * 엔진이 오디오를 받을 준비를 마쳤다. 이 이벤트 **전에 한 말은 버려진다** —
+     * 워치의 온디바이스 엔진은 첫 초기화에 수 초가 걸리므로(AndroidSpeechSource 참고)
+     * 화면이 "준비 중"과 "듣는 중"을 갈라 보여줄 근거가 필요하다.
+     */
+    data object Ready : SpeechEvent
     data class Partial(val text: String, val rms: Float) : SpeechEvent
     data class Final(val text: String, val confident: Boolean) : SpeechEvent
     data object SilenceTimeout : SpeechEvent
@@ -22,6 +28,9 @@ sealed interface SpeechEvent {
 interface VoiceCaptureRepository {
     /** 마이크 청취 시작. 취소되면 청취도 중단된다. */
     fun listen(): Flow<SpeechEvent>
+
+    /** 엔진이 곧바로 들을 수 있는지 — 화면이 "준비 중"을 건너뛸지 판단한다 */
+    val speechReady: Boolean
 
     /** 로컬 큐에 우선 저장. 서버 동기화는 백그라운드에서 진행된다. */
     suspend fun saveLocal(text: String): SavedItem
@@ -33,6 +42,9 @@ interface VoiceCaptureRepository {
 
 interface SearchRepository {
     fun listenQuery(): Flow<SpeechEvent>
+
+    /** 엔진이 곧바로 들을 수 있는지 — 화면이 "준비 중"을 건너뛸지 판단한다 */
+    val speechReady: Boolean
 
     /** [query] 는 키워드가 아니라 자연어 문장이다 — "그 파스타집 어디였지?". */
     suspend fun search(query: String): List<SavedItem>
