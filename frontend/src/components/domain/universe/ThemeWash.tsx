@@ -5,8 +5,12 @@ import { themeAtom } from '@/stores/themeAtoms';
 /** 밤→낮은 여명(dawn), 낮→밤은 노을(dusk). */
 type Wash = 'dawn' | 'dusk';
 
-/** CSS 애니메이션 길이(1.65s)와 맞춘다 — 끝나면 DOM 에서 뺀다. */
-const WASH_MS = 1650;
+/**
+ * 안전망일 뿐이다. 정상 경로는 animationend 로 걷어내므로 CSS 의
+ * --universe-theme-duration 을 여기 옮겨 적지 않는다(옮겨 적으면 한쪽만 바뀌어 어긋난다).
+ * 애니메이션이 아예 돌지 않는 경우(reduced-motion 으로 display:none)에만 이 타이머가 쓰인다.
+ */
+const WASH_FALLBACK_MS = 4000;
 
 /**
  * 테마가 바뀌는 동안 스테이지 위를 한 번 훑고 지나가는 하늘빛.
@@ -30,7 +34,7 @@ const ThemeWash = () => {
     if (previousTheme.current === theme) return;
     previousTheme.current = theme;
     setWash({ kind: theme === 'light' ? 'dawn' : 'dusk', key: Date.now() });
-    const timer = setTimeout(() => setWash(null), WASH_MS);
+    const timer = setTimeout(() => setWash(null), WASH_FALLBACK_MS);
     return () => clearTimeout(timer);
   }, [theme]);
 
@@ -40,6 +44,8 @@ const ThemeWash = () => {
     <div
       key={wash.key}
       aria-hidden="true"
+      // 자기 애니메이션이 끝나면 스스로 빠진다. ::after 도 같은 길이라 함께 끝난다.
+      onAnimationEnd={() => setWash(null)}
       className={`woojuin-theme-wash woojuin-theme-wash-${wash.kind}`}
     />
   );

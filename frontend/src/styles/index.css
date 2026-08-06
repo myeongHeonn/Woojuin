@@ -41,23 +41,32 @@
 }
 
 /* ── 성좌뷰: 라이트에서 우주 스테이지가 낮 하늘이 된다 ──────────────────
-   전환이 1.4초대로 느린 건 의도다. 해가 뜨고 지는 것처럼 보여야 하는데, 즉시 바뀌면
-   그냥 배경색이 튄 것으로 읽힌다. */
+   전환이 느린 건 의도다. 해가 뜨고 지는 것처럼 보여야 하는데, 즉시 바뀌면 그냥 배경색이
+   튄 것으로 읽힌다.
+
+   **길이와 이징을 여기 한 곳에서만 정한다.** 예전엔 하늘 1.45s·캔버스 1.35s·노을 1.65s 로
+   제각각이라 끝나는 순간이 세 번에 나뉘었다 — 다 같이 흐르지 않고 중간에 하나씩 멈춰
+   서는 것으로 보였다.
+
+   이징이 linear 인 이유: 실제 하늘은 가속하지 않는다. ease-out(빠르게 시작해 느리게 끝남)은
+   UI 가 튀어나오는 느낌이라 하늘의 시간 흐름과는 반대다. 타임랩스처럼 일정한 속도로 흘러야
+   "저절로 바뀌고 있다"로 읽힌다. */
 :root {
-  --universe-theme-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --universe-theme-duration: 1.8s;
+  --universe-theme-ease: linear;
 }
 
 /* 스테이지 바탕색도 같이 흐른다. 이게 없으면 --color-space 가 즉시 갈려서, 하늘이 1.45초에
    걸쳐 떠오르는 동안 그 밑이 이미 흰 바탕이라 밤→낮에서 먼저 하얗게 번쩍인다
    (낮→밤은 어두운 바탕 위로 하늘이 걷히는 것이라 티가 덜 났다). */
 .woojuin-universe-stage {
-  transition: background-color 1.45s var(--universe-theme-ease);
+  transition: background-color var(--universe-theme-duration) var(--universe-theme-ease);
 }
 
 .woojuin-universe-sky {
   background: linear-gradient(180deg, #0c68d8 0%, #3389e2 48%, #8cc4f1 100%);
   opacity: 0;
-  transition: opacity 1.45s var(--universe-theme-ease);
+  transition: opacity var(--universe-theme-duration) var(--universe-theme-ease);
 }
 
 :root[data-theme='light'] .woojuin-universe-sky {
@@ -65,7 +74,7 @@
 }
 
 .woojuin-universe-canvas {
-  transition: filter 1.35s var(--universe-theme-ease);
+  transition: filter var(--universe-theme-duration) var(--universe-theme-ease);
 }
 
 /* screen 합성은 라이트에서만 건다 — 다크는 지금 모습이 검증돼 있어 건드리지 않는다.
@@ -124,7 +133,7 @@
     rgba(20, 48, 103, 0.66) 74%,
     rgba(5, 18, 51, 0.82) 100%
   );
-  animation: woojuin-dawn-wash 1.65s var(--universe-theme-ease);
+  animation: woojuin-dawn-wash var(--universe-theme-duration) var(--universe-theme-ease);
 }
 
 .woojuin-theme-wash-dawn::after {
@@ -134,7 +143,7 @@
     rgba(255, 183, 113, 0.55) 35%,
     transparent 72%
   );
-  animation: woojuin-dawn-horizon 1.65s var(--universe-theme-ease);
+  animation: woojuin-dawn-horizon var(--universe-theme-duration) var(--universe-theme-ease);
 }
 
 .woojuin-theme-wash-dusk {
@@ -145,7 +154,7 @@
     rgba(67, 63, 130, 0.62) 52%,
     rgba(9, 26, 67, 0.84) 100%
   );
-  animation: woojuin-dusk-wash 1.65s var(--universe-theme-ease);
+  animation: woojuin-dusk-wash var(--universe-theme-duration) var(--universe-theme-ease);
 }
 
 .woojuin-theme-wash-dusk::after {
@@ -155,52 +164,22 @@
     rgba(239, 111, 91, 0.48) 38%,
     transparent 74%
   );
-  animation: woojuin-dusk-horizon 1.65s var(--universe-theme-ease);
+  animation: woojuin-dusk-horizon var(--universe-theme-duration) var(--universe-theme-ease);
 }
 
-/* 여명은 짙게 시작해 걷힌다(밤이 물러난다) */
+/* 키프레임은 0 → 정점 → 0 의 대칭 삼각형이다.
+   중간 지점을 하나만 두는 이유: 구간이 늘어날수록 linear 라도 구간마다 기울기가 달라져
+   속도가 들쭉날쭉해진다(원래 값이 0.82→0.95→0.58→0 이라 빨라졌다 느려졌다 했다).
+   시작을 반드시 0 으로 두는 것도 중요하다 — 0.82 로 시작하면 요소가 붙는 순간 색이
+   그만큼 튀어 올라, 전환의 첫인상이 '번쩍'이 된다.
+
+   해(::after)는 transform 키프레임을 양 끝에만 둔다. 그래야 중간에 꺾이지 않고 전 구간을
+   일정한 속도로 가로지른다 — 타임랩스에서 해가 움직이는 방식이다. */
 @keyframes woojuin-dawn-wash {
   0% {
-    opacity: 0.82;
-  }
-  28% {
-    opacity: 0.95;
-  }
-  62% {
-    opacity: 0.58;
-  }
-  100% {
     opacity: 0;
   }
-}
-
-@keyframes woojuin-dawn-horizon {
-  0% {
-    opacity: 0;
-    transform: translateY(28%);
-  }
-  38% {
-    opacity: 0.92;
-  }
-  72% {
-    opacity: 0.48;
-    transform: translateY(-8%);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-18%);
-  }
-}
-
-/* 노을은 옅게 시작해 짙어졌다 밤에 잠긴다 */
-@keyframes woojuin-dusk-wash {
-  0% {
-    opacity: 0;
-  }
-  24% {
-    opacity: 0.72;
-  }
-  62% {
+  50% {
     opacity: 0.9;
   }
   100% {
@@ -208,17 +187,41 @@
   }
 }
 
+/* 여명 — 해가 아래에서 위로 */
+@keyframes woojuin-dawn-horizon {
+  0% {
+    opacity: 0;
+    transform: translateY(30%);
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20%);
+  }
+}
+
+@keyframes woojuin-dusk-wash {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 노을 — 해가 위에서 아래로 */
 @keyframes woojuin-dusk-horizon {
   0% {
     opacity: 0;
-    transform: translateY(-14%);
+    transform: translateY(-20%);
   }
-  28% {
-    opacity: 0.86;
-  }
-  68% {
-    opacity: 0.44;
-    transform: translateY(14%);
+  50% {
+    opacity: 0.9;
   }
   100% {
     opacity: 0;
