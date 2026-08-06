@@ -223,10 +223,6 @@ class FakeSongRepository(private val sync: SyncRepository) : SongRepository {
         }
         return item
     }
-
-    override suspend fun undo(itemId: String) {
-        _lastMatched.value = null
-    }
 }
 
 class FakePlaceRepository(private val sync: SyncRepository) : PlaceRepository {

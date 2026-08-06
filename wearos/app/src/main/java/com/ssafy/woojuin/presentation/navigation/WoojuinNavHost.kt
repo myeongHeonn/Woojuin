@@ -149,7 +149,6 @@ fun WoojuinNavHost(
         }
         composable(Routes.SONG_RESULT) {
             SongResultScreen(
-                onUndoDone = { backToHome() },
                 onOpenOnPhone = { navController.navigate(Routes.OPEN_ON_PHONE) },
                 onRetry = { navController.navigate(Routes.SONG_RECOGNITION) },
             )

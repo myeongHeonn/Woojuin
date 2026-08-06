@@ -133,14 +133,6 @@ class RemoteSongRepository(
         )
     }
 
-    /** 저장 직후 되돌리기 — 휴지통으로 보낸다(실패는 무시한다: 화면은 이미 넘어갔다). */
-    override suspend fun undo(itemId: String) {
-        withContext(Dispatchers.IO) {
-            runCatching { api.authorizedDelete("/items/$itemId") }
-                .onFailure { Log.d(TAG, "되돌리기 실패(무시): $it") }
-        }
-    }
-
     private fun text(json: JSONObject, key: String): String? {
         if (json.isNull(key)) return null
         val value = json.optString(key, "").trim()
