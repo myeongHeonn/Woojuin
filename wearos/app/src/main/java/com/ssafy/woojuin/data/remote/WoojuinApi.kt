@@ -104,6 +104,33 @@ class WoojuinApi(private val tokenStore: TokenStore) {
                 .header("Authorization", "Bearer $access").delete().build()
         }
 
+    /**
+     * 파일 하나를 multipart 로 올린다(오디오 받아쓰기). 401 재시도·토큰 폐기 계약은 다른
+     * 인증 호출과 같다.
+     *
+     * <p>바이트를 그대로 실어 보낸다 — 워치가 만드는 오디오는 한마디에 100~200KB 라
+     * 스트리밍할 이유가 없고, 재시도(401 후 1회) 때 같은 본문을 다시 써야 한다.
+     */
+    fun authorizedUpload(
+        path: String,
+        fieldName: String,
+        filename: String,
+        contentType: String,
+        bytes: ByteArray,
+    ): JSONObject =
+        authorizedCall { access ->
+            val body = okhttp3.MultipartBody.Builder()
+                .setType(okhttp3.MultipartBody.FORM)
+                .addFormDataPart(
+                    fieldName,
+                    filename,
+                    bytes.toRequestBody(contentType.toMediaType()),
+                )
+                .build()
+            Request.Builder().url(baseUrl + path)
+                .header("Authorization", "Bearer $access").post(body).build()
+        }
+
     private fun authorizedCall(build: (String) -> Request): JSONObject {
         val access = tokenStore.accessTokenBlocking() ?: throw AuthRequiredException()
         val first = call(build(access))
