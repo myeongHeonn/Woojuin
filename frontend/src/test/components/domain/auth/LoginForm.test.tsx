@@ -61,13 +61,22 @@ beforeEach(() => {
 });
 
 describe('로그인 폼', () => {
-  // 구글 Cloud 프로젝트 정지 기간 동안 감춘다(LoginForm.GOOGLE_LOGIN_ENABLED).
-  // 버튼이 살아 있으면 누른 사람이 우리 화면 밖 구글 오류 페이지로 떨어져 돌아올 방법이 없다.
-  it('구글 로그인 버튼을 노출하지 않는다', async () => {
+  // 구글 Cloud 프로젝트 정지 기간 동안 감춰 뒀던 버튼. 링크(<a>)여야 하는 이유는
+  // OAuth 가 백엔드로의 전체 페이지 이동이라서다 — fetch 로 바뀌면 동의 화면에 갈 수 없다.
+  it('구글 로그인 버튼을 백엔드 인증 시작 주소로 걸어 준다', async () => {
     const { container } = await renderLoginForm();
 
-    expect(container.textContent).not.toContain('Google');
-    expect(container.querySelector('a[href*="oauth2/authorization/google"]')).toBeNull();
+    const googleLink = container.querySelector('a[href*="/oauth2/authorization/google"]');
+    expect(googleLink).not.toBeNull();
+    expect(googleLink?.textContent).toContain('Google');
+  });
+
+  it('이메일 로그인도 함께 열어 둔다', async () => {
+    const { container } = await renderLoginForm();
+
+    // 구글 정지 기간에 만든 LOCAL 계정들은 이 폼이 유일한 진입로다
+    expect(emailInput(container)).not.toBeNull();
+    expect(passwordInput(container)).not.toBeNull();
   });
 
   it('이메일 가입 경로를 안내한다', async () => {

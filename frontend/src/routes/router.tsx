@@ -66,8 +66,8 @@ export const router = createBrowserRouter([
         children: [
           { path: '/', element: page(<LandingPage />) },
           { path: '/login', element: page(<LoginPage />) },
-          // 구글 로그인이 막혀 있는 동안(LoginForm.GOOGLE_LOGIN_ENABLED 주석 참고) 이메일 가입이
-          // 유일한 가입 경로다. 구글은 첫 로그인이 곧 가입이라 그동안 이 라우트를 닫아뒀었다.
+          // 구글은 첫 로그인이 곧 가입이라 한때 닫아뒀던 라우트지만, 이메일 가입이 살아 있는 한
+          // 열려 있어야 한다 — 로그인 화면의 "회원가입" 링크가 여기로 온다.
           { path: '/signup', element: page(<SignupPage />) },
         ],
       },
