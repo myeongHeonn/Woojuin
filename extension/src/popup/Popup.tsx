@@ -40,15 +40,6 @@ function isSavableUrl(value: string): boolean {
   try { return ['http:', 'https:'].includes(new URL(value).protocol); } catch { return false; }
 }
 
-/** 구글 4색 "G" 마크 — 공식 자산이라 색·형태를 바꾸지 않는다 (웹앱 GoogleAuthButton 과 동일) */
-const GoogleMark = () => (
-  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" style={{ flexShrink: 0 }}>
-    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-  </svg>
-);
 
 /**
  * 저장 완료 표시 — 로고가 페이드아웃하는 자리에 원과 체크가 그려진다.
@@ -312,17 +303,23 @@ export default function Popup() {
       <main style={styles.main}>
         <h1 style={styles.title}>우주인에 저장</h1>
         <p style={styles.muted}>
-          우주인 계정으로 로그인하면 지금 보는 페이지를 바로 담을 수 있어요.
+          로그인하면 지금 보는 페이지를 바로 담을 수 있어요.
         </p>
-        <button onClick={handleWebLogin} style={styles.google}>
-          <GoogleMark />
-          Google 계정으로 로그인
+        {/* 로그인 수단을 문구에 박지 않는다. 이 버튼이 하는 일은 **우주인 로그인 화면을 여는
+            것**이고, 어떤 수단을 쓸지는 그 화면이 정한다(웹앱은 구글과 이메일·비밀번호를 함께
+            제공한다). 수단 이름을 적어 두면 웹앱이 로그인 방식을 늘리거나 줄일 때마다 여기까지
+            따라 고쳐야 하고, 그 사이에는 버튼이 거짓말을 한다.
+            같은 이유로 마크도 구글 로고가 아니라 우주인 아이콘을 쓴다 — 여는 화면이 우주인이다.
+            '로그인'이 아니라 '시작하기'인 이유: 같은 버튼이 가입으로도 이어진다(열리는 화면에
+            회원가입 링크가 있고, 구글은 첫 로그인이 곧 가입이다). */}
+        <button onClick={handleWebLogin} style={styles.login}>
+          <img src="/icon128.png" alt="" width={18} height={18} style={{ flexShrink: 0 }} />
+          우주인 계정으로 시작하기
         </button>
-        {/* 구글은 첫 로그인이 곧 가입이다(웹앱 LoginForm 과 같은 고지) */}
         <p style={styles.hint}>
           {loginOpened
             ? '로그인 창은 끝나면 자동으로 닫혀요. 닫힌 뒤 이 아이콘을 다시 눌러 주세요.'
-            : '계정이 없어도 구글 로그인으로 바로 시작할 수 있어요.'}
+            : '로그인과 회원가입 모두 열리는 창에서 할 수 있어요.'}
         </p>
         {loginOpened && (
           <button onClick={handleRecheck} disabled={status === 'loading'} style={styles.secondary}>
@@ -536,7 +533,7 @@ const styles: Record<string, React.CSSProperties> = {
     colorScheme: 'dark',
   },
   // 웹앱 GoogleAuthButton 과 같은 껍데기 — 흰 버튼은 다크 테마에서 혼자 튄다
-  google: { ...buttonBase, border: `1px solid ${BORDER}`, background: SURFACE_2, color: TEXT_1 },
+  login: { ...buttonBase, border: `1px solid ${BORDER}`, background: SURFACE_2, color: TEXT_1 },
   secondary: { ...buttonBase, border: `1px solid ${BORDER}`, background: SURFACE_3, color: TEXT_1 },
   primary: { ...buttonBase, background: ACCENT, color: '#ffffff' },
   link: { border: 0, background: 'transparent', color: TEXT_3, fontSize: 12, cursor: 'pointer' },
