@@ -38,7 +38,7 @@ object FakeData {
     val savedItems = listOf(
         SavedItem(
             id = "item-pasta",
-            type = SavedItemType.PLACE,
+            type = SavedItemType.LINK,
             title = "온화정",
             summary = "성수에서 가볼 파스타집. 웨이팅은 평일 저녁이 낫다",
             savedAtLabel = "5월 12일",
@@ -64,7 +64,7 @@ object FakeData {
         ),
         SavedItem(
             id = "item-song",
-            type = SavedItemType.SONG,
+            type = SavedItemType.LINK,
             title = "Supernova — aespa",
             summary = "어제 카페에서 저장한 노래",
             savedAtLabel = "어제",
@@ -217,7 +217,7 @@ class FakeSongRepository(private val sync: SyncRepository) : SongRepository {
     override suspend fun saveSong(song: RecognizedSong): SavedItem {
         val item = SavedItem(
             id = UUID.randomUUID().toString(),
-            type = SavedItemType.SONG,
+            type = SavedItemType.LINK,
             title = "${song.title} — ${song.artist}",
             summary = song.albumLabel,
             savedAtLabel = "방금",
@@ -251,7 +251,7 @@ class FakePlaceRepository(private val sync: SyncRepository) : PlaceRepository {
     override suspend fun savePlace(candidate: PlaceCandidate): SavedItem {
         val item = SavedItem(
             id = UUID.randomUUID().toString(),
-            type = SavedItemType.PLACE,
+            type = SavedItemType.LINK,
             title = candidate.name,
             summary = "${candidate.category} · ${candidate.distanceLabel}",
             savedAtLabel = "방금",

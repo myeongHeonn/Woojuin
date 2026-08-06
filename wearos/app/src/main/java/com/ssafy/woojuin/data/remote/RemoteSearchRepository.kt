@@ -74,12 +74,11 @@ class RemoteSearchRepository(
         _lastResults.value.firstOrNull { it.id == id }
 
     private fun toSavedItem(json: JSONObject): SavedItem {
-        val url = json.optString("url", "").takeIf { it.isNotBlank() && !json.isNull("url") }
         val title = json.optString("title", "").takeIf { !json.isNull("title") } ?: ""
         val summary = json.optString("summary", "").takeIf { !json.isNull("summary") } ?: ""
         return SavedItem(
             id = json.getLong("itemId").toString(),
-            type = savedItemType(json.optString("type", ""), url),
+            type = savedItemType(json.optString("type", "")),
             // 저장 직후엔 AI 가 아직 제목을 못 붙였을 수 있다 — 빈 제목으로 카드가 비지 않게 채운다
             title = title.ifBlank { summary.ifBlank { "제목 없음" } },
             summary = summary.ifBlank { "AI가 정리하고 있어요" },
@@ -88,19 +87,10 @@ class RemoteSearchRepository(
         )
     }
 
-    /**
-     * 서버 타입(URL·IMAGE·MEMO)을 워치 화면의 종류로 옮긴다. 완전히 겹치지 않는다 —
-     * 워치는 아이콘·문구를 고르려고 VOICE/LINK/SONG/PLACE 로 나눠 두었기 때문이다.
-     *
-     * URL 은 링크와 장소 저장이 공유한다(장소는 카카오맵 링크로 저장된다). 그래서 호스트를
-     * 보고 장소를 갈라낸다 — 안 그러면 워치에서 저장한 장소가 검색 결과에서 링크로 보인다.
-     */
-    private fun savedItemType(serverType: String, url: String?): SavedItemType = when {
-        // MEMO 를 VOICE 로 보면 안 된다 — 서버의 MEMO 에는 웹에서 타이핑한 것도 섞여 있고
-        // 서버는 둘을 구분하지 않는다. 마이크 아이콘은 워치가 직접 받아 적은 것에만 쓴다
-        serverType == "MEMO" -> SavedItemType.MEMO
-        serverType == "URL" && url != null && KAKAO_PLACE_HOSTS.any { url.contains(it) } ->
-            SavedItemType.PLACE
+    /** 서버 타입을 그대로 옮긴다 — 워치가 따로 갈라 두는 종류는 없다. */
+    private fun savedItemType(serverType: String): SavedItemType = when (serverType) {
+        "MEMO" -> SavedItemType.MEMO
+        "IMAGE" -> SavedItemType.IMAGE
         else -> SavedItemType.LINK
     }
 
@@ -124,6 +114,5 @@ class RemoteSearchRepository(
          */
         private const val PAGE_SIZE = 3
         private val DATE_LABEL = DateTimeFormatter.ofPattern("M월 d일")
-        private val KAKAO_PLACE_HOSTS = listOf("place.map.kakao.com", "map.kakao.com")
     }
 }

@@ -11,11 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.StickyNote2
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -108,8 +107,7 @@ fun typeIcon(type: SavedItemType): Pair<ImageVector, Color> = when (type) {
     // StickyNote2 는 AutoMirrored 에만 있다(RTL 에서 뒤집히는 게 맞는 모양이라 옮겨졌다)
     SavedItemType.MEMO -> Icons.AutoMirrored.Rounded.StickyNote2 to WoojuinColor.AccentPurple
     SavedItemType.LINK -> Icons.Rounded.Link to WoojuinColor.StarBlue
-    SavedItemType.SONG -> Icons.Rounded.MusicNote to WoojuinColor.StarYellow
-    SavedItemType.PLACE -> Icons.Rounded.Place to WoojuinColor.StarGreen
+    SavedItemType.IMAGE -> Icons.Rounded.Image to WoojuinColor.StarYellow
 }
 
 /** “저장한 자료 찾기” — 즉시 음성 검색 시작. */

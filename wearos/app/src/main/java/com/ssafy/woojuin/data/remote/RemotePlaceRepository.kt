@@ -91,7 +91,7 @@ class RemotePlaceRepository(
             _lastSavedPlace.value = candidate
             SavedItem(
                 id = data.getLong("itemId").toString(),
-                type = SavedItemType.PLACE,
+                type = SavedItemType.LINK,
                 title = candidate.name,
                 summary = candidate.address.orEmpty(),
                 savedAtLabel = "방금 전",

@@ -1,11 +1,16 @@
 package com.ssafy.woojuin.domain.model
 
 /**
- * 화면이 아이콘·문구를 고르는 기준. **서버가 주는 종류를 그대로 따른다** — 음성으로 저장한
- * 것도 서버에는 MEMO 로 들어가므로 워치도 MEMO 로 보여준다. 입력 수단(음성·타이핑)까지
- * 갈라 두면 서버에 없는 구분을 워치만 아는 상태가 되고, 같은 아이템이 화면마다 달라 보인다.
+ * 화면이 아이콘·문구를 고르는 기준. **서버 `ItemType`(URL·IMAGE·MEMO)과 1:1 이다.**
+ *
+ * 워치가 따로 갈라 두지 않는다 — 음성으로 저장한 것도, 장소로 저장한 것도 서버에는 각각
+ * MEMO·URL 로 들어간다. 워치만 아는 구분을 만들면 같은 아이템이 화면마다 달라 보이고
+ * (저장 직후엔 장소, 검색 결과에선 링크), 서버가 실제로 무엇을 들고 있는지도 흐려진다.
+ *
+ * 노래는 없다 — 서버에 그런 타입이 없어 실데이터로는 나올 수 없다. 노래 인식(FR-055)이
+ * 실제로 붙고 서버가 그걸 어떻게 저장할지 정해질 때 다시 본다.
  */
-enum class SavedItemType { MEMO, LINK, SONG, PLACE }
+enum class SavedItemType { MEMO, LINK, IMAGE }
 
 data class SavedItem(
     val id: String,
