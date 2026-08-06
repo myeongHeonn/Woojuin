@@ -229,13 +229,17 @@ export function MoonIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** 반은 해, 반은 달 — 테마 토글의 "현재시간"(바깥 하늘을 따라감) */
-export function SunMoonIcon(props: SVGProps<SVGSVGElement>) {
+/**
+ * 시계 — 테마 토글의 "현재시간".
+ *
+ * 해와 달을 섞은 그림도 써 봤지만 그건 "낮이면서 밤"으로 읽힌다. 이 모드가 말하는 건
+ * 시간을 따라간다는 것이라 시계가 맞다.
+ */
+export function ClockIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 8a4 4 0 0 0 0 8z" fill="currentColor" stroke="none" />
-      <path d="M12 2.5v1.6M12 19.9v1.6M4.9 4.9l1.1 1.1M18 18l1.1 1.1M2.5 12h1.6M19.9 12h1.6M4.9 19.1 6 18M18 6l1.1-1.1" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 6.8V12l3.6 2.1" />
     </svg>
   );
 }

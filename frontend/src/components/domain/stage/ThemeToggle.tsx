@@ -1,5 +1,5 @@
 import { useAtom } from 'jotai';
-import { MoonIcon, SunIcon, SunMoonIcon } from '@/assets/icons';
+import { ClockIcon, MoonIcon, SunIcon } from '@/assets/icons';
 import { classNames } from '@/utils/classNames';
 import { themeAtom, type ThemePreference } from '@/stores/themeAtoms';
 
@@ -16,7 +16,7 @@ import { themeAtom, type ThemePreference } from '@/stores/themeAtoms';
  * 세 상태를 버튼 하나로 돌린다. 스테이지 헤더는 캔버스를 가리는 자리라 폭을 더 쓰기 어렵고,
  * 선택지가 셋뿐이라 한 바퀴가 짧다. 지금 무엇이고 다음이 무엇인지는 툴팁이 말해 준다.
  */
-const ORDER: ThemePreference[] = ['dark', 'light', 'auto'];
+const ORDER: ThemePreference[] = ['light', 'dark', 'auto'];
 
 const LABEL: Record<ThemePreference, string> = {
   dark: '밤',
@@ -53,7 +53,7 @@ const ThemeToggle = () => {
         aria-hidden="true"
         className={classNames(ICON_TRANSITION, iconState(preference === 'light'))}
       />
-      <SunMoonIcon
+      <ClockIcon
         aria-hidden="true"
         className={classNames(ICON_TRANSITION, iconState(preference === 'auto'))}
       />
