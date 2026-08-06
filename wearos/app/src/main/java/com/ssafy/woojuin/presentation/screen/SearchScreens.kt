@@ -275,14 +275,15 @@ private fun ResultCard(item: SavedItem, hero: Boolean, onClick: () -> Unit) {
             containerColor = if (hero) WoojuinColor.SurfaceActive else WoojuinColor.Surface,
         ),
     ) {
+        // 목록에는 제목만 — 요약까지 넣으면 카드가 커져 워치에서 두세 개밖에 안 보이고,
+        // 어느 것인지 고르는 데는 제목이면 충분하다. 요약은 탭해서 들어가면 나온다
         ItemCardContent(
             icon = icon,
             iconTint = tint,
             title = item.title,
-            summary = if (hero) item.summary else item.summary.take(40),
             metaLabel = item.distanceLabel ?: item.savedAtLabel,
             dotColor = tint,
-            titleMaxLines = if (hero) 2 else 1,
+            titleMaxLines = if (hero) 3 else 2,
         )
     }
 }
@@ -292,7 +293,6 @@ private fun ResultCard(item: SavedItem, hero: Boolean, onClick: () -> Unit) {
 fun SavedItemDetailScreen(
     itemId: String,
     onOpenOnPhone: () -> Unit,
-    onRetry: () -> Unit,
 ) {
     val detail = Repositories.search.itemById(itemId)
 
@@ -379,17 +379,6 @@ fun SavedItemDetailScreen(
                     )
                 }
             }
-        }
-        item {
-            Button(
-                onClick = onRetry,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.Surface),
-                icon = { androidx.wear.compose.material3.Icon(Icons.Rounded.Refresh, contentDescription = null, tint = WoojuinColor.SearchAccent, modifier = Modifier.size(18.dp)) },
-                label = { Text("다시 검색") },
-            )
         }
     }
 }

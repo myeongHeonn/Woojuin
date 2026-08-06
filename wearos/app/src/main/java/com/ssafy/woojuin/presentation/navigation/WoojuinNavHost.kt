@@ -127,7 +127,6 @@ fun WoojuinNavHost(
             SavedItemDetailScreen(
                 itemId = backStackEntry.arguments?.getString("itemId").orEmpty(),
                 onOpenOnPhone = { navController.navigate(Routes.OPEN_ON_PHONE) },
-                onRetry = { navController.navigate(Routes.VOICE_SEARCH) },
             )
         }
 

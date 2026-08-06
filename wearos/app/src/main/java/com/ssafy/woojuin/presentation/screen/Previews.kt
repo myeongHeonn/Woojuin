@@ -104,7 +104,7 @@ fun PreviewSearchResults() = PreviewShell {
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
 @Composable
 fun PreviewSavedItemDetail() = PreviewShell {
-    SavedItemDetailScreen(itemId = "item-pasta", onOpenOnPhone = {}, onRetry = {})
+    SavedItemDetailScreen(itemId = "item-pasta", onOpenOnPhone = {})
 }
 
 // ─── 노래 ───

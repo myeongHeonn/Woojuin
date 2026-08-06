@@ -99,7 +99,8 @@ fun ItemCardContent(
     icon: ImageVector,
     iconTint: Color,
     title: String,
-    summary: String,
+    /** 비우면 설명 줄을 그리지 않는다 — 검색 결과처럼 제목만 보여야 하는 목록이 있다. */
+    summary: String = "",
     metaLabel: String?,
     dotColor: Color,
     titleMaxLines: Int = 2,
@@ -122,14 +123,16 @@ fun ItemCardContent(
                 maxLines = titleMaxLines,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = WoojuinColor.TextSecondary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (summary.isNotBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WoojuinColor.TextSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             if (metaLabel != null) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
