@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { classNames } from '@/utils/classNames';
 import { STAGE_PX } from '@/constants/stage';
+import ThemeToggle from './ThemeToggle';
 import ViewBar from './ViewBar';
 import WorkspaceSwitcher from '@/components/domain/nav/WorkspaceSwitcher';
 
@@ -46,6 +47,7 @@ const StageHeader = ({ title, meta, actions }: StageHeaderProps) => (
 
     <div className="pointer-events-auto flex shrink-0 items-center gap-2">
       {actions}
+      <ThemeToggle />
       <ViewBar />
     </div>
   </header>

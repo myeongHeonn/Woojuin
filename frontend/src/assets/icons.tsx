@@ -210,6 +210,25 @@ export function CheckIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** 해 — 테마 토글에서 "라이트로 전환" */
+export function SunIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="3.5" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" />
+    </svg>
+  );
+}
+
+/** 달 — 테마 토글에서 "다크로 전환" */
+export function MoonIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2z" />
+    </svg>
+  );
+}
+
 /** 별자리 — 뷰바 "성좌" */
 export function ConstellationIcon(props: SVGProps<SVGSVGElement>) {
   return (
