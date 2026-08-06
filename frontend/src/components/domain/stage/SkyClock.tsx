@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAtomValue } from 'jotai';
 import { solarElevationAtom, themeAtom } from '@/stores/themeAtoms';
 import { timeZoneAbbreviation } from '@/utils/timeZone';
@@ -19,6 +20,7 @@ const SECOND_MS = 1000;
 const pad = (value: number) => String(value).padStart(2, '0');
 
 const SkyClock = () => {
+  const { pathname } = useLocation();
   const preference = useAtomValue(themeAtom);
   const elevation = useAtomValue(solarElevationAtom);
   const [now, setNow] = useState(() => new Date());
@@ -29,7 +31,10 @@ const SkyClock = () => {
     return () => clearInterval(timer);
   }, [preference]);
 
-  if (preference !== 'auto') return null;
+  // 성좌뷰에만 띄운다. 밝은 글자로 고정했기 때문인데(index.css 의 .woojuin-on-sky),
+  // 하늘이 없는 대시보드·지도는 라이트에서 배경이 밝아 같은 글자가 1.0:1 로 사라진다.
+  // 애초에 태양 고도는 하늘을 설명하는 값이라 하늘이 없는 화면에 있을 이유도 없다.
+  if (preference !== 'auto' || !pathname.endsWith('/universe')) return null;
 
   const clock = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
   // 빼기 기호(U+2212)를 쓴다 — 하이픈보다 폭이 넓어 숫자와 높이가 맞는다
@@ -37,28 +42,19 @@ const SkyClock = () => {
 
   return (
     <div
-      /*
-       * 자체 배경을 깐다. 이 시계는 **하늘 위**에 얹히는데, 하필 화면 최상단이라 하늘
-       * 그라데이션에서 가장 진한 부분과 겹친다. 배경 없이 글자만 두면 낮에 대비가 1.3:1 까지
-       * 떨어져 읽히지 않는다(글자는 밝은 UI 라 어둡고, 그 아래 하늘은 짙은 파랑이다).
-       *
-       * 불투명도가 뷰바(60%)보다 높은 85% 인 이유: 60% 로는 하늘이 비쳐 들어와 라벨(text-2)이
-       * 다시 2.4:1 로 내려앉는다. 85% 면 어느 하늘색에서도 5.5:1 이상이 나온다.
-       *
-       * 계기판처럼 읽히려면 자릿수가 흔들리지 않아야 한다 — tabular-nums 가 그 역할이다.
-       */
-      className="pointer-events-none select-none rounded-[11px] border border-border bg-sidebar/85 px-2.5 py-1.5 text-right tabular-nums backdrop-blur-md"
+      // 색·글로우는 index.css 의 .woojuin-on-sky 에 있다(왜 테마 토큰을 안 쓰는지도 거기에).
+      // 계기판처럼 읽히려면 자릿수가 흔들리지 않아야 한다 — tabular-nums 가 그 역할이다.
+      className="woojuin-on-sky pointer-events-none select-none pr-0.5 text-right tabular-nums"
       aria-hidden="true"
     >
       <div className="flex items-baseline justify-end gap-1.5">
-        <span className="text-[15px] font-semibold leading-none tracking-[0.04em] text-text-1">
-          {clock}
-        </span>
-        <span className="text-[10px] font-bold leading-none tracking-[0.12em] text-text-2">
+        <span className="text-[15px] font-semibold leading-none tracking-[0.04em]">{clock}</span>
+        {/* 색은 상속받고 투명도만 낮춘다 — 별도 색을 주면 하늘 위에서 다시 대비를 따져야 한다 */}
+        <span className="text-[10px] font-bold leading-none tracking-[0.12em] opacity-70">
           {timeZoneAbbreviation(now)}
         </span>
       </div>
-      <div className="mt-1.5 text-[10px] font-semibold leading-none tracking-[0.1em] text-text-2">
+      <div className="mt-1.5 text-[10px] font-semibold leading-none tracking-[0.1em] opacity-70">
         태양 고도 {altitude}
       </div>
     </div>

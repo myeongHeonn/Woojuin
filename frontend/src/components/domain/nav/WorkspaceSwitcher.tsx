@@ -39,7 +39,12 @@ const WorkspaceSwitcher = () => {
              */
             aria-label={`${current?.name ?? 'My Universe'} — 워크스페이스 전환`}
             onClick={toggle}
-            className="flex w-full items-center gap-1 text-2xl font-extrabold tracking-[-0.01em] text-text-1 [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-text-3"
+            /* 색을 지정하지 않고 물려받는다 — 이 트리거는 StageHeader 안에만 있는데, 성좌뷰
+               에서는 그 헤더가 하늘 위라 밝은 글자로 고정된다(.woojuin-on-sky). 여기서 text-1
+               을 박아 두면 라이트에서 짙은 파란 하늘 위에 어두운 글자가 얹혀 안 읽힌다.
+               하늘이 아닌 화면에서는 body 색이 곧 text-1 이라 예전과 같다.
+               화살표도 같은 이유로 색 대신 투명도만 낮춘다. */
+            className="flex w-full items-center gap-1 text-2xl font-extrabold tracking-[-0.01em] [&>svg]:h-5 [&>svg]:w-5 [&>svg]:opacity-60"
           >
             {/* min-w-0 이라야 flex 안에서 줄어들며 … 로 잘린다 (오른쪽 뷰바·액션과 겹침 방지) */}
             <span className="min-w-0 truncate">{current?.name ?? 'My Universe'}</span>
