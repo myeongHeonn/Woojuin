@@ -1,10 +1,8 @@
 package com.ssafy.woojuin.data.speech
 
-import android.Manifest
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -13,15 +11,11 @@ import android.speech.RecognitionService
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
-import androidx.core.content.ContextCompat
 import com.ssafy.woojuin.domain.repository.SpeechEvent
 import com.ssafy.woojuin.domain.repository.SpeechRecognitionException
 import com.ssafy.woojuin.domain.repository.SpeechSource
 import com.ssafy.woojuin.domain.repository.SpeechUnavailableException
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
@@ -29,12 +23,6 @@ private const val TAG = "WoojuinSpeech"
 
 /** BUSY 재시도 전 대기 — 엔진이 이전 세션을 정리할 틈을 준다 */
 private const val BUSY_RETRY_DELAY_MS = 250L
-
-/**
- * 웜업 세션 상한. 실기기에서 SODA 초기화가 8.8초였으므로 그보다 넉넉하되,
- * 마이크를 무한정 붙잡지 않게 자른다.
- */
-private const val WARMUP_MAX_MS = 12_000L
 
 /**
  * Android SpeechRecognizer 기반 실음성 인식.
@@ -62,72 +50,21 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
      */
     private var activeSession: Any? = null
 
-    private val _ready = MutableStateFlow(false)
-    /** 웜업이 끝나 엔진이 곧바로 들을 수 있는 상태 — 홈 화면이 버튼을 이걸로 가른다 */
-    override val ready: StateFlow<Boolean> = _ready.asStateFlow()
-
     /**
-     * 앱 진입 시 미리 호출해 **인식 엔진까지** 데운다.
+     * 앱 진입 시 미리 호출해 서비스 바인딩을 데워 둔다.
      *
-     * 인스턴스만 만들어 두는 것으로는 부족했다 — 실기기 로그에서 첫 인식이
-     * `startListening` 부터 실제 청취 시작(`start detection`)까지 **8.8초**가 걸렸다.
-     * SODA 엔진 초기화(`Initialize Soda` → `blockingReconnect`)가 첫 startListening 에서야
-     * 일어나기 때문이다. 그 사이 사용자가 한 말은 버려지고, 기다리다 나가 버려 "첫 시도는
-     * 안 되고 두 번째부터 된다"가 됐다.
+     * **여기서 인식 세션을 열어 엔진까지 데우려 했으나 되돌렸다.** 첫 인식이 느린 진짜
+     * 원인은 SODA 엔진 초기화(실측 8.8초, 두 번째부터 2초대)인데, 그걸 데우려고 세션을
+     * 열고 준비되는 즉시 cancel 하면 초기화 도중에 끼어들어 엔진이
+     * `startDetection failed / CancellationException` 을 내고, 세션 하나를 소비해 정작
+     * 사용자 차례에 인식이 시작되지 않았다(실기기 로그).
      *
-     * 그래서 세션을 실제로 한 번 열어 엔진을 초기화하고, 준비되는 즉시(onReadyForSpeech)
-     * 끊는다. 마이크가 순간 열리는 대가가 있지만, 앱을 켠 직후이고 사용자가 음성을
-     * 쓰려고 들어온 시점이라 감수한다 — 첫 저장이 통째로 실패하는 것이 훨씬 나쁘다.
+     * 우리가 통제하지 못하는 엔진을 상대로 트릭을 쓰는 대신, 화면이 "준비 중"과
+     * "듣는 중"을 갈라 보여준다([SpeechEvent.Ready]) — 기다림은 남지만 사용자가
+     * 허공에 말하는 일은 없어진다.
      */
     fun warmUp() {
-        main.post {
-            val r = ensureRecognizer() ?: return@post
-            // 권한이 없으면 웜업할 수 없다(화면이 나중에 권한을 받는다)
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                return@post
-            }
-            // 이미 세션이 돌고 있으면 데울 필요가 없다
-            if (activeSession != null) return@post
-
-            val session = Any()
-            activeSession = session
-            Log.d(TAG, "warm-up 세션 시작 — 엔진 초기화")
-
-            fun finish(reason: String) {
-                if (activeSession !== session) return
-                activeSession = null
-                // 엔진이 한 번 올라왔으면 다음 세션은 즉시 시작된다
-                _ready.value = true
-                Log.d(TAG, "warm-up 종료($reason) — 엔진 준비 완료")
-                r.cancel()
-            }
-
-            r.setRecognitionListener(object : RecognitionListener {
-                /** 엔진이 오디오를 받을 준비가 됐다 = 초기화 끝. 여기서 바로 끊는다 */
-                override fun onReadyForSpeech(params: Bundle?) = finish("ready")
-
-                override fun onError(error: Int) {
-                    if (activeSession === session) {
-                        activeSession = null
-                        Log.d(TAG, "warm-up 실패($error) — 실제 인식에서 다시 시도한다")
-                    }
-                }
-
-                override fun onResults(results: Bundle?) = finish("results")
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onPartialResults(partialResults: Bundle?) {}
-                override fun onBeginningOfSpeech() {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() {}
-                override fun onEvent(eventType: Int, params: Bundle?) {}
-            })
-            r.startListening(recognizeIntent())
-
-            // 안전망 — onReadyForSpeech 가 오지 않는 엔진도 있다. 마이크를 오래 붙잡지 않는다
-            main.postDelayed({ finish("timeout") }, WARMUP_MAX_MS)
-        }
+        main.post { ensureRecognizer() }
     }
 
     /**
@@ -307,7 +244,6 @@ class AndroidSpeechSource(private val context: Context) : SpeechSource {
                 override fun onReadyForSpeech(params: Bundle?) {
                     if (stale()) return
                     // 여기부터 실제로 들린다 — 화면이 "준비 중"을 "듣는 중"으로 바꾼다
-                    _ready.value = true
                     trySend(SpeechEvent.Ready)
                 }
 

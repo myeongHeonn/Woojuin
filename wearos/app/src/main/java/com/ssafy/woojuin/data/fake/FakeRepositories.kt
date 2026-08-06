@@ -134,9 +134,6 @@ private fun fakeSpeech(sentence: String, chunkDelayMs: Long = 350L): Flow<Speech
 /** Preview·음성 인식 미지원 환경용 SpeechSource. */
 class FakeSpeechSource(private val sentence: String) : SpeechSource {
     override fun listen(): Flow<SpeechEvent> = fakeSpeech(sentence)
-
-    /** 가짜 인식기는 초기화가 없다 — 늘 준비됨 */
-    override val ready: StateFlow<Boolean> = MutableStateFlow(true).asStateFlow()
 }
 
 class FakeVoiceCaptureRepository(
@@ -147,8 +144,6 @@ class FakeVoiceCaptureRepository(
     override val lastSaved: StateFlow<SavedItem?> = _lastSaved.asStateFlow()
 
     override fun listen(): Flow<SpeechEvent> = speech.listen()
-
-    override val speechReady: Boolean get() = speech.ready.value
 
     override suspend fun saveLocal(text: String): SavedItem {
         // 로컬 저장은 즉시 끝난다 — 서버/AI를 기다리지 않는다.
@@ -188,8 +183,6 @@ class FakeSearchRepository(
         _lastInterpretation.asStateFlow()
 
     override fun listenQuery(): Flow<SpeechEvent> = speech.listen()
-
-    override val speechReady: Boolean get() = speech.ready.value
 
     override suspend fun search(query: String): List<SavedItem> {
         _lastQuery.value = query
@@ -311,13 +304,6 @@ object Repositories {
     fun warmUpSpeech() {
         androidSpeech?.warmUp()
     }
-
-    /**
-     * 음성 엔진 준비 상태. 홈 화면이 로고 버튼을 이걸로 가른다 —
-     * 준비 전에 탭하면 엔진이 아직 못 들어서 말이 버려진다(AndroidSpeechSource 참고).
-     */
-    val speechReady: StateFlow<Boolean>
-        get() = androidSpeech?.ready ?: MutableStateFlow(true).asStateFlow()
 
     private fun speechSource(fallbackSentence: String): SpeechSource =
         androidSpeech ?: FakeSpeechSource(fallbackSentence)

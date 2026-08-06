@@ -83,12 +83,9 @@ class VoiceCaptureViewModel : ViewModel() {
 
     fun start() {
         if (listenJob != null) return
-        // 엔진이 이미 데워져 있으면 곧바로 듣는 중으로, 아니면 준비 중부터
-        _uiState.value = if (repository.speechReady) {
-            VoiceCaptureUiState.Listening("", 0.5f)
-        } else {
-            VoiceCaptureUiState.Preparing
-        }
+        // 엔진이 실제로 들을 준비를 마칠 때까지(SpeechEvent.Ready) 준비 중이다 —
+        // 그 전에 "듣고 있어요"라고 하면 사용자가 허공에 말한다
+        _uiState.value = VoiceCaptureUiState.Preparing
         listenJob = viewModelScope.launch {
             try {
                 repository.listen().collect { event ->

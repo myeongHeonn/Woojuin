@@ -35,8 +35,6 @@ class RemoteVoiceCaptureRepository(
 
     override fun listen(): Flow<SpeechEvent> = speech.listen()
 
-    override val speechReady: Boolean get() = speech.ready.value
-
     /**
      * 이름은 fake 시절의 "로컬 우선 저장"에서 왔지만 실구현은 **서버에 바로 보낸다.**
      * 오프라인 게이트가 통신 없는 상태에서 앱 자체를 막으므로 로컬 큐가 필요하지 않다.

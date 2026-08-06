@@ -43,8 +43,6 @@ class RemoteSearchRepository(
 
     override fun listenQuery(): Flow<SpeechEvent> = speech.listen()
 
-    override val speechReady: Boolean get() = speech.ready.value
-
     override suspend fun search(query: String): List<SavedItem> = withContext(Dispatchers.IO) {
         _lastQuery.value = query
         if (query.isBlank()) {

@@ -29,9 +29,6 @@ interface VoiceCaptureRepository {
     /** 마이크 청취 시작. 취소되면 청취도 중단된다. */
     fun listen(): Flow<SpeechEvent>
 
-    /** 엔진이 곧바로 들을 수 있는지 — 화면이 "준비 중"을 건너뛸지 판단한다 */
-    val speechReady: Boolean
-
     /** 로컬 큐에 우선 저장. 서버 동기화는 백그라운드에서 진행된다. */
     suspend fun saveLocal(text: String): SavedItem
 
@@ -42,9 +39,6 @@ interface VoiceCaptureRepository {
 
 interface SearchRepository {
     fun listenQuery(): Flow<SpeechEvent>
-
-    /** 엔진이 곧바로 들을 수 있는지 — 화면이 "준비 중"을 건너뛸지 판단한다 */
-    val speechReady: Boolean
 
     /** [query] 는 키워드가 아니라 자연어 문장이다 — "그 파스타집 어디였지?". */
     suspend fun search(query: String): List<SavedItem>

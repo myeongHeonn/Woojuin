@@ -68,9 +68,7 @@ sealed interface SearchUiState {
 class VoiceSearchViewModel : ViewModel() {
     private val repository = Repositories.search
 
-    private val _uiState = MutableStateFlow<SearchUiState>(
-        if (repository.speechReady) SearchUiState.Listening("") else SearchUiState.Preparing,
-    )
+    private val _uiState = MutableStateFlow<SearchUiState>(SearchUiState.Preparing)
     val uiState = _uiState.asStateFlow()
 
     private var started = false

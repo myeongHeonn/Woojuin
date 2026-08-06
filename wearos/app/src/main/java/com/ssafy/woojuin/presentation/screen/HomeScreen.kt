@@ -2,7 +2,6 @@ package com.ssafy.woojuin.presentation.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,9 +53,6 @@ import com.ssafy.woojuin.presentation.util.rememberHaptics
 class HomeViewModel : ViewModel() {
     val nearbyAlert = Repositories.nearby.activeAlert
     val syncStatus = Repositories.sync.status
-
-    /** 음성 엔진 준비 상태 — 로고 버튼이 이걸로 눌림 여부와 문구를 가른다 */
-    val speechReady = Repositories.speechReady
 }
 
 /**
@@ -75,7 +71,6 @@ fun HomeScreen(
 ) {
     val nearbyAlert by viewModel.nearbyAlert.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
-    val speechReady by viewModel.speechReady.collectAsState()
     val haptics = rememberHaptics()
 
     WoojuinListScreen {
@@ -83,7 +78,7 @@ fun HomeScreen(
             item { NearbyChip(alert = alert, onClick = onNearby) }
         }
         item {
-            MainVoiceButton(ready = speechReady, onClick = {
+            MainVoiceButton(onClick = {
                 haptics.tapStart()
                 onVoiceCapture()
             })
@@ -146,7 +141,7 @@ private fun NearbyChip(alert: NearbyAlert, onClick: () -> Unit) {
 }
 
 @Composable
-private fun MainVoiceButton(ready: Boolean, onClick: () -> Unit) {
+private fun MainVoiceButton(onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -157,19 +152,10 @@ private fun MainVoiceButton(ready: Boolean, onClick: () -> Unit) {
             modifier = Modifier
                 .size(96.dp)
                 .clip(CircleShape)
-                // 준비 전에는 누를 수 없다 — 눌러도 엔진이 아직 못 들어서 말이 버려진다
-                .clickable(
-                    enabled = ready,
-                    role = Role.Button,
-                    onClickLabel = "말해서 저장",
-                ) { onClick() },
+                .clickable(role = Role.Button, onClickLabel = "말해서 저장") { onClick() },
             contentAlignment = Alignment.Center,
         ) {
-            WoojuinLogo(
-                modifier = Modifier
-                    .size(96.dp)
-                    .alpha(if (ready) 1f else 0.45f),
-            )
+            WoojuinLogo(modifier = Modifier.size(96.dp))
             // 우측 아래 보라색 마이크 배지
             Box(
                 modifier = Modifier
@@ -177,13 +163,13 @@ private fun MainVoiceButton(ready: Boolean, onClick: () -> Unit) {
                     .padding(end = 6.dp, bottom = 6.dp)
                     .size(24.dp)
                     .clip(CircleShape)
-                    .background(if (ready) WoojuinColor.AccentPurple else WoojuinColor.SurfaceRaised),
+                    .background(WoojuinColor.AccentPurple),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Mic,
                     contentDescription = null,
-                    tint = if (ready) Color.White else WoojuinColor.TextMuted,
+                    tint = Color.White,
                     modifier = Modifier.size(14.dp),
                 )
             }
@@ -192,11 +178,10 @@ private fun MainVoiceButton(ready: Boolean, onClick: () -> Unit) {
         Text(
             text = "말해서 저장",
             style = MaterialTheme.typography.titleMedium,
-            color = if (ready) WoojuinColor.TextPrimary else WoojuinColor.TextMuted,
+            color = WoojuinColor.TextPrimary,
         )
         Text(
-            // 엔진 초기화가 끝나기 전에 탭하면 말이 버려지므로 상태를 정직하게 알린다
-            text = if (ready) "탭하고 바로 말하세요" else "음성 준비 중…",
+            text = "탭하고 바로 말하세요",
             style = MaterialTheme.typography.bodySmall,
             color = WoojuinColor.TextMuted,
         )
