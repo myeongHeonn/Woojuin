@@ -387,7 +387,18 @@ fun PlaceSaveSuccessScreen(
 ) {
     val place by Repositories.place.lastSavedPlace.collectAsState()
 
-    WoojuinListScreen(glowColor = WoojuinColor.StarGreen) {
+    WoojuinListScreen(
+        glowColor = WoojuinColor.StarGreen,
+        // 이 화면에 할 일은 하나뿐이다 — 베젤을 따라 휘는 버튼으로 크게 둔다
+        edgeButton = {
+            WoojuinEdgeButton(
+                label = "완료",
+                onClick = onDone,
+                accent = WoojuinColor.StarGreen,
+                primary = true,
+            )
+        },
+    ) {
         item {
             Icon(
                 imageVector = Icons.Rounded.Star,
@@ -406,15 +417,6 @@ fun PlaceSaveSuccessScreen(
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-            )
-        }
-        item {
-            // 음성 한마디는 2단계(FR-054) 몫이다 — fake 버튼을 남기지 않고 완료만 둔다
-            GlassButton(
-                label = "완료",
-                onClick = onDone,
-                accent = WoojuinColor.StarGreen,
-                modifier = Modifier.woojuinRowInset(),
             )
         }
     }

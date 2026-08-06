@@ -243,15 +243,11 @@ fun VoiceSearchResultsScreen(
     WoojuinListScreen(
         glowColor = WoojuinColor.SearchAccent,
         edgeButton = {
-            EdgeButton(
+            WoojuinEdgeButton(
+                label = "다시 검색",
                 onClick = onRetry,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = WoojuinColor.SurfaceRaised,
-                    contentColor = WoojuinColor.TextPrimary,
-                ),
-            ) {
-                Text("다시 검색")
-            }
+                accent = WoojuinColor.SearchAccent,
+            )
         },
     ) {
         item {
@@ -301,7 +297,9 @@ private fun ResultCard(item: SavedItem, hero: Boolean, onClick: () -> Unit) {
             title = item.title,
             metaLabel = item.distanceLabel ?: item.savedAtLabel,
             dotColor = tint,
-            titleMaxLines = if (hero) 3 else 2,
+            // 두 줄이면 "Redis Streams로 이…"처럼 잘렸다. 좁은 카드에서는 한 줄에 열 자
+            // 남짓이라 세 줄로도 부족했다 — 목록은 스크롤되므로 네 줄까지 늘린다
+            titleMaxLines = 4,
         )
     }
 }
@@ -328,20 +326,9 @@ fun SavedItemDetailScreen(
 
     val (icon, tint) = typeIcon(detail.type)
 
-    WoojuinListScreen(
-        glowColor = tint,
-        edgeButton = {
-            EdgeButton(
-                onClick = onOpenOnPhone,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = WoojuinColor.AccentPurple,
-                    contentColor = Color.White,
-                ),
-            ) {
-                Text("휴대폰에서 열기")
-            }
-        },
-    ) {
+    // 이 화면의 주 동작을 EdgeButton 에 두지 않는다 — "휴대폰에서 열기"는 그 버튼에
+    // 한 줄로 들어가지 않아 "열기"가 곡면에 잘렸다. 목록 맨 아래 칸으로 둔다
+    WoojuinListScreen(glowColor = tint) {
         item {
             ListHeader {
                 Text(
@@ -362,8 +349,9 @@ fun SavedItemDetailScreen(
                     summary = detail.summary,
                     metaLabel = listOfNotNull(detail.sourceLabel, detail.savedAtLabel).joinToString(" · "),
                     dotColor = tint,
-                    // 요약을 두 줄에서 자르면 상세로 들어온 의미가 없다
+                    // 요약·메타를 두 줄에서 자르면 상세로 들어온 의미가 없다
                     summaryMaxLines = Int.MAX_VALUE,
+                    metaMaxLines = 2,
                 )
             }
         }
@@ -383,6 +371,17 @@ fun SavedItemDetailScreen(
                     )
                 }
             }
+        }
+        // 동작은 내용을 다 보여준 뒤 맨 끝에 둔다 — 요약과 메모 사이에 끼우면 읽는 흐름이 끊긴다
+        item {
+            GlassButton(
+                label = "휴대폰에서 열기",
+                onClick = onOpenOnPhone,
+                icon = Icons.Rounded.PhoneAndroid,
+                accent = tint,
+                primary = true,
+                modifier = Modifier.woojuinRowInset(),
+            )
         }
     }
 }

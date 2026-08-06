@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.presentation.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -195,15 +196,27 @@ fun SongResultScreen(
         return
     }
 
-    WoojuinListScreen(glowColor = WoojuinColor.SongAccent) {
+    WoojuinListScreen(
+        glowColor = WoojuinColor.SongAccent,
+        // 다시 찾기를 베젤로 내린다 — 목록 맨 아래 사각 버튼은 곡면에 물린다
+        edgeButton = {
+            WoojuinEdgeButton(
+                label = "다시 찾기",
+                onClick = onRetry,
+                accent = WoojuinColor.SongAccent,
+            )
+        },
+    ) {
         item {
             // 앨범 아트 자리 — 지금 쓰는 인식 API 는 커버 이미지를 주지 않아 심벌로 둔다
             // (보관함 아이템에는 크롤이 썸네일을 채운다)
+            // 회색 원이었다 — 홈의 위성처럼 기능 색 빛을 두른 원으로 바꾼다
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
-                    .background(WoojuinColor.SurfaceRaised),
+                    .background(WoojuinColor.SongAccent.copy(alpha = 0.14f))
+                    .border(1.dp, WoojuinColor.SongAccent.copy(alpha = 0.45f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -258,14 +271,6 @@ fun SongResultScreen(
                 modifier = Modifier.woojuinRowInset(),
             )
         }
-        item {
-            GlassButton(
-                label = "다시 찾기",
-                onClick = onRetry,
-                icon = Icons.Rounded.Refresh,
-                accent = WoojuinColor.SongAccent,
-                modifier = Modifier.woojuinRowInset(),
-            )
-        }
+
     }
 }

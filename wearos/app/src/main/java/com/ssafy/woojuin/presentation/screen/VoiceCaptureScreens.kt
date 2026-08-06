@@ -365,7 +365,8 @@ fun VoiceSaveSuccessScreen(
     WoojuinListScreen(
         glowColor = WoojuinColor.StarGreen,
         edgeButton = {
-            EdgeButton(
+            WoojuinEdgeButton(
+                label = "실행 취소 ${secondsLeft}초",
                 onClick = {
                     val id = lastSaved?.id
                     if (id != null) {
@@ -373,13 +374,7 @@ fun VoiceSaveSuccessScreen(
                     }
                     onDone()
                 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = WoojuinColor.SurfaceRaised,
-                    contentColor = WoojuinColor.TextPrimary,
-                ),
-            ) {
-                Text("실행 취소 · ${secondsLeft}s")
-            }
+            )
         },
     ) {
         item {
