@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.presentation.util
 
 import android.content.Context
+import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -32,9 +33,19 @@ class Haptics(private val vibrator: Vibrator?) {
     }
 
     companion object {
+        /**
+         * `VibratorManager` 는 API 31 부터다. minSdk 가 30 이므로 그 아래에서는 클래스가
+         * 없어 `NoClassDefFoundError` 로 죽는다 — 워치 하나에서 됐다고 다 되는 게 아니라
+         * (이 워치는 API 36) 갈라 둔다. lint 가 잡아준 결함이다.
+         */
         fun from(context: Context): Haptics {
-            val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            return Haptics(manager?.defaultVibrator)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val manager =
+                    context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                return Haptics(manager?.defaultVibrator)
+            }
+            @Suppress("DEPRECATION")
+            return Haptics(context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)
         }
     }
 }
