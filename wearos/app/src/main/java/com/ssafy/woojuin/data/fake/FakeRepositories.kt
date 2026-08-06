@@ -37,9 +37,6 @@ object FakeData {
             title = "온화정",
             summary = "성수에서 가볼 파스타집. 웨이팅은 평일 저녁이 낫다",
             savedAtLabel = "5월 12일",
-            sourceLabel = "장소 저장",
-            memo = "지현이랑 가기로 한 곳",
-            distanceLabel = "120m",
         ),
         SavedItem(
             id = "item-redis",
@@ -47,7 +44,6 @@ object FakeData {
             title = "Redis Streams로 이벤트 파이프라인 만들기",
             summary = "컨슈머 그룹 재처리 전략과 PEL 관리 방법 정리",
             savedAtLabel = "6월 3일",
-            sourceLabel = "블로그 링크",
         ),
         SavedItem(
             id = "item-jeju",
@@ -55,7 +51,6 @@ object FakeData {
             title = "제주도 여행 메모",
             summary = "협재 근처 스테이, 렌터카는 공항점이 더 저렴",
             savedAtLabel = "4월 28일",
-            sourceLabel = "메모",
         ),
         SavedItem(
             id = "item-song",
@@ -63,7 +58,6 @@ object FakeData {
             title = "Supernova — aespa",
             summary = "어제 카페에서 저장한 노래",
             savedAtLabel = "어제",
-            sourceLabel = "노래 찾기",
         ),
     )
 
@@ -78,7 +72,6 @@ object FakeData {
     val song = RecognizedSong(
         title = "Supernova",
         artist = "aespa",
-        albumLabel = "Armageddon · 2024",
     )
 
 }
@@ -122,7 +115,6 @@ class FakeVoiceCaptureRepository(
             title = text,
             summary = "AI가 정리하고 있어요",
             savedAtLabel = "방금",
-            sourceLabel = "메모",
         )
         _lastSaved.value = item
         return item
@@ -184,9 +176,8 @@ class FakeSongRepository : SongRepository {
             id = UUID.randomUUID().toString(),
             type = SavedItemType.LINK,
             title = "${song.title} — ${song.artist}",
-            summary = song.albumLabel,
+            summary = song.artist,
             savedAtLabel = "방금",
-            sourceLabel = "노래 찾기",
         )
         return item
     }
@@ -211,7 +202,6 @@ class FakePlaceRepository : PlaceRepository {
             title = candidate.name,
             summary = "${candidate.category} · ${candidate.distanceLabel}",
             savedAtLabel = "방금",
-            sourceLabel = "장소 저장",
         )
         _lastSavedPlace.value = candidate
         return item

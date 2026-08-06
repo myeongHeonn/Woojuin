@@ -18,9 +18,6 @@ data class SavedItem(
     val title: String,
     val summary: String,
     val savedAtLabel: String,
-    val sourceLabel: String? = null,
-    val memo: String? = null,
-    val distanceLabel: String? = null,
 )
 
 /**
@@ -51,10 +48,13 @@ data class PlaceCandidate(
     val distanceLabel: String get() = "${distanceMeters}m"
 }
 
+/**
+ * 인식된 곡. **앨범·발매년은 담지 않는다** — 쓰는 인식 API 가 곡 제목과 아티스트만 주고,
+ * 예전에는 빈 문자열을 채워 두어 화면이 있지도 않은 줄을 그릴 준비를 하고 있었다.
+ */
 data class RecognizedSong(
     val title: String,
     val artist: String,
-    val albumLabel: String,
     /** 곡 페이지 링크 — 저장의 재료이자 "휴대폰에서 열기"의 대상이다 */
     val link: String? = null,
 )

@@ -56,7 +56,6 @@ class RemoteVoiceCaptureRepository(
             title = text,
             summary = "AI가 정리하고 있어요",
             savedAtLabel = "방금",
-            sourceLabel = "메모",
         )
         _lastSaved.value = item
         item

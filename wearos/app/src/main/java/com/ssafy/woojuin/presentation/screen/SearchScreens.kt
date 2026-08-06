@@ -295,7 +295,7 @@ private fun ResultCard(item: SavedItem, hero: Boolean, onClick: () -> Unit) {
             icon = icon,
             iconTint = tint,
             title = item.title,
-            metaLabel = item.distanceLabel ?: item.savedAtLabel,
+            metaLabel = item.savedAtLabel,
             dotColor = tint,
             // 두 줄이면 "Redis Streams로 이…"처럼 잘렸다. 좁은 카드에서는 한 줄에 열 자
             // 남짓이라 세 줄로도 부족했다 — 목록은 스크롤되므로 네 줄까지 늘린다
@@ -347,29 +347,11 @@ fun SavedItemDetailScreen(
                     iconTint = tint,
                     title = "요약",
                     summary = detail.summary,
-                    metaLabel = listOfNotNull(detail.sourceLabel, detail.savedAtLabel).joinToString(" · "),
+                    metaLabel = detail.savedAtLabel,
                     dotColor = tint,
-                    // 요약·메타를 두 줄에서 자르면 상세로 들어온 의미가 없다
+                    // 요약을 두 줄에서 자르면 상세로 들어온 의미가 없다
                     summaryMaxLines = Int.MAX_VALUE,
-                    metaMaxLines = 2,
                 )
-            }
-        }
-        detail.memo?.let { memo ->
-            item {
-                GlassCard(modifier = Modifier.woojuinRowInset()) {
-                    Text(
-                        text = "메모",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = WoojuinColor.TextMuted,
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = memo,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = WoojuinColor.TextSecondary,
-                    )
-                }
             }
         }
         // 동작은 내용을 다 보여준 뒤 맨 끝에 둔다 — 요약과 메모 사이에 끼우면 읽는 흐름이 끊긴다

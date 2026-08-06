@@ -95,8 +95,6 @@ class RemotePlaceRepository(
                 title = candidate.name,
                 summary = candidate.address.orEmpty(),
                 savedAtLabel = "방금 전",
-                sourceLabel = "장소 저장",
-                distanceLabel = candidate.distanceLabel,
             )
         }
 

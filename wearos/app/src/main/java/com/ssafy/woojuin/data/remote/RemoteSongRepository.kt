@@ -105,7 +105,6 @@ class RemoteSongRepository(
         return RecognizedSong(
             title = text(data, "title") ?: "제목 없음",
             artist = text(data, "artist") ?: "",
-            albumLabel = "",
             link = link,
         )
     }
@@ -126,7 +125,6 @@ class RemoteSongRepository(
             title = song.title,
             summary = if (song.artist.isBlank()) "" else song.artist,
             savedAtLabel = "방금",
-            sourceLabel = null,
         )
     }
 

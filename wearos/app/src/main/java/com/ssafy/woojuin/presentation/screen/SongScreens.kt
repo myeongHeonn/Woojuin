@@ -241,11 +241,7 @@ fun SongResultScreen(
         }
         item {
             Text(
-                // 빈 칸을 구분점으로 이어붙이면 "HANRORO · " 처럼 꼬리가 남는다 —
-                // 서버가 앨범을 주지 않는 경우가 있어 있는 것만 잇는다
-                text = listOf(matched.artist, matched.albumLabel)
-                    .filter { it.isNotBlank() }
-                    .joinToString(" · "),
+                text = matched.artist,
                 style = MaterialTheme.typography.bodySmall,
                 color = WoojuinColor.TextSecondary,
                 maxLines = 2,
