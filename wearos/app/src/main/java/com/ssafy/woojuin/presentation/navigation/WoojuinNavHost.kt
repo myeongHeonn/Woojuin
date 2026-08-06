@@ -17,9 +17,7 @@ import com.ssafy.woojuin.presentation.screen.OfflineQueueScreen
 import com.ssafy.woojuin.presentation.screen.OpenOnPhoneScreen
 import com.ssafy.woojuin.presentation.screen.PermissionFeature
 import com.ssafy.woojuin.presentation.screen.PermissionGuideScreen
-import com.ssafy.woojuin.presentation.screen.PlaceLocatingScreen
 import com.ssafy.woojuin.presentation.screen.PlacePickerScreen
-import com.ssafy.woojuin.presentation.screen.PlacePickerViewModel
 import com.ssafy.woojuin.presentation.screen.PlaceSaveSuccessScreen
 import com.ssafy.woojuin.presentation.screen.SavedItemDetailScreen
 import com.ssafy.woojuin.presentation.screen.SongRecognitionScreen
@@ -82,7 +80,7 @@ fun WoojuinNavHost(
                 onVoiceCapture = { navController.navigate(Routes.VOICE_CAPTURE) },
                 onSearch = { navController.navigate(Routes.VOICE_SEARCH) },
                 onSong = { navController.navigate(Routes.SONG_RECOGNITION) },
-                onPlace = { navController.navigate(Routes.PLACE_LOCATING) },
+                onPlace = { navController.navigate(Routes.PLACE_PICKER) },
                 onNearby = { navController.navigate(Routes.NEARBY_PLACE_DETAIL) },
                 onSyncStatus = { navController.navigate(Routes.OFFLINE_QUEUE) },
             )
@@ -151,15 +149,8 @@ fun WoojuinNavHost(
             )
         }
 
-        composable(Routes.PLACE_LOCATING) {
-            PlaceLocatingScreen(
-                onCandidates = {
-                    navController.navigate(Routes.PLACE_PICKER) {
-                        popUpTo(Routes.PLACE_LOCATING) { inclusive = true }
-                    }
-                },
-            )
-        }
+        // 위치 획득(구 PLACE_LOCATING)은 PlacePickerScreen 안의 화면 상태가 됐다 —
+        // destination 을 나누면 ViewModel 이 갈라져 후보 목록이 신선하다는 보장이 깨진다
         composable(Routes.PLACE_PICKER) {
             PlacePickerScreen(
                 onSaved = {
@@ -169,7 +160,6 @@ fun WoojuinNavHost(
                 },
                 onExistingItem = { id -> navController.navigate(Routes.savedItemDetail(id)) },
                 onVoiceCapture = { navController.navigate(Routes.VOICE_CAPTURE) },
-                onOpenOnPhone = { navController.navigate(Routes.OPEN_ON_PHONE) },
             )
         }
         composable(Routes.PLACE_SAVE_SUCCESS) {

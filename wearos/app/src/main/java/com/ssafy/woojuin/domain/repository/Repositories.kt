@@ -53,11 +53,15 @@ interface SongRepository {
 }
 
 interface PlaceRepository {
-    /** 현재 좌표 획득 → 서버 → Kakao Local 주변 장소 후보 (거리순 최대 5개). */
-    suspend fun nearbyCandidates(): List<PlaceCandidate>
+    /**
+     * 현재 좌표 획득 → 서버 → Kakao Local 주변 장소 후보 (거리순 최대 30개).
+     * 기본은 음식점·카페 위주이고, [expand]가 참이면 전 카테고리로 넓혀 다시 묻는다.
+     */
+    suspend fun nearbyCandidates(expand: Boolean = false): List<PlaceCandidate>
 
-    /** 마지막으로 가져온 후보 캐시 — 화면 전환 간 공유용. */
-    val lastCandidates: StateFlow<List<PlaceCandidate>>
+    /** 마지막 응답이 이미 전 카테고리 검색이었는지 — 참이면 "주변 더 찾기"를 숨긴다. */
+    val lastExpanded: StateFlow<Boolean>
+
     suspend fun savePlace(candidate: PlaceCandidate): SavedItem
     val lastSavedPlace: StateFlow<PlaceCandidate?>
 }

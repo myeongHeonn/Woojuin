@@ -34,8 +34,9 @@ class RemotePlaceRepository(
 
     private val fusedClient = LocationServices.getFusedLocationProviderClient(context)
 
-    private val _lastCandidates = MutableStateFlow<List<PlaceCandidate>>(emptyList())
-    override val lastCandidates: StateFlow<List<PlaceCandidate>> = _lastCandidates.asStateFlow()
+    // 초기값 true — 목록이 없는 동안 "주변 더 찾기"부터 보이면 이상하다
+    private val _lastExpanded = MutableStateFlow(true)
+    override val lastExpanded: StateFlow<Boolean> = _lastExpanded.asStateFlow()
 
     private val _lastSavedPlace = MutableStateFlow<PlaceCandidate?>(null)
     override val lastSavedPlace: StateFlow<PlaceCandidate?> = _lastSavedPlace.asStateFlow()
@@ -44,9 +45,12 @@ class RemotePlaceRepository(
     @Volatile
     private var personalSpaceId: Long? = null
 
-    override suspend fun nearbyCandidates(): List<PlaceCandidate> = withContext(Dispatchers.IO) {
+    override suspend fun nearbyCandidates(expand: Boolean): List<PlaceCandidate> =
+        withContext(Dispatchers.IO) {
         val location = currentLocation()
-        val data = api.authorizedGet("/places/nearby?lat=${location.first}&lng=${location.second}")
+        val query = "lat=${location.first}&lng=${location.second}" +
+            if (expand) "&expand=true" else ""
+        val data = api.authorizedGet("/places/nearby?$query")
             .getJSONObject("data")
         val array = data.getJSONArray("candidates")
         val candidates = buildList {
@@ -70,7 +74,8 @@ class RemotePlaceRepository(
                 )
             }
         }
-        _lastCandidates.value = candidates
+        // 필드가 없는(구버전) 서버면 true — 헛된 확장 요청을 반복하지 않는 쪽이 안전하다
+        _lastExpanded.value = data.optBoolean("expanded", true)
         candidates
     }
 

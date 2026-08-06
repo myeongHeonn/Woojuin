@@ -117,12 +117,8 @@ fun PreviewSongRecognition() = PreviewShell {
 
 // ─── 장소 ───
 
-@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
-@Composable
-fun PreviewPlaceLocating() = PreviewShell {
-    PlaceLocatingScreen(onCandidates = {})
-}
-
+// 위치 획득 화면은 PlacePickerScreen의 Locating 상태로 흡수됐다 — 픽커 프리뷰가
+// fake 리포지토리의 1.4초 지연 동안 그 상태를 그대로 보여준다.
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
 @Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true)
 @Composable
@@ -131,7 +127,6 @@ fun PreviewPlacePicker() = PreviewShell {
         onSaved = {},
         onExistingItem = {},
         onVoiceCapture = {},
-        onOpenOnPhone = {},
     )
 }
 

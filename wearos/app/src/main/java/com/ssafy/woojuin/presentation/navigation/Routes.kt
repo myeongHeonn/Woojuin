@@ -16,7 +16,6 @@ object Routes {
     const val SONG_RECOGNITION = "songRecognition"
     const val SONG_RESULT = "songResult"
 
-    const val PLACE_LOCATING = "placeLocating"
     const val PLACE_PICKER = "placePicker"
     const val PLACE_SAVE_SUCCESS = "placeSaveSuccess"
 

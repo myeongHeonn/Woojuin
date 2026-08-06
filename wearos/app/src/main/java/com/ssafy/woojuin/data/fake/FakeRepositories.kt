@@ -231,12 +231,11 @@ class FakePlaceRepository(private val sync: SyncRepository) : PlaceRepository {
     private val _lastSavedPlace = MutableStateFlow<PlaceCandidate?>(null)
     override val lastSavedPlace: StateFlow<PlaceCandidate?> = _lastSavedPlace.asStateFlow()
 
-    private val _lastCandidates = MutableStateFlow<List<PlaceCandidate>>(emptyList())
-    override val lastCandidates: StateFlow<List<PlaceCandidate>> = _lastCandidates.asStateFlow()
+    // fake 는 더 찾을 것이 없다 — "주변 더 찾기"가 프리뷰에 뜨지 않게 항상 확장 완료 상태
+    override val lastExpanded: StateFlow<Boolean> = MutableStateFlow(true).asStateFlow()
 
-    override suspend fun nearbyCandidates(): List<PlaceCandidate> {
+    override suspend fun nearbyCandidates(expand: Boolean): List<PlaceCandidate> {
         delay(1400L)
-        _lastCandidates.value = FakeData.placeCandidates
         return FakeData.placeCandidates
     }
 
