@@ -118,7 +118,7 @@ class WoojuinApi(private val tokenStore: TokenStore) {
         contentType: String,
         bytes: ByteArray,
     ): JSONObject =
-        authorizedCall { access ->
+        authorizedCall(uploadClient) { access ->
             val body = okhttp3.MultipartBody.Builder()
                 .setType(okhttp3.MultipartBody.FORM)
                 .addFormDataPart(
@@ -131,14 +131,17 @@ class WoojuinApi(private val tokenStore: TokenStore) {
                 .header("Authorization", "Bearer $access").post(body).build()
         }
 
-    private fun authorizedCall(build: (String) -> Request): JSONObject {
+    private fun authorizedCall(
+        http: OkHttpClient = client,
+        build: (String) -> Request,
+    ): JSONObject {
         val access = tokenStore.accessTokenBlocking() ?: throw AuthRequiredException()
-        val first = call(build(access))
+        val first = call(build(access), http)
         if (first.first != 401) return parseBody(first)
 
         refreshOrThrow()
         val retryAccess = tokenStore.accessTokenBlocking() ?: throw AuthRequiredException()
-        val second = call(build(retryAccess))
+        val second = call(build(retryAccess), http)
         if (second.first == 401) {
             // 새 access 조차 거부 — 그 사이 기기 해제(폐기 목록)된 경우다
             runBlockingClear()
@@ -176,10 +179,25 @@ class WoojuinApi(private val tokenStore: TokenStore) {
             .apply { accessToken?.let { header("Authorization", "Bearer $it") } }
             .build()
 
-    private fun call(request: Request): Pair<Int, String> =
-        client.newCall(request).execute().use { response ->
+    private fun call(request: Request, http: OkHttpClient = client): Pair<Int, String> =
+        http.newCall(request).execute().use { response ->
             response.code to (response.body?.string() ?: "")
         }
+
+    /**
+     * 오디오 업로드 전용 — 읽기 타임아웃이 길다. 연결 풀·디스패처는 [client] 와 공유한다.
+     *
+     * 일반 호출(10초)로는 부족하다. 서버가 받아쓰기(whisper)를 부르는 시간이 응답에 더해지고,
+     * 무엇보다 **첫 호출이 비싸다** — dev 실기기 실측에서 1차 요청이 10.1초에 타임아웃했고
+     * 2차는 1.5초에 끝났다(워치→서버 TLS 수립과 서버→프록시 첫 연결을 1차가 다 낸다).
+     * 시연에서 첫 시도가 실패하면 그게 곧 실패이므로 넉넉히 잡는다.
+     */
+    private val uploadClient by lazy {
+        client.newBuilder()
+            .readTimeout(45, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
 
     private fun parseBody(result: Pair<Int, String>): JSONObject {
         val (code, body) = result
