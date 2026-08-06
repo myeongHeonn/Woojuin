@@ -61,12 +61,15 @@ import kotlinx.coroutines.launch
 sealed interface VoiceCaptureUiState {
     data object Ready : VoiceCaptureUiState
 
-    /**
-     * 엔진 초기화 대기 — 아직 마이크가 열리지 않았다. 여기서 한 말은 버려지므로
-     * "듣는 중"과 반드시 구분해 보여준다(온디바이스 엔진 첫 초기화가 수 초다).
-     */
+    /** 마이크가 열리기 전. 우리가 직접 녹음하므로 실측 100ms 안이라 스쳐 지나간다 */
     data object Preparing : VoiceCaptureUiState
     data class Listening(val partialText: String, val rms: Float) : VoiceCaptureUiState
+
+    /**
+     * 녹음은 끝났고 서버가 받아쓰는 중(실측 1.5~3초). **마이크가 닫혀 있으므로 "듣고
+     * 있어요"라고 하면 거짓이다** — 지금 하는 말은 남지 않는다.
+     */
+    data object Transcribing : VoiceCaptureUiState
     data class Confirm(val text: String) : VoiceCaptureUiState
     data object LocalSaved : VoiceCaptureUiState
     data class Error(val message: String) : VoiceCaptureUiState
@@ -97,6 +100,9 @@ class VoiceCaptureViewModel : ViewModel() {
                             if (event.text.isNotBlank()) latestText = event.text
                             _uiState.value = VoiceCaptureUiState.Listening(event.text, event.rms)
                         }
+                        SpeechEvent.Transcribing -> {
+                            _uiState.value = VoiceCaptureUiState.Transcribing
+                        }
                         is SpeechEvent.Final -> {
                             latestText = event.text
                             if (event.confident) save(event.text) else {
@@ -115,21 +121,22 @@ class VoiceCaptureViewModel : ViewModel() {
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
+            } catch (e: com.ssafy.woojuin.domain.repository.SpeechTranscriptionException) {
+                // 서버가 못 받아썼다 — 사용자가 잘못한 게 없고 다시 하면 될 수도 있다
+                _uiState.value = VoiceCaptureUiState.Error("잠시 후 다시 말해 주세요")
             } catch (e: Exception) {
                 _uiState.value = VoiceCaptureUiState.Error("지금은 음성 인식을 사용할 수 없어요")
             }
         }
     }
 
-    /** 다시 탭하면 즉시 종료하고 지금까지 인식된 내용을 저장한다. */
-    fun stopAndSave() {
-        listenJob?.cancel()
-        listenJob = null
-        if (latestText.isBlank()) {
-            _uiState.value = VoiceCaptureUiState.Error("들린 내용이 없어요")
-            return
-        }
-        viewModelScope.launch { save(latestText) }
+    /**
+     * "다 말했어요" — 무음(1.2초)을 기다리지 않고 지금까지 녹음한 것으로 마감한다.
+     * 흐름을 끊지 않는다: 곧 [SpeechEvent.Transcribing] → [SpeechEvent.Final] 이 와서
+     * 저장까지 이어진다(끊으면 방금 한 말이 사라진다).
+     */
+    fun finishSpeaking() {
+        repository.finishListening()
     }
 
     fun confirmSave() {
@@ -248,8 +255,7 @@ fun VoiceCaptureScreen(
                 )
             }
         }
-        // 엔진 초기화 대기 — 여기서 한 말은 버려지므로 "듣고 있어요"라고 하지 않는다.
-        // 탭도 받지 않는다(저장할 내용이 없어 "들린 내용이 없어요"만 뜬다)
+        // 마이크가 열리기 전 — 여기서 한 말은 남지 않으므로 "듣고 있어요"라고 하지 않는다
         VoiceCaptureUiState.Preparing -> {
             WoojuinStatusScreen {
                 WoojuinListeningLogo(
@@ -268,16 +274,35 @@ fun VoiceCaptureScreen(
                 CaptionText("잠시 후 말씀하세요")
             }
         }
+        // 마이크는 닫혔고 서버가 받아쓰는 중 — 탭도 받지 않는다(끝낼 게 없다)
+        VoiceCaptureUiState.Transcribing -> {
+            WoojuinStatusScreen {
+                WoojuinListeningLogo(
+                    accent = WoojuinColor.TextMuted,
+                    modifier = Modifier.size(88.dp),
+                    breathScale = 0.98f,
+                    reduceMotion = reduceMotion,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "알아듣고 있어요",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = WoojuinColor.TextMuted,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                CaptionText("잠시만요")
+            }
+        }
         else -> {
             val partial = (state as? VoiceCaptureUiState.Listening)?.partialText.orEmpty()
             val rms = (state as? VoiceCaptureUiState.Listening)?.rms ?: 0.5f
             WoojuinStatusScreen(
                 modifier = Modifier.clickable(
                     role = Role.Button,
-                    onClickLabel = "녹음 종료",
+                    onClickLabel = "다 말했어요",
                 ) {
                     haptics.stopCapture()
-                    viewModel.stopAndSave()
+                    viewModel.finishSpeaking()
                 },
             ) {
                 WoojuinListeningLogo(
@@ -304,7 +329,8 @@ fun VoiceCaptureScreen(
                     )
                 } else {
                     Spacer(modifier = Modifier.height(4.dp))
-                    CaptionText("다시 탭하면 저장돼요")
+                    // 말을 멈추면 1.2초 뒤 저절로 끝난다 — 탭은 그걸 앞당기는 것뿐이다
+                    CaptionText("다 말했으면 탭하세요")
                 }
             }
         }

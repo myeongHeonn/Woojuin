@@ -58,9 +58,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 sealed interface SearchUiState {
-    /** 엔진 초기화 대기 — 여기서 한 말은 버려진다(음성 저장 화면과 같은 이유) */
+    /** 마이크가 열리기 전(실측 100ms 안이라 스쳐 지나간다) */
     data object Preparing : SearchUiState
     data class Listening(val partialText: String) : SearchUiState
+
+    /** 녹음은 끝났고 서버가 받아쓰는 중 — 마이크는 닫혀 있다 */
+    data object Transcribing : SearchUiState
     data class Searching(val query: String) : SearchUiState
     data object Done : SearchUiState
 }
@@ -86,6 +89,7 @@ class VoiceSearchViewModel : ViewModel() {
                             if (event.text.isNotBlank()) lastPartial = event.text
                             _uiState.value = SearchUiState.Listening(event.text)
                         }
+                        SpeechEvent.Transcribing -> _uiState.value = SearchUiState.Transcribing
                         is SpeechEvent.Final -> runSearch(event.text)
                         SpeechEvent.SilenceTimeout -> runSearch(lastPartial)
                     }
@@ -150,11 +154,11 @@ fun VoiceSearchScreen(
 
     KeepScreenOn()
 
-    val preparing = uiState is SearchUiState.Preparing
+    // 마이크가 열려 있는 동안만 색을 살린다 — 받아쓰는 중에 말해도 남지 않기 때문이다
+    val listening = uiState is SearchUiState.Listening
     WoojuinStatusScreen {
         WoojuinListeningLogo(
-            // 준비 중에는 색을 죽여 "아직 듣지 않는다"를 눈으로도 알린다
-            accent = if (preparing) WoojuinColor.TextMuted else WoojuinColor.SearchAccent,
+            accent = if (listening) WoojuinColor.SearchAccent else WoojuinColor.TextMuted,
             modifier = Modifier.size(80.dp),
             reduceMotion = reduceMotion,
         )
@@ -162,15 +166,16 @@ fun VoiceSearchScreen(
         Text(
             text = when (uiState) {
                 is SearchUiState.Preparing -> "준비 중…"
+                is SearchUiState.Transcribing -> "알아듣고 있어요"
                 is SearchUiState.Searching -> "찾고 있어요"
                 else -> "무엇을 찾아볼까요?"
             },
             style = MaterialTheme.typography.titleMedium,
-            color = if (preparing) WoojuinColor.TextMuted else WoojuinColor.TextPrimary,
+            color = if (listening) WoojuinColor.TextPrimary else WoojuinColor.TextMuted,
         )
-        if (preparing) {
+        if (uiState is SearchUiState.Listening) {
             Spacer(modifier = Modifier.height(4.dp))
-            CaptionText("잠시 후 말씀하세요")
+            CaptionText("찾을 내용을 말하세요")
         }
         val partial = (uiState as? SearchUiState.Listening)?.partialText
             ?: (uiState as? SearchUiState.Searching)?.query.orEmpty()
