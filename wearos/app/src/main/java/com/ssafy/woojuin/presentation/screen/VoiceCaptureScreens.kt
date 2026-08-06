@@ -10,7 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,16 +35,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.wear.compose.material3.Button
-import androidx.wear.compose.material3.ButtonDefaults
-import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.ssafy.woojuin.data.fake.Repositories
 import com.ssafy.woojuin.domain.repository.SpeechEvent
 import com.ssafy.woojuin.presentation.component.CaptionText
+import com.ssafy.woojuin.presentation.component.WoojuinEdgeButton
 import com.ssafy.woojuin.presentation.component.WoojuinListScreen
 import com.ssafy.woojuin.presentation.component.WoojuinListeningLogo
 import com.ssafy.woojuin.presentation.component.WoojuinStatusScreen
@@ -215,7 +211,16 @@ fun VoiceCaptureScreen(
     when (val state = uiState) {
         is VoiceCaptureUiState.Confirm -> {
             // 인식 신뢰도가 매우 낮을 때만 확인 화면을 표시한다.
-            WoojuinStatusScreen {
+            WoojuinStatusScreen(
+                glowColor = WoojuinColor.VoiceAccent,
+                edgeButton = {
+                    WoojuinEdgeButton(
+                        label = "저장하기",
+                        onClick = { viewModel.confirmSave() },
+                        primary = true,
+                    )
+                },
+            ) {
                 Text(
                     text = "이렇게 저장할까요?",
                     style = MaterialTheme.typography.titleMedium,
@@ -231,33 +236,27 @@ fun VoiceCaptureScreen(
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                Button(
-                    onClick = { viewModel.confirmSave() },
-                    colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.AccentPurple),
-                    label = { Text("저장하기") },
-                )
+
             }
         }
         is VoiceCaptureUiState.Error -> {
-            WoojuinStatusScreen {
+            WoojuinStatusScreen(
+                glowColor = WoojuinColor.Danger,
+                edgeButton = { WoojuinEdgeButton(label = "홈으로", onClick = onBack) },
+            ) {
                 Text(
                     text = state.message,
                     style = MaterialTheme.typography.titleMedium,
                     color = WoojuinColor.TextPrimary,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                Button(
-                    onClick = onBack,
-                    colors = ButtonDefaults.buttonColors(containerColor = WoojuinColor.Surface),
-                    label = { Text("홈으로") },
-                )
+
             }
         }
         // 마이크가 열리기 전 — 여기서 한 말은 남지 않으므로 "듣고 있어요"라고 하지 않는다
         VoiceCaptureUiState.Preparing -> {
-            WoojuinStatusScreen {
+            // 마이크가 닫혀 있으면 하늘도 색을 잃는다 — 지금 말해도 남지 않는다는 신호다
+            WoojuinStatusScreen(glowColor = WoojuinColor.TextMuted) {
                 WoojuinListeningLogo(
                     accent = WoojuinColor.TextMuted,
                     modifier = Modifier.size(88.dp),
@@ -276,7 +275,7 @@ fun VoiceCaptureScreen(
         }
         // 마이크는 닫혔고 서버가 받아쓰는 중 — 탭도 받지 않는다(끝낼 게 없다)
         VoiceCaptureUiState.Transcribing -> {
-            WoojuinStatusScreen {
+            WoojuinStatusScreen(glowColor = WoojuinColor.TextMuted) {
                 WoojuinListeningLogo(
                     accent = WoojuinColor.TextMuted,
                     modifier = Modifier.size(88.dp),
@@ -297,6 +296,7 @@ fun VoiceCaptureScreen(
             val partial = (state as? VoiceCaptureUiState.Listening)?.partialText.orEmpty()
             val rms = (state as? VoiceCaptureUiState.Listening)?.rms ?: 0.5f
             WoojuinStatusScreen(
+                glowColor = WoojuinColor.VoiceAccent,
                 modifier = Modifier.clickable(
                     role = Role.Button,
                     onClickLabel = "다 말했어요",
@@ -358,8 +358,10 @@ fun VoiceSaveSuccessScreen(
     }
 
     WoojuinListScreen(
+        glowColor = WoojuinColor.StarGreen,
         edgeButton = {
-            EdgeButton(
+            WoojuinEdgeButton(
+                label = "실행 취소 ${secondsLeft}초",
                 onClick = {
                     val id = lastSaved?.id
                     if (id != null) {
@@ -367,13 +369,7 @@ fun VoiceSaveSuccessScreen(
                     }
                     onDone()
                 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = WoojuinColor.SurfaceRaised,
-                    contentColor = WoojuinColor.TextPrimary,
-                ),
-            ) {
-                Text("실행 취소 · ${secondsLeft}s")
-            }
+            )
         },
     ) {
         item {

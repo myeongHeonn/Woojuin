@@ -65,7 +65,6 @@ fun PreviewHome() = PreviewShell {
         onSearch = {},
         onSong = {},
         onPlace = {},
-        onSyncStatus = {},
     )
 }
 
@@ -122,11 +121,7 @@ fun PreviewSongRecognition() = PreviewShell {
 @Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true)
 @Composable
 fun PreviewPlacePicker() = PreviewShell {
-    PlacePickerScreen(
-        onSaved = {},
-        onExistingItem = {},
-        onVoiceCapture = {},
-    )
+    PlacePickerScreen(onSaved = {}, onBack = {})
 }
 
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
@@ -136,12 +131,6 @@ fun PreviewPlaceSaveSuccess() = PreviewShell {
 }
 
 // ─── 주변 장소 / 기타 ───
-
-@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
-@Composable
-fun PreviewOfflineQueue() = PreviewShell {
-    OfflineQueueScreen()
-}
 
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
 @Composable
@@ -158,5 +147,5 @@ fun PreviewPermissionGuideLocation() = PreviewShell {
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
 @Composable
 fun PreviewOpenOnPhone() = PreviewShell {
-    OpenOnPhoneScreen(onDone = {})
+    OpenOnPhoneScreen(opened = true, onDone = {})
 }

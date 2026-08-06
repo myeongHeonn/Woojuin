@@ -25,7 +25,8 @@ import com.ssafy.woojuin.presentation.theme.WoojuinColor
  */
 @Composable
 fun OfflineGateScreen() {
-    WoojuinStatusScreen {
+    // 할 수 있는 일이 없는 화면이다 — 하늘도 색을 잃는다
+    WoojuinStatusScreen(glowColor = WoojuinColor.TextMuted) {
         Icon(
             imageVector = Icons.Rounded.CloudOff,
             contentDescription = null,

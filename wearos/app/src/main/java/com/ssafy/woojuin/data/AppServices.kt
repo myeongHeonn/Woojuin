@@ -5,12 +5,14 @@ import com.ssafy.woojuin.data.auth.TokenStore
 import com.ssafy.woojuin.data.remote.RemoteAuthRepository
 import com.ssafy.woojuin.data.remote.RemotePlaceRepository
 import com.ssafy.woojuin.data.remote.RemoteSearchRepository
+import com.ssafy.woojuin.data.remote.RemoteSongRepository
 import com.ssafy.woojuin.data.remote.RemoteVoiceCaptureRepository
 import com.ssafy.woojuin.data.remote.WoojuinApi
 import com.ssafy.woojuin.data.remote.WorkspaceResolver
 import com.ssafy.woojuin.domain.repository.AuthRepository
 import com.ssafy.woojuin.domain.repository.PlaceRepository
 import com.ssafy.woojuin.domain.repository.SearchRepository
+import com.ssafy.woojuin.domain.repository.SongRepository
 import com.ssafy.woojuin.domain.repository.SpeechSource
 import com.ssafy.woojuin.domain.repository.VoiceCaptureRepository
 
@@ -39,6 +41,8 @@ object AppServices {
     val auth: AuthRepository by lazy { RemoteAuthRepository(api, tokenStore) }
 
     val place: PlaceRepository by lazy { RemotePlaceRepository(context(), api, workspaces) }
+
+    val song: SongRepository by lazy { RemoteSongRepository(api, workspaces) }
 
     val connectivity: ConnectivityMonitor by lazy { ConnectivityMonitor(context()) }
 

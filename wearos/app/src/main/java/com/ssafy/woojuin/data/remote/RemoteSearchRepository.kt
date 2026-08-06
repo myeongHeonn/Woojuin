@@ -92,7 +92,6 @@ class RemoteSearchRepository(
                     ?: if (processing) "AI가 정리하고 있어요" else ""
             },
             savedAtLabel = savedAtLabel(json.optString("createdAt", "")),
-            sourceLabel = null,
         )
     }
 
