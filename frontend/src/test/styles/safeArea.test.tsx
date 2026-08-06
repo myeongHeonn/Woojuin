@@ -53,21 +53,22 @@ describe('안전영역 토큰', () => {
     expect(computed('pt-[calc(40px+var(--safe-top))]').paddingTop).toBe('99px');
   });
 
-  it('탭바 아래 여백은 안전영역과 겹친다 — 더하면 탭바가 48px 떠서 너무 높다(실기기 피드백)', () => {
-    // iPhone 14 Pro 세로 — 하단 34px. 홈 인디케이터 인셋 자체가 빈 공간이라
-    // 14px 를 또 얹지 않고 max() 로 겹친다. 48px 로 돌아가면 이 테스트가 막는다.
+  it('탭바 아래 여백은 인셋을 일부만 존중한다 — 전부 비우면 여전히 떠 보인다(실기기 피드백 2회)', () => {
+    // iPhone 세로 — 하단 인셋 34px. 인디케이터 선은 바닥 ~10px 부근이라
+    // 인셋에서 14px 파고들어 20px 에 앉힌다. 34px(전부 존중)나 48px(합산)로
+    // 돌아가면 이 테스트가 막는다.
     setInsets('0px', '34px');
 
-    expect(computed('pb-[var(--tabbar-bottom-pad)]').paddingBottom).toBe('34px');
+    expect(computed('pb-[var(--tabbar-bottom-pad)]').paddingBottom).toBe('20px');
   });
 
   it('하단 탭바를 비켜 앉는 높이도 탭바 여백을 따라간다', () => {
     // 지도 배지·장소 패널·검색바·휴지통이 공유하는 값 — 전에는 네 곳에 각자 적혀 있었다
     setInsets('0px', '34px');
 
-    // 74px(탭바 높이) + max(14, 34) = 108 — 탭바가 내려간 만큼 같이 내려간다
-    expect(computed('bottom-above-tabbar').bottom).toBe('108px');
-    expect(computed('pb-above-tabbar').paddingBottom).toBe('108px');
+    // 74px(탭바 높이) + max(14, 34-14) = 94 — 탭바가 내려간 만큼 같이 내려간다
+    expect(computed('bottom-above-tabbar').bottom).toBe('94px');
+    expect(computed('pb-above-tabbar').paddingBottom).toBe('94px');
   });
 });
 
