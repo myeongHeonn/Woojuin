@@ -60,6 +60,17 @@ cd backend
 
 등록 스크립트는 명령을 Guild Install과 User Install 모두에서, 서버·봇 DM·개인 채널에서 사용할 수 있도록 등록한다. 전역 명령 반영에는 시간이 걸릴 수 있다.
 
+> **앱 재설치 ≠ 명령 갱신.** Discord 앱을 서버/계정에 다시 설치해도 슬래시 명령 **스키마는 갱신되지 않는다.** 명령 구조를 바꿨다면(`discord-command.json` 수정) 반드시 위 등록 스크립트를 다시 실행해야 한다. 스크립트는 `PUT`(bulk overwrite)로 저장소 JSON을 명령 세트 전체로 덮어써서, 예전에 등록된 잔여 서브커맨드(예: 옛 `memo`, 그룹형 `workspace`)까지 함께 제거한다.
+
+실제 Discord에 등록된 명령이 저장소 JSON과 일치하는지 확인하려면(읽기 전용, 토큰 미노출):
+
+```powershell
+cd backend
+.\scripts\list-discord-command.ps1
+```
+
+`workspace` 변경은 Discord에서 위치 인자(`/woojuin workspace 3`)로 입력할 수 없다. 자동완성에서 `/woojuin workspace`를 고른 뒤 `number` 옵션에 번호를 넣어야 하며, 화면에는 `/woojuin workspace number:3`처럼 표시된다. Mattermost는 기존대로 `/woojuin workspace 3` 위치 인자를 지원한다.
+
 ## 배포 후 확인
 
 1. Discord Developer Portal에서 운영 Interaction URL 검증 성공

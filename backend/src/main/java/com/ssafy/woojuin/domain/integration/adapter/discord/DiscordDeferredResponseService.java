@@ -14,6 +14,8 @@ import org.springframework.web.client.RestClient;
 @Service
 public class DiscordDeferredResponseService {
 
+    private static final int SUPPRESS_EMBEDS = 1 << 2;
+
     private final RestClient restClient;
     private final String applicationId;
 
@@ -46,7 +48,8 @@ public class DiscordDeferredResponseService {
         try {
             restClient.patch()
                     .uri("/webhooks/{applicationId}/{token}/messages/@original", applicationId, interactionToken)
-                    .body(Map.of("content", message))
+                    // SUPPRESS_EMBEDS: 후속 응답의 딥링크가 카드로 자동 펼쳐지지 않게 한다.
+                    .body(Map.of("content", message, "flags", SUPPRESS_EMBEDS))
                     .retrieve()
                     .toBodilessEntity();
         } catch (RuntimeException ignored) {
