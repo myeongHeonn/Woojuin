@@ -199,10 +199,12 @@ const MyPage = () => {
         onCancel={() => setConfirmKind(null)}
         onConfirm={handleLogout}
       />
+      {/* 탈퇴가 무엇을 되돌릴 수 없게 만드는지 먼저 알린다 — 같은 계정으로 다시 가입할 수는
+          있지만 그건 빈 새 계정이고, 지금 저장한 것들은 따라오지 않는다. */}
       <ConfirmModal
         open={confirmKind === 'withdraw'}
         title="회원 탈퇴"
-        description="정말 회원 탈퇴하시겠어요? 탈퇴하면 계정 이용이 중단되며, 저장된 데이터는 개인정보 처리방침에 따라 처리됩니다."
+        description="정말 회원 탈퇴하시겠어요? 저장된 데이터는 개인정보 처리방침에 따라 처리되며, 다시 볼 수 없습니다. 같은 계정으로 다시 가입할 수 있지만 새 계정으로 시작합니다."
         confirmLabel={withdrawMutation.isPending ? '처리 중...' : '확인'}
         onCancel={() => setConfirmKind(null)}
         onConfirm={() => withdrawMutation.mutate()}

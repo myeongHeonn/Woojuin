@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAtom, useSetAtom } from 'jotai';
@@ -18,8 +18,22 @@ import GoogleAuthButton from './GoogleAuthButton';
  * autoFocus 를 두지 않는 이유: 랜딩에서는 데스크톱용 마크업과 함께 DOM 에 있고
  * CSS 로만 감춰지므로, 자동 포커스가 엉뚱한 곳으로 튈 수 있다.
  */
+/**
+ * 구글 로그인 실패 사유(백엔드 OAuth2LoginFailureHandler 가 넘기는 error 값) → 사용자 문구.
+ *
+ * 여기 없는 코드는 문구를 띄우지 않는다. 그래서 `access_denied` 는 일부러 비워 뒀다 —
+ * 사용자가 구글 동의 화면에서 스스로 취소한 경우라, 자기가 한 일을 오류로 되돌려 받으면
+ * 오히려 무슨 문제가 생긴 줄 안다.
+ */
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  // 파기 이전에 탈퇴한 계정만 여기에 닿는다(지금은 탈퇴 시 식별자를 파기해 재가입이 된다).
+  withdrawn_user: '탈퇴한 계정입니다. 새로 가입해 주세요.',
+  oauth_failed: '구글 로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+};
+
 const LoginForm = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const formMethods = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
   const setAccessToken = useSetAtom(accessTokenAtom);
   const setRefreshToken = useSetAtom(refreshTokenAtom);
@@ -39,11 +53,15 @@ const LoginForm = () => {
 
   // 자격 증명이 틀렸는지(401) 서버가 죽었는지는 사용자가 할 수 있는 일이 다르므로
   // 서버 메시지를 그대로 보여주고, 메시지가 없을 때만 기본 문구로 떨어진다.
+  //
+  // 방금 누른 이메일 로그인의 실패가 우선이다 — 구글 실패 문구는 리다이렉트로 넘어온
+  // 이전 시도의 흔적이라, 새로 시도해서 난 오류를 덮어서는 안 된다.
+  const oauthErrorMessage = OAUTH_ERROR_MESSAGES[searchParams.get('error') ?? ''] ?? null;
   const errorMessage = loginMutation.isError
     ? ((axios.isAxiosError(loginMutation.error)
         ? loginMutation.error.response?.data?.message
         : null) ?? '로그인에 실패했습니다')
-    : null;
+    : oauthErrorMessage;
 
   return (
     <div className="flex w-full flex-col gap-4">

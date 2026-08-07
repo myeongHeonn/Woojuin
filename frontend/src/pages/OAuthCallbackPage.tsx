@@ -34,7 +34,11 @@ export default function OAuthCallbackPage() {
       setPostLoginRedirect(null);
       navigate(postLoginRedirect ?? '/home', { replace: true });
     } else {
-      navigate('/login', { replace: true });
+      // 토큰이 없으면 실패다. 백엔드(OAuth2LoginFailureHandler)가 사유를 error 로 실어 주므로
+      // 그대로 로그인 화면에 넘겨 문구를 띄우게 한다 — 예전에는 사유 없이 되돌려서
+      // "버튼을 눌렀는데 아무 일도 없는" 화면이 됐다.
+      const error = searchParams.get('error');
+      navigate(error ? `/login?error=${encodeURIComponent(error)}` : '/login', { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
