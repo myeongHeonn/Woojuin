@@ -42,6 +42,11 @@ public interface Geocoder {
      * <p>기본은 음식점·카페만 뒤진다(쿼터 2). {@code expand}가 참이면 전 카테고리로
      * 넓힌다 — 워치의 "주변 더 찾기"가 그것이다. 기본 검색이 <b>0건</b>이면 요청하지
      * 않아도 넓힌다(그때는 확장이 유일한 선택지다). 몇 개만 나온 경우엔 넓히지 않는다.
+     *
+     * <p>넓힐 때는 카테고리 그룹에 더해 <b>동 이름 키워드 검색</b>도 돈다. 카카오의
+     * {@code category_group_code}는 "중요 카테고리만" 붙는 값이라 공장·회사·기숙사처럼
+     * 코드가 없는 장소는 카테고리 검색으로 영원히 안 나오는데, 산업단지·회사 부지에서는
+     * 그런 곳이 주변의 대부분이다. 자세한 근거는 {@code KakaoLocalGeocoder} 참고.
      */
     NearbySearch nearby(GeoPoint point, boolean expand);
 

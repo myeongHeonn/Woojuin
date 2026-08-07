@@ -270,6 +270,71 @@ class KakaoLocalGeocoderTest {
     }
 
     @Test
+    void 넓힐_때는_동_이름_키워드로도_찾는다() throws Exception {
+        // 카카오 category_group_code 는 "중요 카테고리만" 붙는 값이라 공장·회사·기숙사는
+        // 비어 있고, 카테고리 검색은 그 코드가 필수라 그런 장소를 영원히 못 본다.
+        // 동 이름은 주소로 매칭되고 키워드 검색은 코드가 선택이라, 이 경로가 유일하다.
+        when(client.documents(eq(CATEGORY_SEARCH), anyMap())).thenReturn(documents("[]"));
+        when(client.documents(eq(COORD_TO_ADDRESS), anyMap())).thenReturn(documents("""
+                [{"address": {"region_3depth_name": "오선동"}}]"""));
+        when(client.documents(eq(KEYWORD_SEARCH), anyMap())).thenReturn(documents("""
+                [{"place_name": "삼성전자 광주사업장", "category_group_code": "",
+                  "x": "126.8115", "y": "35.2053", "distance": "25"}]"""));
+
+        var result = geocoder.nearby(new GeoPoint(35.2052, 126.8117), true);
+
+        assertThat(result.places()).extracting(NearbyPlace::name)
+                .containsExactly("삼성전자 광주사업장");
+        verify(client).documents(eq(KEYWORD_SEARCH),
+                argThat(params -> "오선동".equals(params.get("query"))
+                        && "100".equals(params.get("radius"))));
+    }
+
+    @Test
+    void 동_이름은_지번주소에서_읽는다() throws Exception {
+        // road_address 쪽 region_3depth_name 은 빈 문자열인 곳이 흔하다(실측: 오선동).
+        // 그걸 먼저 읽으면 질의가 비어 조용히 아무 일도 일어나지 않는다.
+        when(client.documents(eq(CATEGORY_SEARCH), anyMap())).thenReturn(documents("[]"));
+        when(client.documents(eq(COORD_TO_ADDRESS), anyMap())).thenReturn(documents("""
+                [{"road_address": {"region_3depth_name": "", "road_name": "하남산단6번로"},
+                  "address": {"region_3depth_name": "오선동"}}]"""));
+        when(client.documents(eq(KEYWORD_SEARCH), anyMap())).thenReturn(documents("[]"));
+
+        geocoder.nearby(new GeoPoint(35.2052, 126.8117), true);
+
+        verify(client).documents(eq(KEYWORD_SEARCH),
+                argThat(params -> "오선동".equals(params.get("query"))));
+    }
+
+    @Test
+    void 키워드와_카테고리에_같은_장소가_걸리면_한_번만_싣는다() throws Exception {
+        // 그룹끼리는 배타적이라 지금까지 중복이 없었지만, 키워드 검색은 그것들과 겹친다.
+        String daycare = """
+                [{"place_name": "삼성전자광주어린이집", "place_url": "http://place.map.kakao.com/25952506",
+                  "x": "126.8102", "y": "35.2050", "distance": "144"}]""";
+        stubGroup("PS3", daycare);
+        when(client.documents(eq(COORD_TO_ADDRESS), anyMap())).thenReturn(documents("""
+                [{"address": {"region_3depth_name": "오선동"}}]"""));
+        when(client.documents(eq(KEYWORD_SEARCH), anyMap())).thenReturn(documents(daycare));
+
+        var result = geocoder.nearby(new GeoPoint(35.2052, 126.8117), true);
+
+        assertThat(result.places()).hasSize(1);
+    }
+
+    @Test
+    void 기본_검색은_동_이름을_묻지_않는다() throws Exception {
+        // 흔한 경로(음식점·카페가 잡히는 곳)는 성격도 속도도 그대로 둔다.
+        stubGroup("FD6", """
+                [{"place_name": "온화정", "x": "127.0562", "y": "37.5446", "distance": "20"}]""");
+
+        geocoder.nearby(new GeoPoint(37.5445, 127.0561), false);
+
+        verify(client, never()).documents(eq(COORD_TO_ADDRESS), anyMap());
+        verify(client, never()).documents(eq(KEYWORD_SEARCH), anyMap());
+    }
+
+    @Test
     void 주변_검색_반경은_걸어서_1분_거리다() throws Exception {
         // "지금 서 있는 곳"을 저장하는 기능이다 — 반경이 커지면 엉뚱한 가게가 섞인다.
         // 값 자체가 제품 결정이라 조용히 늘어나지 않게 잠가 둔다.
