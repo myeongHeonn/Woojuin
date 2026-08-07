@@ -17,7 +17,7 @@
 흩어진 링크·사진·메모를 한곳에 모으면, AI가 제목·요약·카테고리를 붙여 정리하고<br />
 서로 관련 있는 정보를 **별자리처럼 이어 보여주는** 올인원 AI 스크랩북
 
-[**woojuin.store**](https://woojuin.store) · [**시연 시나리오 (Figma)**](https://www.figma.com/design/zWIwdtjk1xYT0fwPjdrkvF/Scenario?node-id=258-2468)
+[**woojuin.store**](https://woojuin.store) · [**시연 시나리오 (Figma)**](https://www.figma.com/design/zWIwdtjk1xYT0fwPjdrkvF/Woojuin?node-id=258-2468&t=QOFcHyMFfgYDMXDQ-1)
 
 SSAFY 15기 광주1반 공통프로젝트 (6인 / 2026.07.13 ~ 2026.08.07)
 
@@ -239,7 +239,7 @@ cd ai/ai-mix && python -m pytest                  # 실제 API 호출 없음
 | ✅ [요구사항 명세서](docs/REQUIREMENTS.md) | 기능 요구사항 63개 · 비기능 요구사항 18개                       |
 | 🔌 [API 명세서](docs/API.md)               | 엔드포인트 전체 · 공통 응답 규약 · SSE 이벤트 · 에러 코드       |
 | 🗄 [ERD](docs/ERD.md)                      | 15개 테이블 관계도 · 컬럼 상세 · 인덱스 전략 · 알려진 부채      |
-| 🎬 [시연 시나리오](https://www.figma.com/design/zWIwdtjk1xYT0fwPjdrkvF/Scenario?node-id=258-2468) | 실제 화면으로 따라가는 사용 흐름 (Figma) |
+| 🎬 [시연 시나리오](https://www.figma.com/design/zWIwdtjk1xYT0fwPjdrkvF/Woojuin?node-id=258-2468&t=QOFcHyMFfgYDMXDQ-1) | 실제 화면으로 따라가는 사용 흐름 (Figma) |
 
 > 위 네 MD 문서는 **현재 코드를 기준으로** 작성했습니다(Flyway 마이그레이션·컨트롤러 기준).
 > 노션 원본과 어긋나면 코드에 반영된 최신 결정이 우선입니다.
