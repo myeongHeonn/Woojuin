@@ -139,7 +139,7 @@ GET {백엔드 origin}/oauth2/authorization/google
 성공하면 `woojuin.oauth.redirect-base-url`(기본 `http://localhost:5173/oauth/callback`)로 토큰을
 붙여 돌려보냅니다. 신규 가입이면 프론트가 온보딩(`/oauth/onboarding`)으로 보냅니다.
 
-> 카카오 로그인은 **미구현**입니다(설정 자리만 있습니다). 카카오는 지오코딩 REST API로만 쓰입니다.
+> 소셜 로그인은 **구글만** 지원합니다. 카카오는 지오코딩(주소↔좌표) REST API로만 쓰입니다.
 
 ### `GET /api/users/me` 🔒 — 내 프로필
 
