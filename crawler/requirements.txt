@@ -1,6 +1,26 @@
 # Scrapling: 스텔스 크롤링 엔진. [fetchers]로 브라우저 페처(StealthyFetcher 등) 포함.
-# solve_cloudflare / DynamicFetcher API는 0.2.9+ 에서 제공된다.
-scrapling[fetchers]>=0.2.9
+#
+# ⚠️ 상한 없이 두지 않는다 — 코드를 한 줄도 안 바꿔도 재빌드만으로 깨진다.
+#
+#   scrapling 은 engines/toolbelt/fingerprints.py 에서 크롬 버전을 **정확히 하나로**
+#   못박아(chromium_version = 149, min=max) browserforge 에 헤더를 요청한다. 게다가 그
+#   호출이 engines/_browsers/_config_tools.py 의 **모듈 로드 시점**에 일어난다.
+#   browserforge 데이터셋에 그 버전이 없으면 ValueError 로 import 자체가 실패하고,
+#   uvicorn 이 앱을 못 올려 컨테이너가 재시작 루프에 빠진다 → healthcheck 영구 unhealthy.
+#
+#   실제로 겪은 조합(dev, 2026-08-07):
+#     scrapling 0.4.x(chrome 149 요구) + browserforge 1.2.1(linux 데이터는 chrome 131 까지)
+#     → ValueError: No headers based on this input can be generated.
+#
+#   browserforge 는 전이 의존성이라 여기에 적지 않으면 통제할 수 없다. 게다가 데이터셋을
+#   **런타임에 내려받아** Dockerfile 의 `scrapling install` 이 이미지에 굳혀 넣으므로,
+#   한 번 어긋난 이미지는 재빌드 전까지 계속 깨진 채로 남는다.
+#
+#   올릴 때는 둘을 **함께** 올리고, 리눅스에서 import 가 되는지 반드시 확인한다:
+#     docker run --rm woojuin-crawler:latest python -c "from scrapling.fetchers import StealthyFetcher"
+scrapling[fetchers]==0.4.12
+browserforge==1.2.4
+
 fastapi>=0.115,<1.0
 uvicorn[standard]>=0.30,<1.0
 pydantic>=2.7,<3.0
