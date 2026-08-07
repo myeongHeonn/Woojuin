@@ -16,6 +16,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /**
  * LOCAL 유저는 passwordHash 필수 + providerId NULL, OAuth 유저는 반대.
@@ -105,10 +106,41 @@ public class User extends BaseTimeEntity {
         this.sharedWorkspaceTutorialCompleted = true;
     }
 
+    /**
+     * 탈퇴 처리 — 행은 남기고(소프트 삭제) <b>로그인 식별자만 파기</b>한다.
+     *
+     * <p>식별자를 지우는 이유는 두 가지다. 하나는 고지 이행: 개인정보처리방침이 회원 정보(이메일
+     * 등)의 보유기간을 "회원 탈퇴 시까지"로 밝히고 있는데, 식별자를 그대로 들고 있으면 그 고지와
+     * 어긋난다. 다른 하나는 재가입: {@code uk_users_provider UNIQUE (provider, provider_id)} 가
+     * 탈퇴자의 구글 sub 를 계속 붙들고 있으면 <b>같은 구글 계정은 두 번 다시 가입할 수 없다</b> —
+     * 실패도 조용해서 사용자는 로그인 화면만 되돌아 본다.
+     *
+     * <p>파기 후 같은 구글 계정으로 로그인하면 조회가 빈 결과가 되어 자연스럽게 <b>새 계정</b>으로
+     * 가입된다. 옛 아이템은 옛 행에 소프트 삭제 상태로 남아 되살아나지 않는다 — 탈퇴한 사람이
+     * 기대하는 결과이기도 하다.
+     *
+     * <p>{@code nickname} 은 남긴다: 로그인 식별자가 아니고, 공유 워크스페이스 멤버 활동 피드가
+     * 지난 기록을 표시하는 데 쓴다. 닉네임까지 파기할지는 별도 정책 판단이 필요하다.
+     */
     public void withdraw() {
-        if (this.deletedAt == null) {
-            this.deletedAt = OffsetDateTime.now();
+        if (this.deletedAt != null) {
+            return;
         }
+        this.deletedAt = OffsetDateTime.now();
+        this.email = withdrawnPlaceholderEmail();
+        this.providerId = null;
+    }
+
+    /**
+     * 파기한 이메일 자리에 넣을 값. email 은 NOT NULL 이라 비울 수 없어 대체값이 필요하다.
+     *
+     * <p>{@code .invalid} 는 RFC 2606 이 예약한 TLD 로 실제 주소가 될 수 없다 — 이 값이 어딘가로
+     * 새어 나가도 남의 메일함에 닿지 않는다. id 를 섞는 것은 탈퇴자가 여럿일 때 값이 겹치지 않게
+     * 하려는 것이다(영속화 전 호출까지 대비해 id 가 없으면 임의값으로 떨어진다).
+     */
+    private String withdrawnPlaceholderEmail() {
+        String token = this.id != null ? String.valueOf(this.id) : UUID.randomUUID().toString();
+        return "withdrawn+" + token + "@woojuin.invalid";
     }
 
     public boolean isWithdrawn() {

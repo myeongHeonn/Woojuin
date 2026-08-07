@@ -128,6 +128,23 @@ class UserWithdrawalServiceTest {
     }
 
     @Test
+    void withdraw_googleUser_scrubsLoginIdentifiersSoTheAccountCanSignUpAgain() {
+        User user = googleUser(1L);
+        Workspace personalWorkspace = workspace(10L, user, WorkspaceType.PERSONAL);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(workspaceMemberRepository.findByUserId(1L))
+                .thenReturn(List.of(membership(personalWorkspace, user, WorkspaceRole.OWNER)));
+        when(sessionStore.deleteAll(1L)).thenReturn(List.of());
+
+        userWithdrawalService.withdraw(1L);
+
+        // provider_id 가 남으면 uk_users_provider 가 같은 구글 계정의 재가입을 영구히 막는다.
+        assertThat(user.getProviderId()).isNull();
+        assertThat(user.getEmail()).isEqualTo("withdrawn+1@woojuin.invalid");
+        assertThat(user.isWithdrawn()).isTrue();
+    }
+
+    @Test
     void withdraw_unknownUser_throwsUserNotFound() {
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -142,6 +159,18 @@ class UserWithdrawalServiceTest {
         User user = User.builder()
                 .email("user" + id + "@woojuin.com")
                 .provider(AuthProvider.LOCAL)
+                .emailVerified(true)
+                .nickname("우주인")
+                .build();
+        ReflectionTestUtils.setField(user, "id", id);
+        return user;
+    }
+
+    private User googleUser(Long id) {
+        User user = User.builder()
+                .email("real@gmail.com")
+                .provider(AuthProvider.GOOGLE)
+                .providerId("google-sub-" + id)
                 .emailVerified(true)
                 .nickname("우주인")
                 .build();

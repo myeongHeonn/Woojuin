@@ -45,6 +45,11 @@ public class OAuthAccountService {
         Optional<User> existing = userRepository.findByProviderAndProviderId(provider, providerId);
         if (existing.isPresent()) {
             User user = existing.get();
+            // 정상 경로에서는 여기에 걸릴 일이 없다 — User.withdraw() 가 provider_id 를 파기하므로
+            // 탈퇴한 행은 위 조회에 아예 잡히지 않고, 같은 계정은 아래에서 새로 가입된다.
+            // 남겨 두는 것은 파기 이전 버전에서 탈퇴한 행(V12 마이그레이션 전 데이터)과 DB 를 직접
+            // 손댄 경우를 위한 안전망이다. 이때는 로그인이 막히지만, 실패 사유가 프론트까지
+            // 전달되므로(OAuth2LoginFailureHandler) 예전처럼 조용히 끝나지는 않는다.
             if (user.isWithdrawn()) {
                 throw new OAuth2AuthenticationException(
                         new OAuth2Error("withdrawn_user"), "탈퇴한 계정입니다.");
