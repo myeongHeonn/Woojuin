@@ -39,13 +39,13 @@
 
 떠오른 순간이 곧 저장 순간이 되도록, 쓰던 화면을 벗어나지 않고 보낼 수 있는 통로를 넓게 열어 뒀습니다.
 
-| 통로 | 이렇게 저장합니다 |
-| --- | --- |
-| 🌐 **웹앱** | 링크·사진·메모를 붙여 넣기 한 번으로 |
-| 🧩 **Chrome 확장** | 보고 있는 페이지를 툴바 버튼 / 우클릭 메뉴로 바로 |
-| 📱 **모바일 공유** | PWA 설치 후 안드로이드 공유 시트에서 "우주인에게 보내기" |
-| 💬 **Discord · Mattermost** | 채널에서 슬래시 명령으로 저장하고, 채널↔워크스페이스 매핑까지 |
-| ⌚ **Wear OS** | 갤럭시 워치에서 지금 있는 장소·음성 메모·듣고 있는 노래를 손목만으로 |
+| 통로                        | 이렇게 저장합니다                                                    |
+| --------------------------- | -------------------------------------------------------------------- |
+| 🌐 **웹앱**                 | 링크·사진·메모를 붙여 넣기 한 번으로                                 |
+| 🧩 **Chrome 확장**          | 보고 있는 페이지를 툴바 버튼 / 우클릭 메뉴로 바로                    |
+| 📱 **모바일 공유**          | PWA 설치 후 안드로이드 공유 시트에서 "우주인에게 보내기"             |
+| 💬 **Discord · Mattermost** | 채널에서 슬래시 명령으로 저장하고, 채널↔워크스페이스 매핑까지        |
+| ⌚ **Wear OS**              | 갤럭시 워치에서 지금 있는 장소·음성 메모·듣고 있는 노래를 손목만으로 |
 
 저장 API는 **즉시 응답**하고(`PROCESSING`), 크롤링·AI 가공은 뒤에서 처리합니다. 기다림 없이 하던 일을 계속하면 됩니다.
 
@@ -69,12 +69,12 @@
 
 같은 워크스페이스를 목적에 따라 다르게 봅니다.
 
-| 뷰 | 무엇을 보여주나 |
-| --- | --- |
-| 🌟 **성좌** | 의미가 비슷한 아이템이 가까이 놓인 3D 우주. 임베딩을 UMAP으로 3차원까지 줄여 좌표를 만듭니다 |
-| 📚 **라이브러리** | 카테고리 칩으로 걸러 보는 카드 목록 |
-| 🗺 **지도** | 좌표가 있는 링크·사진을 지도 위에. 주변 장소 검색으로 "그 근처 뭐 저장했더라"까지 |
-| 🖼 **한눈에 보기** | 보드형 뷰 — 개발 중 |
+| 뷰                 | 무엇을 보여주나                                                                              |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| 🌟 **성좌**        | 의미가 비슷한 아이템이 가까이 놓인 3D 우주. 임베딩을 UMAP으로 3차원까지 줄여 좌표를 만듭니다 |
+| 📚 **라이브러리**  | 카테고리 칩으로 걸러 보는 카드 목록                                                          |
+| 🗺 **지도**        | 좌표가 있는 링크·사진을 지도 위에. 주변 장소 검색으로 "그 근처 뭐 저장했더라"까지            |
+| 🖼 **한눈에 보기** | 보드형 뷰 — 개발 중                                                                          |
 
 <!-- 스크린샷 자리 ②: 성좌 / 라이브러리 / 지도 뷰 3장
 | 성좌 | 라이브러리 | 지도 |
@@ -137,27 +137,27 @@
 
 ## 🧰 기술 스택
 
-| 영역 | 선택 | 메모 |
-| --- | --- | --- |
-| 웹앱 | React 18 + Vite + TypeScript, Tailwind v4, PWA(vite-plugin-pwa) | Share Target·오프라인 셸 |
-| 3D · 지도 | three.js / MapLibre GL + OpenFreeMap | 지도 타일 무료·API 키 없음 |
-| 상태 관리 | TanStack Query(서버) + Jotai(클라이언트) | |
-| 익스텐션 | React + Vite, Manifest V3 | |
-| 백엔드 | Spring Boot 3.3, Java 21, Spring Security | 공통 응답 `{status, message, data}` |
-| DB | PostgreSQL 16 + **pgvector** | 스키마는 Flyway가 소유(`ddl-auto=validate`) |
-| 큐 | Redis Streams | 컨슈머 그룹 · pending 회수 |
-| 스토리지 | AWS S3 (로컬은 MinIO) | 원본 + webp 썸네일 |
-| AI (요약·분류·임베딩·좌표) | `ai/ai-mix` FastAPI 사이드카 — OpenRouter `qwen3-8b`, `text-embedding-3-small`, UMAP | Structured Outputs로 스키마 강제 |
-| AI (이미지) | OpenRouter `qwen3-vl-8b-instruct` | OCR·설명·객체 태그 |
-| AI (검색 해석·STT) | OpenAI 호환(SSAFY GMS) `gpt-5-mini`, `whisper-1` | 키 없으면 규칙 기반 폴백 |
-| 크롤러 | `crawler` FastAPI 사이드카 — Scrapling StealthyFetcher | Jsoup 실패 시에만 호출 |
-| 지오코딩 | 카카오 로컬 REST API | 주소↔좌표 전용(지도 SDK 아님) |
-| 인증 | JWT(액세스 1h / 리프레시 14d) + 이메일 가입 + 구글 OAuth + 기기 링크 코드(워치) | 워치는 키보드가 없어 6자리 코드로 로그인 |
-| 알림 | SSE(실시간 갱신) + FCM Web Push | |
-| 워치 | Kotlin + Compose for Wear OS (standalone) | 타일·컴플리케이션 포함 |
-| 인프라 | AWS EC2 · Docker Compose · Nginx | dev / prod 스택 분리 |
-| CI/CD | **Jenkins** Multibranch Pipeline | `develop`→dev, `main`→prod, 변경 경로만 빌드 |
-| 모니터링 | Prometheus · Grafana · Loki · Promtail | `/actuator/prometheus` |
+| 영역                       | 선택                                                                                 | 메모                                         |
+| -------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------- |
+| 웹앱                       | React 18 + Vite + TypeScript, Tailwind v4, PWA(vite-plugin-pwa)                      | Share Target·오프라인 셸                     |
+| 3D · 지도                  | three.js / MapLibre GL + OpenFreeMap                                                 | 지도 타일 무료·API 키 없음                   |
+| 상태 관리                  | TanStack Query(서버) + Jotai(클라이언트)                                             |                                              |
+| 익스텐션                   | React + Vite, Manifest V3                                                            |                                              |
+| 백엔드                     | Spring Boot 3.3, Java 21, Spring Security                                            | 공통 응답 `{status, message, data}`          |
+| DB                         | PostgreSQL 16 + **pgvector**                                                         | 스키마는 Flyway가 소유(`ddl-auto=validate`)  |
+| 큐                         | Redis Streams                                                                        | 컨슈머 그룹 · pending 회수                   |
+| 스토리지                   | AWS S3 (로컬은 MinIO)                                                                | 원본 + webp 썸네일                           |
+| AI (요약·분류·임베딩·좌표) | `ai/ai-mix` FastAPI 사이드카 — OpenRouter `qwen3-8b`, `text-embedding-3-small`, UMAP | Structured Outputs로 스키마 강제             |
+| AI (이미지)                | OpenRouter `qwen3-vl-8b-instruct`                                                    | OCR·설명·객체 태그                           |
+| AI (검색 해석·STT)         | OpenAI 호환(SSAFY GMS) `gpt-5-mini`, `whisper-1`                                     | 키 없으면 규칙 기반 폴백                     |
+| 크롤러                     | `crawler` FastAPI 사이드카 — Scrapling StealthyFetcher                               | Jsoup 실패 시에만 호출                       |
+| 지오코딩                   | 카카오 로컬 REST API                                                                 | 주소↔좌표 전용(지도 SDK 아님)                |
+| 인증                       | JWT(액세스 1h / 리프레시 14d) + 이메일 가입 + 구글 OAuth + 기기 링크 코드(워치)      | 워치는 키보드가 없어 6자리 코드로 로그인     |
+| 알림                       | SSE(실시간 갱신) + FCM Web Push                                                      |                                              |
+| 워치                       | Kotlin + Compose for Wear OS (standalone)                                            | 타일·컴플리케이션 포함                       |
+| 인프라                     | AWS EC2 · Docker Compose · Nginx                                                     | dev / prod 스택 분리                         |
+| CI/CD                      | **Jenkins** Multibranch Pipeline                                                     | `develop`→dev, `main`→prod, 변경 경로만 빌드 |
+| 모니터링                   | Prometheus · Grafana · Loki · Promtail                                               | `/actuator/prometheus`                       |
 
 ---
 
@@ -248,6 +248,20 @@ cd ai/ai-mix && python -m pytest                  # 실제 API 호출 없음
 
 ## 📖 문서
 
+### 서비스 문서
+
+| 문서 | 내용 |
+| --- | --- |
+| 📋 [기획서](docs/PLANNING.md) | 문제 정의, 타깃·시나리오, 기능 범위, 화면 구조, 설계 결정, 일정 |
+| ✅ [요구사항 명세서](docs/REQUIREMENTS.md) | 기능(FR)·비기능(NFR) 요구사항 65개와 구현 상태 |
+| 🔌 [API 명세서](docs/API.md) | 엔드포인트 전체 · 공통 응답 규약 · SSE 이벤트 · 에러 코드 |
+| 🗄 [ERD](docs/ERD.md) | 15개 테이블 관계도 · 컬럼 상세 · 인덱스 전략 · 알려진 부채 |
+
+> 네 문서는 **현재 코드를 기준으로** 작성했습니다(Flyway 마이그레이션·컨트롤러 기준).
+> 노션 원본과 어긋나면 코드에 반영된 최신 결정이 우선입니다.
+
+### 개발 · 운영 문서
+
 | 문서 | 내용 |
 | --- | --- |
 | [docs/CONVENTIONS.md](docs/CONVENTIONS.md) | 브랜치·커밋·MR 컨벤션 |
@@ -258,4 +272,4 @@ cd ai/ai-mix && python -m pytest                  # 실제 API 호출 없음
 | [wearos/README.md](wearos/README.md) | 워치 앱 빌드·기기 연결 |
 | [AGENTS.md](AGENTS.md) | AI 코딩 에이전트용 프로젝트 가이드 |
 
-기획서·요구사항 명세서(FR/NFR)·API 명세서·ERD는 팀 노션에 있습니다.
+발표 자료와 시연 영상은 팀 노션에 있습니다.
