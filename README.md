@@ -17,7 +17,9 @@
 흩어진 링크·사진·메모를 한곳에 모으면, AI가 제목·요약·카테고리를 붙여 정리하고<br />
 서로 관련 있는 정보를 **별자리처럼 이어 보여주는** 올인원 AI 스크랩북
 
-[**woojuin.store**](https://woojuin.store) · SSAFY 15기 광주1반 공통프로젝트 (6인 / 2026.07.13 ~ 2026.08.07)
+[**woojuin.store**](https://woojuin.store) · [**시연 시나리오 (Figma)**](https://www.figma.com/design/zWIwdtjk1xYT0fwPjdrkvF/Scenario?node-id=258-2468)
+
+SSAFY 15기 광주1반 공통프로젝트 (6인 / 2026.07.13 ~ 2026.08.07)
 
 </div>
 
@@ -65,11 +67,11 @@
 
 같은 워크스페이스를 목적에 따라 다르게 봅니다.
 
-| 뷰                 | 무엇을 보여주나                                                                              |
-| ------------------ | -------------------------------------------------------------------------------------------- |
-| 🌟 **성좌**        | 의미가 비슷한 아이템이 가까이 놓인 3D 우주. 임베딩을 UMAP으로 3차원까지 줄여 좌표를 만듭니다 |
-| 📚 **라이브러리**  | 카테고리 칩으로 걸러 보는 카드 목록                                                          |
-| 🗺 **지도**        | 좌표가 있는 링크·사진을 지도 위에. 주변 장소 검색으로 "그 근처 뭐 저장했더라"까지            |
+| 뷰                | 무엇을 보여주나                                                                              |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| 🌟 **성좌**       | 의미가 비슷한 아이템이 가까이 놓인 3D 우주. 임베딩을 UMAP으로 3차원까지 줄여 좌표를 만듭니다 |
+| 📚 **라이브러리** | 카테고리 칩으로 걸러 보는 카드 목록                                                          |
+| 🗺 **지도**       | 좌표가 있는 링크·사진을 지도 위에. 주변 장소 검색으로 "그 근처 뭐 저장했더라"까지            |
 
 ### 4. 이름이 기억나지 않아도 찾기
 
@@ -231,26 +233,27 @@ cd ai/ai-mix && python -m pytest                  # 실제 API 호출 없음
 
 ### 서비스 문서
 
-| 문서 | 내용 |
-| --- | --- |
-| 📋 [기획서](docs/PLANNING.md) | 문제 정의, 타깃·시나리오, 기능 범위, 화면 구조, 설계 결정, 일정 |
-| ✅ [요구사항 명세서](docs/REQUIREMENTS.md) | 기능 요구사항 63개 · 비기능 요구사항 18개 |
-| 🔌 [API 명세서](docs/API.md) | 엔드포인트 전체 · 공통 응답 규약 · SSE 이벤트 · 에러 코드 |
-| 🗄 [ERD](docs/ERD.md) | 15개 테이블 관계도 · 컬럼 상세 · 인덱스 전략 · 알려진 부채 |
+| 문서                                       | 내용                                                            |
+| ------------------------------------------ | --------------------------------------------------------------- |
+| 📋 [기획서](docs/PLANNING.md)              | 문제 정의, 타깃·시나리오, 기능 범위, 화면 구조, 설계 결정, 일정 |
+| ✅ [요구사항 명세서](docs/REQUIREMENTS.md) | 기능 요구사항 63개 · 비기능 요구사항 18개                       |
+| 🔌 [API 명세서](docs/API.md)               | 엔드포인트 전체 · 공통 응답 규약 · SSE 이벤트 · 에러 코드       |
+| 🗄 [ERD](docs/ERD.md)                      | 15개 테이블 관계도 · 컬럼 상세 · 인덱스 전략 · 알려진 부채      |
+| 🎬 [시연 시나리오](https://www.figma.com/design/zWIwdtjk1xYT0fwPjdrkvF/Scenario?node-id=258-2468) | 실제 화면으로 따라가는 사용 흐름 (Figma) |
 
-> 네 문서는 **현재 코드를 기준으로** 작성했습니다(Flyway 마이그레이션·컨트롤러 기준).
+> 위 네 MD 문서는 **현재 코드를 기준으로** 작성했습니다(Flyway 마이그레이션·컨트롤러 기준).
 > 노션 원본과 어긋나면 코드에 반영된 최신 결정이 우선입니다.
 
 ### 개발 · 운영 문서
 
-| 문서 | 내용 |
-| --- | --- |
-| [docs/CONVENTIONS.md](docs/CONVENTIONS.md) | 브랜치·커밋·MR 컨벤션 |
-| [docs/CHROME_EXTENSION.md](docs/CHROME_EXTENSION.md) | 익스텐션 빌드·배포·CORS |
-| [docs/CHAT_INTEGRATIONS_DEPLOYMENT.md](docs/CHAT_INTEGRATIONS_DEPLOYMENT.md) | Discord·Mattermost 봇 설정 |
-| [ai/ai-mix/readme.md](ai/ai-mix/readme.md) | AI 사이드카 API 명세 |
-| [crawler/README.md](crawler/README.md) | 크롤러 폴백 전략 |
-| [wearos/README.md](wearos/README.md) | 워치 앱 빌드·기기 연결 |
-| [AGENTS.md](AGENTS.md) | AI 코딩 에이전트용 프로젝트 가이드 |
+| 문서                                                                         | 내용                               |
+| ---------------------------------------------------------------------------- | ---------------------------------- |
+| [docs/CONVENTIONS.md](docs/CONVENTIONS.md)                                   | 브랜치·커밋·MR 컨벤션              |
+| [docs/CHROME_EXTENSION.md](docs/CHROME_EXTENSION.md)                         | 익스텐션 빌드·배포·CORS            |
+| [docs/CHAT_INTEGRATIONS_DEPLOYMENT.md](docs/CHAT_INTEGRATIONS_DEPLOYMENT.md) | Discord·Mattermost 봇 설정         |
+| [ai/ai-mix/readme.md](ai/ai-mix/readme.md)                                   | AI 사이드카 API 명세               |
+| [crawler/README.md](crawler/README.md)                                       | 크롤러 폴백 전략                   |
+| [wearos/README.md](wearos/README.md)                                         | 워치 앱 빌드·기기 연결             |
+| [AGENTS.md](AGENTS.md)                                                       | AI 코딩 에이전트용 프로젝트 가이드 |
 
 발표 자료와 시연 영상은 팀 노션에 있습니다.
