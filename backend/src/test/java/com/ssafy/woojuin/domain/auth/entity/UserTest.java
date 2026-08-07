@@ -65,7 +65,7 @@ class UserTest {
     }
 
     @Test
-    @DisplayName("닉네임은 남긴다 — 로그인 식별자가 아니고 멤버 활동 피드가 쓴다")
+    @DisplayName("닉네임은 남긴다 — 로그인 식별자가 아니어서 재가입을 막지 않는다")
     void withdrawKeepsNickname() {
         User user = googleUser(7L);
 

@@ -10,8 +10,9 @@
 -- 시까지"로 고지하고 있어 탈퇴 후 보관은 그 고지와 어긋나고, LOCAL 계정의 같은 주소 재가입도
 -- existsByEmail 에 막혀 있다. `.invalid` 는 RFC 2606 예약 TLD 로 실제 주소가 될 수 없다.
 --
--- nickname 은 남긴다 — 로그인 식별자가 아니고, 공유 워크스페이스 멤버 활동 피드가 지난 기록을
--- 표시하는 데 쓴다.
+-- nickname 은 남긴다 — 로그인 식별자가 아니어서 재가입을 막지 않기 때문이고, 이 변경의 범위를
+-- 로그인 식별자로 한정한 것이다. 표시 때문은 아니다: 탈퇴자의 닉네임은 어느 화면에도 나가지
+-- 않는다(WorkspaceMemberResponse·WorkspaceMemberActivityResponse 가 "탈퇴한 사용자"로 바꾼다).
 --
 -- ⚠️ 되돌릴 수 없다. 탈퇴자의 원래 이메일·provider_id 는 이 시점 이후 DB 에 남지 않는다.
 UPDATE users

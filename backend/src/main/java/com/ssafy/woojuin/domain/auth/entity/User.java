@@ -119,8 +119,11 @@ public class User extends BaseTimeEntity {
      * 가입된다. 옛 아이템은 옛 행에 소프트 삭제 상태로 남아 되살아나지 않는다 — 탈퇴한 사람이
      * 기대하는 결과이기도 하다.
      *
-     * <p>{@code nickname} 은 남긴다: 로그인 식별자가 아니고, 공유 워크스페이스 멤버 활동 피드가
-     * 지난 기록을 표시하는 데 쓴다. 닉네임까지 파기할지는 별도 정책 판단이 필요하다.
+     * <p>{@code nickname} 은 남긴다 — 로그인 식별자가 아니어서 재가입을 막지 않기 때문이고,
+     * 이 변경의 범위를 로그인 식별자로 한정한 것이다. 표시 때문은 아니다: 탈퇴자의 닉네임을 화면에
+     * 내보내는 경로는 없다(WorkspaceMemberResponse·WorkspaceMemberActivityResponse 가 둘 다
+     * "탈퇴한 사용자"로 바꿔 내보낸다). 그래서 닉네임까지 파기해도 화면은 달라지지 않으며,
+     * 파기 여부는 순수하게 개인정보 보유 정책의 판단이다.
      */
     public void withdraw() {
         if (this.deletedAt != null) {
