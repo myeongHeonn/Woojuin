@@ -11,6 +11,24 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/woojuin}
     username: ${DB_USERNAME:woojuin}
     password: ${DB_PASSWORD:woojuin-local}
+    hikari:
+      # 아래 두 값은 HikariCP 기본값 그대로다 — 2026-07-31 커넥션 고갈 사고(dev 타임아웃
+      # 15건) 조사 때 "설정이 없어서 지금 값이 뭔지"부터 찾아야 했기에 명시해 둔다.
+      #
+      # 풀 크기를 키우는 건 고갈의 답이 아니다: PG는 커넥션당 프로세스라 늘릴수록 전체
+      # 처리량이 떨어진다(권장 공식 = 코어×2 + 디스크). 답은 점유 시간 단축이었고,
+      # 프로세서가 크롤·LLM 호출 내내 커넥션을 물던 구조를 트랜잭션 분리로 고쳤다
+      # (TransactionRunner javadoc). 그래도 부족하면 메트릭(hikaricp_connections_pending)
+      # 근거로만 조정할 것.
+      maximum-pool-size: 10
+      # 풀이 다 찼을 때 빌리려는 스레드가 기다리는 상한. 넘기면
+      # "Connection is not available, request timed out after 30000ms" 예외 = 고갈의 증상.
+      connection-timeout: 30000
+      # 30초 넘게 반납되지 않는 커넥션의 대여 시점 스택트레이스를 WARN으로 찍는다
+      # ("Apparent connection leak detected"). 장기 점유·누수의 범인을 로그로 지목해 주는
+      # 설정 — 사고 당시엔 없어서 누가 물고 있는지 알 방법이 없었다. 늦게 반납되면
+      # "unleaked"로 정정 로그가 남을 뿐 동작에는 영향이 없는 순수 진단 장치다.
+      leak-detection-threshold: 30000
   jpa:
     hibernate:
       # 스키마는 Flyway(db/migration/*.sql)가 만든다. Hibernate 는 만들지 않고
@@ -53,6 +71,25 @@ spring:
         # "clientId cannot be empty"로 부팅 자체가 실패하니 그 전엔 비워둔다.
 
 woojuin:
+  integrations:
+    chat:
+      frontend-base-url: ${CHAT_INTEGRATION_FRONTEND_URL:http://localhost:5173}
+    bot:
+      secret: ${CHAT_BOT_SECRET:}
+    discord:
+      # Discord Developer Portal의 General Information > Public Key.
+      public-key: ${DISCORD_PUBLIC_KEY:}
+      application-id: ${DISCORD_APPLICATION_ID:}
+    mattermost:
+      # Mattermost 슬래시 명령 저장 후 발급되는 토큰. 비어 있으면 콜백 API는 503으로 거부한다.
+      slash-token: ${MATTERMOST_SLASH_TOKEN:}
+      server-url: ${MATTERMOST_SERVER_URL:}
+      oauth-client-id: ${MATTERMOST_OAUTH_CLIENT_ID:}
+      oauth-client-secret: ${MATTERMOST_OAUTH_CLIENT_SECRET:}
+      oauth-redirect-uri: ${MATTERMOST_OAUTH_REDIRECT_URI:}
+      oauth-frontend-redirect: ${MATTERMOST_OAUTH_FRONTEND_REDIRECT:http://localhost:5173/my}
+      token-encryption-key: ${MATTERMOST_TOKEN_ENCRYPTION_KEY:}
+      plugin-token: ${MATTERMOST_PLUGIN_TOKEN:}
   # 프론트 origin. FE/BE를 서브도메인으로 분리해 운영하므로(prod=woojuin.store,
   # api=api.woojuin.store) 모든 API 호출이 CORS를 탄다. 이 값이 실제 프론트 주소와
   # 다르면 브라우저가 응답을 버려서 상태코드도 안 남는다(SecurityConfig 주석 참고).
@@ -79,6 +116,18 @@ woojuin:
     base-url: ${AI_BASE_URL:https://gms.ssafy.io/gmsapi/api.openai.com/v1}
     model: ${AI_MODEL:gpt-5-mini}
     timeout-ms: ${AI_TIMEOUT_MS:8000}
+    # 워치 음성 저장의 받아쓰기(SpeechTranscriber). 위 base-url·키를 그대로 쓴다.
+    # whisper-1 만 GMS 프록시에 있다(gpt-4o-transcribe 계열은 없음 — 라이브로 확인).
+    # timeout 이 텍스트(8s)보다 긴 것은 오디오 업로드 시간이 더해지기 때문이다 —
+    # 30초 녹음이면 1MB 가 블루투스 프록시를 타고 올라온다.
+    stt-model: ${AI_STT_MODEL:whisper-1}
+    stt-timeout-ms: ${AI_STT_TIMEOUT_MS:20000}
+  # 노래 인식(FR-055) — AudD 정식 API. AUDD_API_TOKEN 이 없으면 이 기능만 꺼진다.
+  # 무료 경로(비공식 Shazam 라이브러리)는 검토 후 넣지 않았다 — 이유는
+  # MusicRecognizerConfig javadoc 에 있다(요약: EC2 차단 가능성·약관·운영 비용).
+  music:
+    # 실측 2.3초(12초 오디오)라 8초는 3배 여유다. 워치가 이 시간을 기다리므로 길게 두지 않는다.
+    timeout-ms: ${AI_MUSIC_TIMEOUT_MS:8000}
   # 이미지 분석(OCR·설명·태그 추출). OpenRouter 경유 Qwen3-VL — 위 ai(텍스트) 블록과
   # 프로바이더가 달라 별도 블록이다(모델·키·과금 주체가 다르다). 묶음 F의 이미지 모델
   # 평가(ai-test 브랜치 ai/ai-image)에서 확정한 qwen3-vl 8b instruct를 그대로 쓴다.
@@ -109,12 +158,20 @@ woojuin:
     # 무관 쿼리가 0.72~0.77에 몰려 그 사이를 자른 값이다. 단답형(한 단어) 쿼리는 이 모델의
     # 변별력이 없어서("초밥"vs"스시"조차 0.72) 임계값을 올려 잡으려 하면 오탐이 더 늘어난다.
     # 검색이 엉뚱한 걸 물어오면 낮추고 너무 안 잡으면 올리면 된다(백엔드 로그에 거리가 찍힌다).
+    # ⚠ 위 실측은 임베딩 텍스트 v1(카테고리:/제목:/요약: 라벨) 기준이다. v2(평문)로
+    # 백필한 뒤에는 관련/무관 거리 분포가 전체적으로 내려가므로 같은 방식으로 다시 재서
+    # 이 값을 갱신할 것 — 분포가 벌어졌다면 0.55~0.6 근처가 될 가능성이 높다.
     search-max-distance: ${AIMIX_SEARCH_MAX_DISTANCE:0.7}
+    # 임베딩 텍스트 포맷이 바뀌었을 때 저장된 벡터 전체를 새 포맷으로 다시 만드는 일회성
+    # 백필 스위치(ItemEmbeddingBackfillRunner). 켠 채 기동하면 기동 완료 후 백그라운드에서
+    # 한 번 돌고, input_hash가 이미 새 버전인 아이템은 건너뛰므로 재실행해도 안전하다(멱등).
+    # 상시 켜두는 값이 아니다 — 백필이 끝난 다음 배포부터는 다시 꺼둘 것.
+    embedding-backfill: ${AIMIX_EMBEDDING_BACKFILL:false}
   ai-usage:
     # 1차 배포 비용 보호 장치. false로 바꾸면 Redis 카운터를 건드리지 않고 모든 아이템 AI 처리를 허용한다.
     enabled: ${AI_USAGE_LIMIT_ENABLED:true}
     # 아이템 생성자는 MEMBER일 수 있으므로 워크스페이스의 대표 활성 OWNER 사용량으로 계산한다.
-    monthly-item-limit: ${AI_USAGE_MONTHLY_ITEM_LIMIT:50}
+    monthly-item-limit: ${AI_USAGE_MONTHLY_ITEM_LIMIT:500}
     # 저장 실패 시 카운터를 되돌리기 위한 짧은 예약 키의 수명.
     reservation-ttl-minutes: ${AI_USAGE_RESERVATION_TTL_MINUTES:60}
   # 지도 좌표 변환(FR-023). 카카오 로컬 API — 주소↔좌표 REST 호출이지 지도 SDK가 아니다.
@@ -152,6 +209,7 @@ woojuin:
   fetch:
     timeout-ms: 5000
     max-body-bytes: 3145728   # 3MB. 미리보기/본문 추출에 이보다 큰 HTML은 불필요
+    max-image-bytes: 10485760 # 10MB. 미리보기 대표 이미지(og:image) 다운로드 상한 — 썸네일 원료라 이보다 크면 거부
     max-redirects: 5
   crawler:
     # Scrapling 사이드카 폴백. crawler는 docker-compose에 포함돼 함께 뜨므로 기본 켜둔다.

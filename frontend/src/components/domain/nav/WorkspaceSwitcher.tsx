@@ -5,6 +5,7 @@ import CreateWorkspaceModal from '@/components/domain/nav/CreateWorkspaceModal';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { ChevronDownIcon, PlanetIcon, PlusIcon } from '@/assets/icons';
 import { classNames } from '@/utils/classNames';
+import { IS_INSTALLED_APP } from '@/utils/installedApp';
 
 /**
  * 모바일 워크스페이스 전환기 — 데스크톱은 사이드바가 하지만 모바일엔 없어서,
@@ -31,9 +32,19 @@ const WorkspaceSwitcher = () => {
         renderTrigger={(toggle) => (
           <button
             type="button"
-            aria-label="워크스페이스 전환"
+            /*
+             * 보이는 글자(워크스페이스 이름)를 aria-label 앞에 그대로 둔다.
+             * "워크스페이스 전환"만 넣으면 화면에 보이는 이름과 접근성 이름이 어긋나,
+             * 음성으로 "몽골 여행 눌러줘" 라고 해도 이 버튼이 안 잡힌다(WCAG Label in Name).
+             */
+            aria-label={`${current?.name ?? 'My Universe'} — 워크스페이스 전환`}
             onClick={toggle}
-            className="flex w-full items-center gap-1 text-2xl font-extrabold tracking-[-0.01em] text-text-1 [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-text-3"
+            /* 색을 지정하지 않고 물려받는다 — 이 트리거는 StageHeader 안에만 있는데, 성좌뷰
+               에서는 그 헤더가 하늘 위라 밝은 글자로 고정된다(.woojuin-on-sky). 여기서 text-1
+               을 박아 두면 라이트에서 짙은 파란 하늘 위에 어두운 글자가 얹혀 안 읽힌다.
+               하늘이 아닌 화면에서는 body 색이 곧 text-1 이라 예전과 같다.
+               화살표도 같은 이유로 색 대신 투명도만 낮춘다. */
+            className="flex w-full items-center gap-1 text-2xl font-extrabold tracking-[-0.01em] [&>svg]:h-5 [&>svg]:w-5 [&>svg]:opacity-60"
           >
             {/* min-w-0 이라야 flex 안에서 줄어들며 … 로 잘린다 (오른쪽 뷰바·액션과 겹침 방지) */}
             <span className="min-w-0 truncate">{current?.name ?? 'My Universe'}</span>
@@ -50,7 +61,12 @@ const WorkspaceSwitcher = () => {
                   key={workspace.id}
                   type="button"
                   onClick={() => {
-                    navigate(`/workspace/${workspace.id}/${segment}`);
+                    // 워크스페이스 전환도 뷰 전환과 같은 성격이라 설치된 앱에서는 히스토리를
+                    // 쌓지 않는다 — 쌓이면 전환 뒤 뒤로가기가 앱을 닫지 않고 옛 워크스페이스로
+                    // 돌아간다 (TabBar 의 같은 주석 참고)
+                    navigate(`/workspace/${workspace.id}/${segment}`, {
+                      replace: IS_INSTALLED_APP,
+                    });
                     close();
                   }}
                   className={classNames(

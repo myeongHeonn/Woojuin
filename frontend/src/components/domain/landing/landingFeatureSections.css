@@ -186,55 +186,38 @@
   animation: landing-method-slide 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-.landing-coming-soon-section {
-  border-top: 1px solid var(--color-border-soft);
-  padding-bottom: clamp(12rem, 28vh, 22rem);
-  background:
-    radial-gradient(
-      circle at 50% 30%,
-      color-mix(in srgb, var(--color-accent) 11%, transparent),
-      transparent 38%
-    ),
-    color-mix(in srgb, var(--color-sidebar) 35%, transparent);
+.landing-save-channel-card h3 {
+  color: var(--color-text-1);
+  font-size: 15px;
+  font-weight: 900;
 }
 
-.landing-coming-soon-title {
-  color: var(--color-accent);
-  font-size: clamp(36px, 6vw, 68px);
-  font-weight: 950;
-  letter-spacing: -0.045em;
-  line-height: 1;
-}
-
-.landing-coming-soon-date {
-  margin-top: 16px;
+.landing-save-channel-card > p {
+  margin-top: 6px;
   color: var(--color-text-3);
-  font-size: clamp(15px, 2vw, 19px);
-  font-weight: 800;
-  letter-spacing: 0.16em;
+  font-size: 11px;
+  line-height: 1.55;
 }
 
-.landing-coming-soon-grid {
+.landing-save-channel-grid {
   display: grid;
-  gap: 12px;
-  margin-top: 38px;
+  gap: 10px;
+  margin-top: 10px;
 }
 
-.landing-coming-soon-card {
-  border: 1px solid var(--color-border-soft);
-  border-radius: 24px;
-  background: color-mix(in srgb, var(--color-surface) 76%, transparent);
-  padding: 22px 18px;
+.landing-save-channel-card {
+  min-height: 240px;
+  padding: 16px;
   text-align: left;
 }
 
-.landing-coming-soon-art {
+.landing-save-channel-art {
   display: grid;
   width: 100%;
-  height: 132px;
+  height: 138px;
   place-items: center;
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: 16px;
   background:
     radial-gradient(
       circle,
@@ -244,23 +227,192 @@
     var(--color-space);
 }
 
-.landing-coming-soon-art > svg {
+.landing-save-channel-art > svg {
   width: 92px;
   height: 92px;
 }
 
-.landing-coming-soon-card h3 {
-  margin-top: 18px;
-  color: var(--color-text-1);
-  font-size: 15px;
-  font-weight: 900;
+.landing-save-channel-card h3 {
+  margin-top: 14px;
 }
 
-.landing-coming-soon-card > p {
-  margin-top: 7px;
+.landing-native-save-demo {
+  position: absolute;
+  right: 0;
+  bottom: -4px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.landing-native-save-label {
+  position: absolute;
+  right: 0;
+  top: -20px;
   color: var(--color-text-3);
-  font-size: 11px;
-  line-height: 1.55;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.landing-native-plus {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 52%, var(--color-border));
+  border-radius: 12px;
+  background: var(--color-surface-2);
+  color: var(--color-accent);
+  font-size: 23px;
+  font-weight: 400;
+  animation: landing-native-plus-press 3.4s ease-in-out infinite;
+}
+
+.landing-native-save-dialog {
+  position: relative;
+  width: 196px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  padding: 8px;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.24);
+  animation: landing-native-panel-open 3.4s ease-in-out infinite;
+}
+
+.landing-native-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-radius: 8px;
+  background: var(--color-surface-2);
+  padding: 3px;
+  color: var(--color-text-3);
+  font-size: 7px;
+  text-align: center;
+}
+
+.landing-native-tabs strong {
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-2));
+  padding: 4px;
+  color: var(--color-text-1);
+}
+
+.landing-native-tabs span {
+  padding: 4px;
+}
+
+.landing-native-input {
+  display: flex;
+  align-items: center;
+  margin-top: 7px;
+  border: 1px solid var(--color-accent);
+  border-radius: 7px;
+  padding: 6px 8px;
+  color: var(--color-text-3);
+  font-size: 7px;
+}
+
+.landing-native-input i {
+  width: 1px;
+  height: 10px;
+  margin-left: 1px;
+  background: var(--color-text-1);
+  animation: landing-native-caret 0.65s steps(1) infinite;
+}
+
+.landing-native-submit {
+  margin-top: 6px;
+  border-radius: 6px;
+  background: var(--color-accent);
+  padding: 5px;
+  color: white;
+  font-size: 7px;
+  font-weight: 800;
+  text-align: center;
+  animation: landing-native-submit 3.4s ease-in-out infinite;
+}
+
+.landing-native-complete {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  padding: 5px 8px;
+  color: var(--color-text-1);
+  font-size: 6px;
+  font-weight: 800;
+  opacity: 0;
+  animation: landing-native-complete 3.4s ease-in-out infinite;
+}
+
+.landing-save-heading {
+  text-align: center;
+}
+
+@keyframes landing-native-plus-press {
+  0%,
+  22%,
+  100% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(0.86);
+    background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface-2));
+  }
+  38% {
+    transform: scale(1);
+  }
+}
+
+@keyframes landing-native-panel-open {
+  0%,
+  28% {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.96);
+  }
+  42%,
+  88% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(5px) scale(0.98);
+  }
+}
+
+@keyframes landing-native-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes landing-native-submit {
+  0%,
+  56%,
+  100% {
+    transform: scale(1);
+  }
+  63% {
+    transform: scale(0.96);
+    filter: brightness(1.16);
+  }
+}
+
+@keyframes landing-native-complete {
+  0%,
+  66%,
+  100% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  73%,
+  91% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .landing-extension-window {
@@ -892,13 +1044,30 @@
 }
 
 @media (min-width: 640px) {
-  .landing-coming-soon-grid {
+  .landing-save-channel-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1000px) {
-  .landing-coming-soon-grid {
+@media (max-width: 639px) {
+  .landing-native-save-demo {
+    position: relative;
+    bottom: auto;
+    margin-top: 24px;
+  }
+
+  .landing-native-save-label {
+    left: 0;
+    right: auto;
+  }
+
+  .landing-save-heading {
+    min-height: 0;
+  }
+}
+
+@media (min-width: 1100px) {
+  .landing-save-channel-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
@@ -1385,7 +1554,9 @@
   .landing-star,
   .landing-map-pin,
   .landing-map-pulse,
-  .landing-space-connection {
+  .landing-space-connection,
+  .landing-native-plus,
+  .landing-native-save-panel {
     animation: none;
     opacity: 1;
   }

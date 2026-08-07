@@ -19,6 +19,16 @@ export function processingPollInterval(
   return hasProcessing ? ms : false;
 }
 
+/** 처리 중(PROCESSING)인 아이템 개수 — 성좌·지도 뷰의 "만드는 중" 배지가 몇 개인지 보여줄 때 쓴다. */
+export function processingItemCount(pages: ItemListResponse[] | undefined): number {
+  return (
+    pages?.reduce(
+      (sum, page) => sum + page.content.filter((item) => item.status === 'PROCESSING').length,
+      0,
+    ) ?? 0
+  );
+}
+
 /** 특정 워크스페이스에 저장된 아이템 목록 — 서버 상태 진입점 */
 export function useItems({ workspaceId, size, favorite, categoryIds, sort }: workspaceProps) {
   return useInfiniteQuery({

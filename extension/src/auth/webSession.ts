@@ -5,11 +5,11 @@ import { isAutoLoginSuppressed, saveTokens } from '@/storage/authStorage';
  * 웹앱 로그인 세션 물려받기.
  *
  * 확장에 자체 로그인 폼을 두지 않는 이유:
- *  - 웹앱은 이메일·비밀번호 로그인을 쓰지 않는다(LoginForm.tsx 에서 주석 처리). 구글 OAuth 뿐이고,
- *    구글은 첫 로그인이 곧 가입이다(OAuthAccountService.findOrCreateUser).
- *  - 그래서 실사용자는 password_hash 가 아예 없어 /auth/login 으로는 절대 통과할 수 없다.
+ *  - 웹앱이 제공하는 로그인 수단을 확장에서 **전부 다시 구현해야 한다**(LoginForm.tsx 기준
+ *    현재 구글 OAuth 와 이메일·비밀번호 두 가지). 수단이 늘거나 줄 때마다 양쪽을 맞춰야 한다.
  *  - OAuth 를 확장 안에서 직접 하려면(chrome.identity) 백엔드가 확장용 redirect_uri 를
- *    받아주고 구글 콘솔에도 등록해야 한다. 웹 세션을 물려받으면 그 변경이 전부 불필요하다.
+ *    받아주고 구글 콘솔에도 등록해야 한다.
+ *  - 세션을 물려받으면 위 변경이 전부 불필요하고, 웹앱이 어떤 수단을 더하든 그대로 따라간다.
  *
  * 토큰은 웹앱이 localStorage 에 둔다(jotai atomWithStorage → JSON 문자열).
  * 확장 페이지·서비스워커는 host_permissions 가 있으면 그 탭에 스크립트를 넣어 읽을 수 있다.
@@ -35,7 +35,7 @@ const LOGIN_WINDOW_KEY = 'loginWindowId';
 export const OAUTH_CALLBACK_PREFIX = `${WEB_ORIGIN}/oauth/callback`;
 
 /**
- * 웹앱 로그인 화면을 **작은 팝업 창**으로 연다. 계정이 없어도 구글 로그인이 곧 가입이다.
+ * 웹앱 로그인 화면을 **작은 팝업 창**으로 연다. 가입도 그 화면에서 이어서 할 수 있다.
  *
  * 탭이 아니라 팝업 창인 이유: 로그인만 받고 사라지는 흐름이라 사용자의 탭 목록을 어지럽히지
  * 않는 편이 낫다. 크기는 모바일 뷰에 가깝게 잡아 웹앱의 좁은 화면 레이아웃이 뜨게 한다.

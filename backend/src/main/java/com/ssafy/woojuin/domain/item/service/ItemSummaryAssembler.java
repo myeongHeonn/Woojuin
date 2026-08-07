@@ -3,6 +3,7 @@ package com.ssafy.woojuin.domain.item.service;
 import com.ssafy.woojuin.domain.category.dto.CategoryResponse;
 import com.ssafy.woojuin.domain.category.service.ItemCategoryQueryService;
 import com.ssafy.woojuin.domain.item.dto.ItemListResponse;
+import com.ssafy.woojuin.domain.item.dto.ItemPreview;
 import com.ssafy.woojuin.domain.item.dto.ItemSummaryResponse;
 import com.ssafy.woojuin.domain.item.entity.Item;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
@@ -33,8 +34,23 @@ public class ItemSummaryAssembler {
                 items.getContent().stream().map(Item::getId).toList());
         Page<ItemSummaryResponse> mapped = items.map(item ->
                 ItemSummaryResponse.from(item, categoriesByItem.getOrDefault(item.getId(), List.of()),
-                        thumbnailImageUrlOf(item)));
+                        thumbnailImageUrlOf(item), previewOf(item)));
         return ItemListResponse.from(mapped);
+    }
+
+    /**
+     * 목록용 미리보기 — URL 아이템에 S3 썸네일이 있으면 thumbnailUrl을 presigned URL로 바꿔
+     * 내려준다. 외부 og:image 원본은 크고(수백 KB~수 MB) 외부 호스트 속도에 좌우돼 카드
+     * 초기 렌더링을 늦추고, 핫링크 차단 호스트에서는 아예 깨진다. 썸네일이 아직 없으면
+     * (PROCESSING·생성 실패·기존 아이템) 외부 URL 그대로 폴백한다. 상세는 이미지를 크게
+     * 보여주므로 계속 외부 원본을 쓴다({@code ItemService.getDetail}).
+     */
+    private ItemPreview previewOf(Item item) {
+        if (item.getType() == ItemType.URL && item.getThumbnailS3Key() != null) {
+            return new ItemPreview(s3Uploader.presignGet(item.getThumbnailS3Key()),
+                    item.getPreviewDescription());
+        }
+        return ItemPreview.from(item);
     }
 
     /**

@@ -2,7 +2,7 @@ import type { ItemDetail } from '@/types/item';
 import { useItem } from '@/hooks/useItem';
 import Overlay from '@/components/ui/Overlay';
 import CloseButton from '@/components/ui/button/CloseButton';
-import ItemActionsMenu from './ItemActionsMenu';
+import ItemActions from './ItemActions';
 import PhotoBody from './PhotoBody';
 import LinkBody from './LinkBody';
 import MemoBody from './MemoBody';
@@ -39,7 +39,7 @@ const ItemModal = ({ workspaceId, itemId, onClose }: ItemModalProps) => {
       cardClassName="max-h-[86vh] overflow-auto border border-border scrollbar-none"
     >
       <div className="absolute right-3.5 top-3.5 z-10 flex items-center gap-2">
-        {item && <ItemActionsMenu item={item} onDeleted={onClose} />}
+        {item && <ItemActions item={item} onDeleted={onClose} />}
         <CloseButton onClick={onClose} />
       </div>
 

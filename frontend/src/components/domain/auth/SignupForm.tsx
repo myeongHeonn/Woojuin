@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -9,6 +9,7 @@ import { signupSchema, type SignupFormValues } from '@/schemas/authSchemas';
 import { useDebounce } from '@/hooks/useDebounce';
 import FormTextField from '@/components/ui/form/FormTextField';
 import SubmitButton from '@/components/ui/button/SubmitButton';
+import PrivacyPolicyConsentCheckbox from '@/components/domain/auth/PrivacyPolicyConsentCheckbox';
 
 // 백엔드 SignupService가 중복 이메일일 때 던지는 메시지와 동일해야 한다.
 // 코드 없이 메시지 문자열로만 구분 가능한 유일한 signup 실패 사유라 이 값으로 매칭한다.
@@ -19,6 +20,8 @@ const SignupForm = () => {
   const navigate = useNavigate();
   const formMethods = useForm<SignupFormValues>({ resolver: zodResolver(signupSchema) });
   const { handleSubmit, watch, setError, clearErrors } = formMethods;
+
+  const [agreedToPrivacyPolicy, setAgreedToPrivacyPolicy] = useState(false);
 
   // 형식이 맞을 때만 서버에 물어본다 — 타이핑 중간값으로 매번 호출하지 않기 위해
   const email = watch('email');
@@ -43,7 +46,9 @@ const SignupForm = () => {
   const signupMutation = useMutation({
     mutationFn: signup,
     onSuccess: () => {
-      navigate('/login');
+      // replace — 가입 완료된 화면으로 되돌아갈 일이 없고, 남겨 두면 로그인 뒤 뒤로가기가
+      // GuestOnly 에 되돌려져 "눌러도 아무 일이 없는" 상태가 된다
+      navigate('/login', { replace: true });
     },
     onError: (error) => {
       // 이메일 중복은 실시간 체크와 같은 자리(필드 밑)에 표시 — 기존 useEffect가
@@ -75,23 +80,24 @@ const SignupForm = () => {
         />
         <FormTextField type="text" placeholder="닉네임" name="nickname" formMethods={formMethods} />
         {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
-        <SubmitButton pending={signupMutation.isPending} pendingLabel="가입 중...">
+
+        <PrivacyPolicyConsentCheckbox
+          agreed={agreedToPrivacyPolicy}
+          onAgree={() => setAgreedToPrivacyPolicy(true)}
+        />
+
+        <SubmitButton
+          pending={signupMutation.isPending}
+          pendingLabel="가입 중..."
+          disabled={!agreedToPrivacyPolicy}
+        >
           회원가입
         </SubmitButton>
       </form>
 
-      {/* 가입 = 방침 동의 — 문서는 로그인 없이 볼 수 있어야 하므로 /privacy 는 공개 라우트다 */}
-      <p className="text-center text-xs text-text-3">
-        가입하면{' '}
-        <Link to="/privacy" className="underline underline-offset-2 hover:text-text-2">
-          개인정보처리방침
-        </Link>
-        에 동의하는 것으로 봅니다.
-      </p>
-
       <p className="text-center text-sm text-text-3">
-        이미 계정이 있으신가요?{' '}
-        <Link to="/login" className="font-semibold text-accent hover:text-accent-hover">
+        이미 계정이 있으신가요? {/* replace — 이유는 LoginForm 의 반대쪽 링크에 적어 뒀다 */}
+        <Link to="/login" replace className="font-semibold text-accent hover:text-accent-hover">
           로그인
         </Link>
       </p>

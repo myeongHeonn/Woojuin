@@ -4,20 +4,29 @@ import com.ssafy.woojuin.domain.auth.entity.AuthProvider;
 import com.ssafy.woojuin.domain.auth.entity.User;
 import com.ssafy.woojuin.domain.workspace.dto.UpdateMemberRoleRequest;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceMemberResponse;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceBan;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivity;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivityType;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceLastOwnerException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceBanRepository;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberActivityRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceMemberAction;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,6 +38,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,6 +52,12 @@ class WorkspaceMemberServiceTest {
 
     @Mock
     private WorkspaceMemberRepository workspaceMemberRepository;
+
+    @Mock
+    private WorkspaceBanRepository workspaceBanRepository;
+
+    @Mock
+    private WorkspaceMemberActivityRepository workspaceMemberActivityRepository;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -119,6 +136,19 @@ class WorkspaceMemberServiceTest {
 
         assertThatThrownBy(() -> workspaceMemberService.list(10L, 99L))
                 .isInstanceOf(WorkspaceMemberRequiredException.class);
+    }
+
+    @Test
+    @DisplayName("추방된 이력이 있으면 목록 조회 시 일반 403이 아니라 추방 전용 예외를 던진다")
+    void list_bannedUser_throwsWorkspaceBanned() {
+        User owner = user(1L);
+        Workspace ws = workspace(10L, owner);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+        when(workspaceBanRepository.existsByWorkspaceIdAndUserId(10L, 2L)).thenReturn(true);
+
+        assertThatThrownBy(() -> workspaceMemberService.list(10L, 2L))
+                .isInstanceOf(WorkspaceBannedException.class);
     }
 
     @Test
@@ -270,5 +300,154 @@ class WorkspaceMemberServiceTest {
 
         assertThatThrownBy(() -> workspaceMemberService.remove(10L, 999L, 1L))
                 .isInstanceOf(WorkspaceMemberNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("OWNER가 다른 멤버를 강제로 내보내면 재입장 차단 목록에 등록된다")
+    void remove_ownerRemovesOther_registersBan() {
+        User owner = user(1L);
+        User target = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember ownerMembership = member(ws, owner, WorkspaceRole.OWNER);
+        WorkspaceMember targetMembership = member(ws, target, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(ownerMembership));
+
+        workspaceMemberService.remove(10L, 2L, 1L);
+
+        ArgumentCaptor<WorkspaceBan> banCaptor = ArgumentCaptor.forClass(WorkspaceBan.class);
+        verify(workspaceBanRepository).save(banCaptor.capture());
+        assertThat(banCaptor.getValue().getWorkspace()).isEqualTo(ws);
+        assertThat(banCaptor.getValue().getUser()).isEqualTo(target);
+    }
+
+    @Test
+    @DisplayName("본인이 스스로 탈퇴하면 재입장 차단 목록에 등록되지 않는다")
+    void remove_selfLeave_doesNotRegisterBan() {
+        User owner = user(1L);
+        User me = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember myMembership = member(ws, me, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(myMembership));
+
+        workspaceMemberService.remove(10L, 2L, 2L);
+
+        verify(workspaceBanRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("OWNER가 다른 멤버를 강제로 내보내면 활동 이력에 KICKED로 기록된다")
+    void remove_ownerRemovesOther_logsKickedActivity() {
+        User owner = user(1L);
+        User target = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember ownerMembership = member(ws, owner, WorkspaceRole.OWNER);
+        WorkspaceMember targetMembership = member(ws, target, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(ownerMembership));
+
+        workspaceMemberService.remove(10L, 2L, 1L);
+
+        ArgumentCaptor<WorkspaceMemberActivity> activityCaptor = ArgumentCaptor.forClass(WorkspaceMemberActivity.class);
+        verify(workspaceMemberActivityRepository).save(activityCaptor.capture());
+        assertThat(activityCaptor.getValue().getWorkspace()).isEqualTo(ws);
+        assertThat(activityCaptor.getValue().getUser()).isEqualTo(target);
+        assertThat(activityCaptor.getValue().getType()).isEqualTo(WorkspaceMemberActivityType.KICKED);
+    }
+
+    @Test
+    @DisplayName("본인이 스스로 탈퇴하면 활동 이력에 LEFT로 기록된다")
+    void remove_selfLeave_logsLeftActivity() {
+        User owner = user(1L);
+        User me = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember myMembership = member(ws, me, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(myMembership));
+
+        workspaceMemberService.remove(10L, 2L, 2L);
+
+        ArgumentCaptor<WorkspaceMemberActivity> activityCaptor = ArgumentCaptor.forClass(WorkspaceMemberActivity.class);
+        verify(workspaceMemberActivityRepository).save(activityCaptor.capture());
+        assertThat(activityCaptor.getValue().getWorkspace()).isEqualTo(ws);
+        assertThat(activityCaptor.getValue().getUser()).isEqualTo(me);
+        assertThat(activityCaptor.getValue().getType()).isEqualTo(WorkspaceMemberActivityType.LEFT);
+    }
+
+    @Test
+    @DisplayName("활동 이력 저장에 실패하면 예외가 전파되어 멤버십 삭제가 롤백된다")
+    void remove_activityLogSaveFails_propagatesExceptionAndDoesNotDeleteMembership() {
+        User owner = user(1L);
+        User target = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember ownerMembership = member(ws, owner, WorkspaceRole.OWNER);
+        WorkspaceMember targetMembership = member(ws, target, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(ownerMembership));
+        doThrow(new RuntimeException("DB 오류")).when(workspaceMemberActivityRepository).save(any());
+
+        assertThatThrownBy(() -> workspaceMemberService.remove(10L, 2L, 1L))
+                .isInstanceOf(RuntimeException.class);
+
+        verify(workspaceMemberRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("강퇴하면 SSE 이벤트에 KICKED 세부 종류가 실린다")
+    void remove_kick_publishesEventWithKickedAction() {
+        User owner = user(1L);
+        User target = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember ownerMembership = member(ws, owner, WorkspaceRole.OWNER);
+        WorkspaceMember targetMembership = member(ws, target, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(ownerMembership));
+
+        workspaceMemberService.remove(10L, 2L, 1L);
+
+        ArgumentCaptor<WorkspaceChangedEvent> captor = ArgumentCaptor.forClass(WorkspaceChangedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().memberAction()).isEqualTo(WorkspaceMemberAction.KICKED);
+    }
+
+    @Test
+    @DisplayName("스스로 탈퇴하면 SSE 이벤트에 LEFT 세부 종류가 실린다")
+    void remove_selfLeave_publishesEventWithLeftAction() {
+        User owner = user(1L);
+        User me = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember myMembership = member(ws, me, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(myMembership));
+
+        workspaceMemberService.remove(10L, 2L, 2L);
+
+        ArgumentCaptor<WorkspaceChangedEvent> captor = ArgumentCaptor.forClass(WorkspaceChangedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().memberAction()).isEqualTo(WorkspaceMemberAction.LEFT);
+    }
+
+    @Test
+    @DisplayName("역할만 변경하면 SSE 이벤트의 세부 종류는 비어있다")
+    void updateRole_publishesEventWithoutMemberAction() {
+        User owner = user(1L);
+        User target = user(2L);
+        Workspace ws = workspace(10L, owner);
+        WorkspaceMember ownerMembership = member(ws, owner, WorkspaceRole.OWNER);
+        WorkspaceMember targetMembership = member(ws, target, WorkspaceRole.MEMBER);
+        when(workspaceRepository.findById(10L)).thenReturn(Optional.of(ws));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 1L)).thenReturn(Optional.of(ownerMembership));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
+
+        workspaceMemberService.updateRole(10L, 2L, 1L, new UpdateMemberRoleRequest(WorkspaceRole.OWNER));
+
+        ArgumentCaptor<WorkspaceChangedEvent> captor = ArgumentCaptor.forClass(WorkspaceChangedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().memberAction()).isNull();
     }
 }

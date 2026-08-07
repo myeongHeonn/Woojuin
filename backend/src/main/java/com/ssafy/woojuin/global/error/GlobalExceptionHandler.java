@@ -1,13 +1,19 @@
 package com.ssafy.woojuin.global.error;
 
 import com.ssafy.woojuin.domain.ai.usage.AiUsageLimitExceededException;
+import com.ssafy.woojuin.domain.ai.music.MusicRecognitionFailedException;
+import com.ssafy.woojuin.domain.ai.speech.TranscriptionFailedException;
 import com.ssafy.woojuin.domain.ai.usage.AiUsageUnavailableException;
 import com.ssafy.woojuin.domain.category.exception.CategoryNotFoundException;
 import com.ssafy.woojuin.domain.auth.exception.UserNotFoundException;
 import com.ssafy.woojuin.domain.auth.exception.WithdrawnUserException;
 import com.ssafy.woojuin.domain.item.exception.ItemNotFoundException;
 import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
+import com.ssafy.woojuin.domain.integration.exception.BotAuthenticationException;
+import com.ssafy.woojuin.domain.integration.exception.ChannelMappingConflictException;
+import com.ssafy.woojuin.domain.integration.exception.ChannelMappingNotFoundException;
 import com.ssafy.woojuin.domain.notification.exception.NotificationTokenNotFoundException;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotAllowedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;
@@ -40,10 +46,48 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
+    @ExceptionHandler(BotAuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Void> handleBotAuthentication(BotAuthenticationException e) {
+        return ApiResponse.of(401, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(ChannelMappingNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleChannelMappingNotFound(ChannelMappingNotFoundException e) {
+        return ApiResponse.of(404, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(ChannelMappingConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Void> handleChannelMappingConflict(ChannelMappingConflictException e) {
+        return ApiResponse.of(409, e.getMessage(), null);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleBadRequest(IllegalArgumentException e) {
         return ApiResponse.of(400, e.getMessage(), null);
+    }
+
+    /**
+     * 노래 인식 실패는 503 이다 — 클라이언트가 "곡을 찾지 못했다"(200 + found:false)와
+     * 구분해야 사용자에게 맞는 말을 보여줄 수 있다(다시 들려주세요 vs 잠시 후 다시).
+     */
+    @ExceptionHandler(MusicRecognitionFailedException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiResponse<Void> handleMusicRecognitionFailed(MusicRecognitionFailedException e) {
+        return ApiResponse.of(503, e.getMessage(), null);
+    }
+
+    /**
+     * 받아쓰기 실패는 503 이다 — 클라이언트가 "말이 없었다"(200 + 빈 문자열)와 구분해야
+     * 사용자에게 맞는 말을 보여줄 수 있다(다시 말해보세요 vs 잠시 후 다시).
+     */
+    @ExceptionHandler(TranscriptionFailedException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiResponse<Void> handleTranscriptionFailed(TranscriptionFailedException e) {
+        return ApiResponse.of(503, e.getMessage(), null);
     }
 
     @ExceptionHandler(AiUsageLimitExceededException.class)
@@ -110,6 +154,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(WorkspaceOwnerRequiredException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ApiResponse<Void> handleWorkspaceOwnerRequired(WorkspaceOwnerRequiredException e) {
+        return ApiResponse.of(403, e.getMessage(), null);
+    }
+
+    @ExceptionHandler(WorkspaceBannedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleWorkspaceBanned(WorkspaceBannedException e) {
         return ApiResponse.of(403, e.getMessage(), null);
     }
 

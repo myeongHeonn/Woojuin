@@ -3,6 +3,7 @@ package com.ssafy.woojuin.domain.item.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -64,12 +65,14 @@ class ItemSearchServiceTest {
         lenient().when(itemCategoryQueryService.categoriesByItemIds(any())).thenReturn(java.util.Map.of());
     }
 
+    private Item itemOf(long id) {
+        Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO).content("메모").build();
+        ReflectionTestUtils.setField(item, "id", id);
+        return item;
+    }
+
     private Page<Item> pageOf(Long... ids) {
-        List<Item> items = java.util.Arrays.stream(ids).map(id -> {
-            Item item = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.MEMO).content("메모").build();
-            ReflectionTestUtils.setField(item, "id", id);
-            return item;
-        }).toList();
+        List<Item> items = java.util.Arrays.stream(ids).map(this::itemOf).toList();
         return new PageImpl<>(items, PageRequest.of(0, 20), items.size());
     }
 
@@ -165,15 +168,66 @@ class ItemSearchServiceTest {
         assertThat(response.partialMatch()).isFalse();
     }
 
-    /** 키워드가 하나라도 잡히면 의미 검색은 돌지 않는다 — 임베딩 HTTP 호출은 진짜 0건일 때만. */
+    /** 키워드만으로 페이지가 넘치면 보충하지 않는다 — 임베딩 HTTP 호출을 아낀다. */
     @Test
-    void 키워드_결과가_있으면_의미_검색을_타지_않는다() {
+    void 키워드_결과가_페이지를_넘치면_의미_보충을_타지_않는다() {
+        List<Item> fullPage = java.util.stream.LongStream.rangeClosed(1, 20).mapToObj(this::itemOf).toList();
         when(itemSearchRepository.search(eq(1L), anyList(), eq(MatchMode.ALL), any(Pageable.class)))
-                .thenReturn(pageOf(7L));
+                .thenReturn(new PageImpl<>(fullPage, PageRequest.of(0, 20), 21));
 
         itemSearchService.search(1L, 1L, "파스타", 0, 20);
 
         verifyNoInteractions(itemSemanticSearchService);
+    }
+
+    /** "카페" 사례 — 키워드 1건이 의미상 관련한 아이템들을 가리면 안 된다. 보충이 뒤에 붙는다. */
+    @Test
+    void 키워드_결과가_페이지를_못_채우면_의미_보충을_뒤에_붙인다() {
+        when(itemSearchRepository.search(eq(1L), anyList(), eq(MatchMode.ALL), any(Pageable.class)))
+                .thenReturn(pageOf(7L));
+        var supplementItem = mock(com.ssafy.woojuin.domain.item.dto.ItemSummaryResponse.class);
+        when(itemSemanticSearchService.supplement(eq(1L), eq("카페"), eq(List.of(7L)), eq(19), eq(0)))
+                .thenReturn(new ItemSemanticSearchService.Supplement(List.of(supplementItem), 3));
+
+        ItemSearchResponse response = itemSearchService.search(1L, 1L, "카페", 0, 20);
+
+        assertThat(response.content()).hasSize(2);
+        assertThat(response.content().get(0).itemId()).isEqualTo(7L);   // 정확 일치가 항상 먼저
+        assertThat(response.totalElements()).isEqualTo(4);              // 키워드 1 + 보충 3
+        assertThat(response.semanticSupplementCount()).isEqualTo(1);    // 이 페이지의 보충 개수
+        assertThat(response.semanticMatch()).isFalse();                 // 폴백이 아니라 보충이다
+    }
+
+    /** 보충이 불가능(aimix 꺼짐/실패)하면 키워드 결과만 그대로 — 검색이 사이드카에 볼모잡히면 안 된다. */
+    @Test
+    void 보충이_null이면_키워드_결과만_응답한다() {
+        when(itemSearchRepository.search(eq(1L), anyList(), eq(MatchMode.ALL), any(Pageable.class)))
+                .thenReturn(pageOf(7L));
+        when(itemSemanticSearchService.supplement(any(), any(), anyList(), anyInt(), anyInt()))
+                .thenReturn(null);
+
+        ItemSearchResponse response = itemSearchService.search(1L, 1L, "카페", 0, 20);
+
+        assertThat(response.totalElements()).isEqualTo(1);
+        assertThat(response.semanticSupplementCount()).isZero();
+    }
+
+    /** 키워드가 끝난 뒷 페이지는 전부 보충 — 키워드 id를 다시 읽어 중복을 거르고 오프셋을 잇는다. */
+    @Test
+    void 뒷_페이지는_키워드_id를_다시_읽어_보충을_이어_붙인다() {
+        // 1페이지 요청: 키워드 총 2건이라 이 페이지의 키워드 슬라이스는 비어 있다.
+        when(itemSearchRepository.search(eq(1L), anyList(), eq(MatchMode.ALL), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 20), 2))   // 요청 페이지
+                .thenReturn(pageOf(7L, 8L));                                       // 중복 제거용 0페이지 재조회
+        var supplementItem = mock(com.ssafy.woojuin.domain.item.dto.ItemSummaryResponse.class);
+        when(itemSemanticSearchService.supplement(eq(1L), eq("카페"), eq(List.of(7L, 8L)), eq(20), eq(18)))
+                .thenReturn(new ItemSemanticSearchService.Supplement(List.of(supplementItem), 30));
+
+        ItemSearchResponse response = itemSearchService.search(1L, 1L, "카페", 1, 20);
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.totalElements()).isEqualTo(32);   // 키워드 2 + 보충 30
+        assertThat(response.semanticSupplementCount()).isEqualTo(1);
     }
 
     @Test
@@ -221,14 +275,79 @@ class ItemSearchServiceTest {
 
     @Test
     void 토큰_개수는_상한을_넘지_않는다() {
-        assertThat(ItemSearchService.toLikePatterns("가 나 다 라 마 바 사")).hasSize(5);
+        assertThat(ItemSearchService.tokenize("가 나 다 라 마 바 사")).hasSize(5);
     }
 
     @Test
     void 지나치게_긴_검색어는_잘라서_쓴다() {
-        List<String> patterns = ItemSearchService.toLikePatterns("가".repeat(500));
+        assertThat(ItemSearchService.tokenize("가".repeat(500)))
+                .containsExactly("가".repeat(200));
+    }
 
-        assertThat(patterns).containsExactly("%" + "가".repeat(200) + "%");
+    /** "짱구 사진"의 "사진"은 찾는 대상이 아니라 형식이다 — 매칭 조건에 남으면 폴백에서 노이즈가 된다. */
+    @Test
+    void 형식_단어는_내용_단어가_남으면_버린다() {
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("짱구", "사진"))).containsExactly("짱구");
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("을지로", "카페", "링크")))
+                .containsExactly("을지로", "카페");
+    }
+
+    /** 조사가 붙은 채로 들어와도 형식 단어를 알아본다. */
+    @Test
+    void 조사가_붙은_형식_단어도_버린다() {
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("짱구", "사진을"))).containsExactly("짱구");
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("짱구", "스크린샷들"))).containsExactly("짱구");
+    }
+
+    /** "사진"만 친 사용자는 사진 아이템을 훑고 싶은 것이다 — 빈 검색어로 만들면 안 된다. */
+    @Test
+    void 전부_형식_단어면_그대로_둔다() {
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("사진"))).containsExactly("사진");
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("사진", "이미지")))
+                .containsExactly("사진", "이미지");
+    }
+
+    /** 형식 단어로 끝나는 내용 단어("한글"의 "글")를 잘못 자르면 안 된다 — 조사를 뗀 나머지가 형식 단어일 때만 버린다. */
+    @Test
+    void 형식_단어를_품은_내용_단어는_버리지_않는다() {
+        assertThat(ItemSearchService.dropFormatStopwords(List.of("한글", "포스터", "구이")))
+                .containsExactly("한글", "포스터", "구이");
+    }
+
+    /** 1단계(원문 ALL)가 0건이면 형식 단어를 빼고 다시 ALL — "사진" 노이즈가 ANY로 새지 않는다. */
+    @Test
+    void ALL이_0건이면_형식_단어를_빼고_다시_ALL로_찾는다() {
+        when(itemSearchRepository.search(eq(1L), eq(List.of("%짱구%", "%사진%")), eq(MatchMode.ALL),
+                any(Pageable.class))).thenReturn(emptyPage());
+        when(itemSearchRepository.search(eq(1L), eq(List.of("%짱구%")), eq(MatchMode.ALL),
+                any(Pageable.class))).thenReturn(pageOf(7L));
+
+        ItemSearchResponse response = itemSearchService.search(1L, 1L, "짱구 사진", 0, 20);
+
+        assertThat(response.content().get(0).itemId()).isEqualTo(7L);
+        assertThat(response.partialMatch()).isFalse();   // 내용 단어는 전부 일치했다
+        verify(itemSearchRepository, never()).search(any(), anyList(), eq(MatchMode.ANY), any(Pageable.class));
+    }
+
+    /** 의미 검색 폴백의 임베딩도 형식 단어를 뺀 문구로 — "사진"이 벡터를 끌고 가면 안 된다. */
+    @Test
+    void 의미_검색에는_형식_단어를_뺀_검색어를_쓴다() {
+        when(itemSearchRepository.search(any(), anyList(), any(), any(Pageable.class))).thenReturn(emptyPage());
+
+        itemSearchService.search(1L, 1L, "짱구 사진", 0, 20);
+
+        verify(itemSemanticSearchService).search(eq(1L), eq("짱구"), any(Pageable.class));
+    }
+
+    /** 보충 검색의 임베딩도 마찬가지다. */
+    @Test
+    void 보충_검색에도_형식_단어를_뺀_검색어를_쓴다() {
+        when(itemSearchRepository.search(eq(1L), anyList(), eq(MatchMode.ALL), any(Pageable.class)))
+                .thenReturn(pageOf(7L));
+
+        itemSearchService.search(1L, 1L, "짱구 사진", 0, 20);
+
+        verify(itemSemanticSearchService).supplement(eq(1L), eq("짱구"), eq(List.of(7L)), eq(19), eq(0));
     }
 
     @Test

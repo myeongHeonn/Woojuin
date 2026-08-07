@@ -32,10 +32,24 @@ public class OAuthAccountService {
         this.eventPublisher = eventPublisher;
     }
 
+    /**
+     * 이 provider+providerId 계정이 아직 없는지(=findOrCreateUser가 새로 만들 것인지) 미리 알려준다.
+     * OAuth 콜백 리다이렉트에 신규 가입 여부를 실어, 프론트가 닉네임 설정·개인정보처리방침
+     * 동의 온보딩 화면을 끼워 넣을지 판단하는 데 쓴다(이메일 가입은 폼 자체가 그 자리다).
+     */
+    public boolean isNewAccount(AuthProvider provider, String providerId) {
+        return userRepository.findByProviderAndProviderId(provider, providerId).isEmpty();
+    }
+
     public User findOrCreateUser(AuthProvider provider, String providerId, String email, String nickname) {
         Optional<User> existing = userRepository.findByProviderAndProviderId(provider, providerId);
         if (existing.isPresent()) {
             User user = existing.get();
+            // 정상 경로에서는 여기에 걸릴 일이 없다 — User.withdraw() 가 provider_id 를 파기하므로
+            // 탈퇴한 행은 위 조회에 아예 잡히지 않고, 같은 계정은 아래에서 새로 가입된다.
+            // 남겨 두는 것은 파기 이전 버전에서 탈퇴한 행(V12 마이그레이션 전 데이터)과 DB 를 직접
+            // 손댄 경우를 위한 안전망이다. 이때는 로그인이 막히지만, 실패 사유가 프론트까지
+            // 전달되므로(OAuth2LoginFailureHandler) 예전처럼 조용히 끝나지는 않는다.
             if (user.isWithdrawn()) {
                 throw new OAuth2AuthenticationException(
                         new OAuth2Error("withdrawn_user"), "탈퇴한 계정입니다.");

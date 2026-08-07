@@ -16,6 +16,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,6 +39,31 @@ class OAuthAccountServiceTest {
     private OAuthAccountService oAuthAccountService;
 
     @Test
+    @DisplayName("같은 provider+providerId 계정이 없으면 신규 계정이다")
+    void isNewAccount_noExistingAccount_returnsTrue() {
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-new"))
+                .thenReturn(Optional.empty());
+
+        assertThat(oAuthAccountService.isNewAccount(AuthProvider.GOOGLE, "google-new")).isTrue();
+    }
+
+    @Test
+    @DisplayName("같은 provider+providerId 계정이 이미 있으면 신규 계정이 아니다")
+    void isNewAccount_existingAccount_returnsFalse() {
+        User existing = User.builder()
+                .email("test@google.com")
+                .provider(AuthProvider.GOOGLE)
+                .providerId("google-existing")
+                .emailVerified(true)
+                .nickname("우주인")
+                .build();
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-existing"))
+                .thenReturn(Optional.of(existing));
+
+        assertThat(oAuthAccountService.isNewAccount(AuthProvider.GOOGLE, "google-existing")).isFalse();
+    }
+
+    @Test
     @DisplayName("이미 같은 provider+providerId 계정이 있으면 그대로 반환하고 저장하지 않는다")
     void findOrCreateUser_existingAccount_returnsExistingUserWithoutSaving() {
         User existing = User.builder()
@@ -58,8 +84,27 @@ class OAuthAccountServiceTest {
     }
 
     @Test
-    @DisplayName("탈퇴한 OAuth 계정은 다시 로그인할 수 없다")
-    void findOrCreateUser_withdrawnAccount_throwsAuthenticationException() {
+    @DisplayName("탈퇴 후 provider_id 가 파기돼 조회에 잡히지 않으면 같은 구글 계정도 새로 가입된다")
+    void findOrCreateUser_afterWithdrawalScrubbedIdentifier_createsFreshAccount() {
+        // 탈퇴가 provider_id 를 지우므로 같은 sub 로 다시 로그인해도 조회는 빈 결과다 —
+        // 재가입이 막히던 지점이 여기였다.
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-sub-1"))
+                .thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        oAuthAccountService.findOrCreateUser(
+                AuthProvider.GOOGLE, "google-sub-1", "real@gmail.com", "우주인");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getProviderId()).isEqualTo("google-sub-1");
+        assertThat(captor.getValue().isWithdrawn()).isFalse();
+        verify(eventPublisher).publishEvent(any(UserSignedUpEvent.class));
+    }
+
+    @Test
+    @DisplayName("식별자 파기 전에 탈퇴한 행(V12 마이그레이션 전 데이터)은 여전히 막는다 — 안전망")
+    void findOrCreateUser_legacyWithdrawnRowKeepingProviderId_throwsAuthenticationException() {
         User withdrawn = User.builder()
                 .email("withdrawn@google.com")
                 .provider(AuthProvider.GOOGLE)
@@ -67,7 +112,9 @@ class OAuthAccountServiceTest {
                 .emailVerified(true)
                 .nickname("탈퇴 전 닉네임")
                 .build();
-        withdrawn.withdraw();
+        // withdraw() 를 쓰면 providerId 가 지워져 이 상황을 못 만든다 — 옛 데이터를 흉내내려면
+        // deletedAt 만 직접 채워야 한다.
+        ReflectionTestUtils.setField(withdrawn, "deletedAt", OffsetDateTime.now());
         when(userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-withdrawn"))
                 .thenReturn(Optional.of(withdrawn));
 

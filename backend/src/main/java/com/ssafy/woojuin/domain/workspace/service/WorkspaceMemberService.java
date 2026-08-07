@@ -2,17 +2,25 @@ package com.ssafy.woojuin.domain.workspace.service;
 
 import com.ssafy.woojuin.domain.workspace.dto.UpdateMemberRoleRequest;
 import com.ssafy.woojuin.domain.workspace.dto.WorkspaceMemberResponse;
+import com.ssafy.woojuin.domain.workspace.entity.Workspace;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceBan;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivity;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivityType;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceLastOwnerException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceBanRepository;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberActivityRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
 import com.ssafy.woojuin.global.sse.WorkspaceEventType;
+import com.ssafy.woojuin.global.sse.WorkspaceMemberAction;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,20 +36,26 @@ public class WorkspaceMemberService {
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final WorkspaceBanRepository workspaceBanRepository;
+    private final WorkspaceMemberActivityRepository workspaceMemberActivityRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     public WorkspaceMemberService(WorkspaceRepository workspaceRepository,
                                    WorkspaceMemberRepository workspaceMemberRepository,
+                                   WorkspaceBanRepository workspaceBanRepository,
+                                   WorkspaceMemberActivityRepository workspaceMemberActivityRepository,
                                    ApplicationEventPublisher eventPublisher) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
+        this.workspaceBanRepository = workspaceBanRepository;
+        this.workspaceMemberActivityRepository = workspaceMemberActivityRepository;
         this.eventPublisher = eventPublisher;
     }
 
     @Transactional(readOnly = true)
     public List<WorkspaceMemberResponse> list(Long workspaceId, Long requesterId) {
         findWorkspace(workspaceId);
-        findMembership(workspaceId, requesterId);
+        requireMemberOrBanAwareForbidden(workspaceId, requesterId);
 
         return workspaceMemberRepository.findByWorkspaceId(workspaceId).stream()
                 .map(WorkspaceMemberResponse::of)
@@ -64,30 +78,59 @@ public class WorkspaceMemberService {
         return WorkspaceMemberResponse.of(target);
     }
 
+    /**
+     * 활동 이력 저장은 멤버십 삭제와 같은 트랜잭션 안에서 실행된다 — 저장에 실패하면
+     * 예외를 여기서 잡지 않고 그대로 전파해 트랜잭션 전체(멤버십 삭제, 재입장 차단 등록 포함)가
+     * 함께 롤백되도록 한다. 이력만 빠진 채 멤버십만 바뀌는 상태를 만들지 않기 위함이다.
+     */
     @Transactional
     public void remove(Long workspaceId, Long targetUserId, Long requesterId) {
-        findWorkspace(workspaceId);
+        Workspace workspace = findWorkspace(workspaceId);
         WorkspaceMember target = findTargetMembership(workspaceId, targetUserId);
 
-        if (!requesterId.equals(targetUserId)) {
+        WorkspaceMemberActivityType activityType =
+                requesterId.equals(targetUserId) ? WorkspaceMemberActivityType.LEFT : WorkspaceMemberActivityType.KICKED;
+        if (activityType == WorkspaceMemberActivityType.KICKED) {
             requireOwner(workspaceId, requesterId);
         }
         if (target.getRole() == WorkspaceRole.OWNER) {
             requireNotLastOwner(workspaceId);
         }
 
+        if (activityType == WorkspaceMemberActivityType.KICKED) {
+            workspaceBanRepository.save(WorkspaceBan.builder().workspace(workspace).user(target.getUser()).build());
+        }
+        workspaceMemberActivityRepository.save(
+                WorkspaceMemberActivity.builder().workspace(workspace).user(target.getUser()).type(activityType).build());
         workspaceMemberRepository.delete(target);
-        eventPublisher.publishEvent(WorkspaceChangedEvent.of(workspaceId, WorkspaceEventType.MEMBER));
+        eventPublisher.publishEvent(WorkspaceChangedEvent.ofMemberAction(workspaceId,
+                activityType == WorkspaceMemberActivityType.KICKED
+                        ? WorkspaceMemberAction.KICKED : WorkspaceMemberAction.LEFT));
     }
 
-    private void findWorkspace(Long workspaceId) {
-        workspaceRepository.findById(workspaceId)
+    private Workspace findWorkspace(Long workspaceId) {
+        return workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new WorkspaceNotFoundException(workspaceId));
     }
 
     private WorkspaceMember findMembership(Long workspaceId, Long userId) {
         return workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .orElseThrow(() -> new WorkspaceMemberRequiredException(workspaceId));
+    }
+
+    /**
+     * 멤버 목록 조회 전용 — 멤버가 아닐 때 추방 이력이 있으면(강퇴로 인한 workspace_bans
+     * 등록) 일반 403이 아니라 WorkspaceBannedException을 던져 프론트가 "추방되었어요"와
+     * "접근 권한이 없어요"를 구분할 수 있게 한다. 자진 탈퇴는 ban 기록이 없어 여기 안 걸린다.
+     */
+    private void requireMemberOrBanAwareForbidden(Long workspaceId, Long userId) {
+        if (workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId).isPresent()) {
+            return;
+        }
+        if (workspaceBanRepository.existsByWorkspaceIdAndUserId(workspaceId, userId)) {
+            throw new WorkspaceBannedException(workspaceId);
+        }
+        throw new WorkspaceMemberRequiredException(workspaceId);
     }
 
     /** 대상 유저에 대한 조회. 요청자 본인의 멤버십 여부(403)와 달리, 대상이 없으면 404다. */

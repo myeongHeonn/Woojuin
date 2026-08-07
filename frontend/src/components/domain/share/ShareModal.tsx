@@ -1,13 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/hooks/useUser';
-import { useMembers, useCreateInvitation, useRemoveMember } from '@/hooks/useWorkspaceMembers';
+import {
+  useMembers,
+  useCreateInvitation,
+  useRemoveMember,
+  useMemberActivities,
+} from '@/hooks/useWorkspaceMembers';
 import { useWorkspaces, useRenameWorkspace } from '@/hooks/useWorkspaces';
 import Spinner from '@/components/ui/Spinner';
 import TextInput from '@/components/ui/TextInput';
 import IconButton from '@/components/ui/button/IconButton';
 import { PencilIcon, CheckIcon } from '@/assets/icons';
 import MemberList from './MemberList';
+import MemberActivityFeed from './MemberActivityFeed';
 
 interface ShareModalProps {
   workspaceId: number;
@@ -29,6 +35,8 @@ const ShareModal = ({ workspaceId, onClose, onRequestDelete }: ShareModalProps) 
   const navigate = useNavigate();
   const { userId: myUserId } = useUser();
   const { data: members = [], isLoading } = useMembers(workspaceId);
+  const { data: activities = [], isLoading: isActivitiesLoading } =
+    useMemberActivities(workspaceId);
   const { data: workspaces } = useWorkspaces();
   const invite = useCreateInvitation(workspaceId);
   const remove = useRemoveMember(workspaceId);
@@ -154,6 +162,11 @@ const ShareModal = ({ workspaceId, onClose, onRequestDelete }: ShareModalProps) 
             onKick={(id) => remove.mutate(id)}
           />
         )}
+      </div>
+
+      <div className="border-t border-border-soft pt-1">
+        <h3 className="px-0.5 py-1 text-[11px] font-semibold text-text-3">최근 활동</h3>
+        <MemberActivityFeed activities={activities} isLoading={isActivitiesLoading} />
       </div>
     </div>
   );

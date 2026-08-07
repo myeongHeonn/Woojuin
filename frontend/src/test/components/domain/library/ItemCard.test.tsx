@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-react';
+import { userEvent } from 'vitest/browser';
 import ItemCard from '@/components/domain/library/ItemCard';
 import type { Item, ItemStatus, ItemType } from '@/types/item';
 
@@ -36,6 +37,22 @@ describe('ItemCard', () => {
       );
       expect(card(container).textContent).toContain('제목 없음');
       expect(card(container).textContent).toContain('사진');
+    });
+  });
+
+  describe('즐겨찾기 표식', () => {
+    it('즐겨찾기면 제목 옆에 노란 별을 보여준다', async () => {
+      const { container } = await render(
+        <ItemCard item={make({ type: 'URL', status: 'DONE', favorite: true })} />,
+      );
+      expect(container.querySelector('.text-star-yellow')).not.toBeNull();
+    });
+
+    it('즐겨찾기가 아니면 별이 없다', async () => {
+      const { container } = await render(
+        <ItemCard item={make({ type: 'URL', status: 'DONE', favorite: false })} />,
+      );
+      expect(container.querySelector('.text-star-yellow')).toBeNull();
     });
   });
 
@@ -95,8 +112,8 @@ describe('ItemCard', () => {
           item={make({ type: 'IMAGE', status: 'DONE', imageUrl: 'https://s3/photo.png' })}
         />,
       );
-      const thumb = container.querySelector('.absolute.inset-0') as HTMLElement;
-      expect(thumb.style.backgroundImage).toContain('https://s3/photo.png');
+      const thumb = container.querySelector('img') as HTMLImageElement;
+      expect(thumb.src).toContain('https://s3/photo.png');
     });
 
     it('링크(URL)는 preview.thumbnailUrl 을 쓴다 (imageUrl 아님)', async () => {
@@ -110,9 +127,89 @@ describe('ItemCard', () => {
           })}
         />,
       );
-      const thumb = container.querySelector('.absolute.inset-0') as HTMLElement;
-      expect(thumb.style.backgroundImage).toContain('https://x/preview.png');
-      expect(thumb.style.backgroundImage).not.toContain('should-not-use');
+      const thumb = container.querySelector('img') as HTMLImageElement;
+      expect(thumb.src).toContain('https://x/preview.png');
+      expect(thumb.src).not.toContain('should-not-use');
+    });
+
+    // 카드 이미지가 화면 밖까지 전부 내려오면 대시보드 전송량이 폭발한다(실측 3MB) —
+    // background-image 로는 지연 로딩이 불가능해 img 로 바꾼 것이 이 속성으로 드러난다.
+    it('카드 이미지는 지연 로딩한다', async () => {
+      const { container } = await render(
+        <ItemCard
+          item={make({ type: 'IMAGE', status: 'DONE', imageUrl: 'https://s3/photo.png' })}
+        />,
+      );
+      const thumb = container.querySelector('img') as HTMLImageElement;
+      expect(thumb.loading).toBe('lazy');
+    });
+
+    /**
+     * img 는 대체 요소라 `absolute inset-0` 만으로는 늘어나지 않고 고유 크기로 그려진다
+     * — 실제로 카드 아래가 빈 채 배포될 뻔했다. 정사각 상자를 꽉 채우는지 확인한다.
+     * (상자는 88px 이지만 테두리 1px 씩이 있어 안쪽은 86px 이라, 숫자를 박지 않고
+     *  부모 대비 비율로 본다)
+     */
+    it('카드 이미지가 정사각 상자를 꽉 채운다', async () => {
+      const { container } = await render(
+        <ItemCard
+          item={make({ type: 'IMAGE', status: 'DONE', imageUrl: 'https://s3/photo.png' })}
+        />,
+      );
+      const img = container.querySelector('img') as HTMLImageElement;
+      const square = img.closest('.rounded-2xl') as HTMLElement;
+      const box = img.getBoundingClientRect();
+      const outer = square.getBoundingClientRect();
+
+      // 세로가 덜 차면(고유 비율로 그려지면) 카드 아래가 빈다 — 이게 막으려는 회귀다
+      expect(box.height).toBeGreaterThan(outer.height - 4);
+      expect(box.width).toBeGreaterThan(outer.width - 4);
+    });
+  });
+
+  describe('클릭', () => {
+    it('누르면 아이템 id 를 넘긴다', async () => {
+      const onClick = vi.fn();
+      const { container } = await render(
+        <ItemCard item={make({ type: 'URL', status: 'DONE', itemId: 42 })} onClick={onClick} />,
+      );
+
+      await userEvent.click(card(container));
+      // 호출부가 () => open(id) 로 감싸지 않아도 되도록 id 를 넘겨준다(memo 유지의 전제)
+      expect(onClick).toHaveBeenCalledWith(42);
+    });
+  });
+
+  /**
+   * 처리 중인 아이템이 있으면 목록이 3초마다 다시 조회된다. react-query 는 값이 안 바뀐
+   * 아이템의 객체 참조를 그대로 유지하므로(structural sharing), memo 가 걸려 있으면
+   * 그 카드들은 다시 그려지지 않아야 한다. onClick 을 화살표로 감싸면 이게 깨진다.
+   */
+  describe('메모이제이션', () => {
+    it('같은 item·onClick 으로 다시 렌더하면 DOM 을 건드리지 않는다', async () => {
+      const item = make({ type: 'URL', status: 'DONE', title: '그대로' });
+      const onClick = vi.fn();
+      const { container, rerender } = await render(<ItemCard item={item} onClick={onClick} />);
+
+      const before = card(container);
+      // 부모가 리렌더된 상황 — 같은 참조를 그대로 넘긴다
+      await rerender(<ItemCard item={item} onClick={onClick} />);
+
+      expect(card(container)).toBe(before);
+      expect(card(container).textContent).toContain('그대로');
+    });
+
+    it('item 이 바뀌면 다시 그린다', async () => {
+      const onClick = vi.fn();
+      const { container, rerender } = await render(
+        <ItemCard item={make({ type: 'URL', status: 'DONE', title: '이전' })} onClick={onClick} />,
+      );
+      expect(card(container).textContent).toContain('이전');
+
+      await rerender(
+        <ItemCard item={make({ type: 'URL', status: 'DONE', title: '이후' })} onClick={onClick} />,
+      );
+      expect(card(container).textContent).toContain('이후');
     });
   });
 });

@@ -289,6 +289,56 @@ class ItemServiceTest {
     }
 
     @Test
+    void URL_목록조회는_S3_썸네일이_있으면_presigned_URL로_바꿔_내려준다() {
+        // 외부 og:image 원본은 크고 느려 카드 초기 렌더링을 늦춘다 — 목록은 S3 캐시 썸네일로.
+        Item url = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.URL)
+                .url("https://example.com").build();
+        url.applyPreview("제목", "https://cdn.example.com/og.jpg", "설명");
+        url.applyThumbnail("previews/1/uuid.thumb.webp");
+        ReflectionTestUtils.setField(url, "id", 1L);
+        when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(url), PageRequest.of(0, 20), 1));
+        when(s3Uploader.presignGet("previews/1/uuid.thumb.webp")).thenReturn("http://minio/preview?sig=1");
+
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, null, "latest", 0, 20);
+
+        assertThat(response.content().get(0).preview().thumbnailUrl()).isEqualTo("http://minio/preview?sig=1");
+        assertThat(response.content().get(0).preview().description()).isEqualTo("설명");
+    }
+
+    @Test
+    void URL_목록조회는_S3_썸네일이_없으면_외부_이미지_URL로_폴백한다() {
+        // 썸네일 생성 전(PROCESSING)·생성 실패·백필 전 기존 아이템 — 기존 동작 그대로.
+        Item url = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.URL)
+                .url("https://example.com").build();
+        url.applyPreview("제목", "https://cdn.example.com/og.jpg", null);
+        ReflectionTestUtils.setField(url, "id", 1L);
+        when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(url), PageRequest.of(0, 20), 1));
+
+        ItemListResponse response = itemService.list(1L, 1L, null, null, null, null, "latest", 0, 20);
+
+        assertThat(response.content().get(0).preview().thumbnailUrl())
+                .isEqualTo("https://cdn.example.com/og.jpg");
+        verify(s3Uploader, never()).presignGet(any());
+    }
+
+    @Test
+    void URL_상세조회는_S3_썸네일이_있어도_외부_원본_이미지를_쓴다() {
+        // 상세는 이미지를 크게 보여주므로 200px 썸네일이 아니라 외부 원본이 맞다.
+        Item url = Item.builder().workspaceId(1L).createdBy(1L).type(ItemType.URL)
+                .url("https://example.com").build();
+        url.applyPreview("제목", "https://cdn.example.com/og.jpg", null);
+        url.applyThumbnail("previews/1/uuid.thumb.webp");
+        when(itemRepository.findById(2L)).thenReturn(Optional.of(url));
+
+        ItemDetailResponse response = itemService.getDetail(2L, 1L);
+
+        assertThat(response.preview().thumbnailUrl()).isEqualTo("https://cdn.example.com/og.jpg");
+        verify(s3Uploader, never()).presignGet(any());
+    }
+
+    @Test
     void 목록조회_size가_상한을_넘으면_잘린다() {
         ArgumentCaptor<PageRequest> captor = ArgumentCaptor.forClass(PageRequest.class);
         when(itemRepository.findAll(any(Specification.class), any(PageRequest.class)))

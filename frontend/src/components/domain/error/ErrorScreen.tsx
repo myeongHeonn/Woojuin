@@ -1,0 +1,121 @@
+import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import spacemanFloating from '@/assets/spacemans/spaceman-floating.webp';
+import { ArrowLeftIcon } from '@/assets/icons';
+import ErrorCodeMark from '@/components/domain/error/ErrorCodeMark';
+import StarField from '@/components/domain/error/StarField';
+import { errorSecondaryActionClass } from '@/components/domain/error/errorActionStyles';
+import BrandMark from '@/components/ui/BrandMark';
+import { useGoBack } from '@/hooks/useGoBack';
+import './errorScreen.css';
+
+interface ErrorScreenProps {
+  /** 표시할 상태 코드. 없으면 코드 없이 로고 링만 보여 준다 */
+  code?: string;
+  title: string;
+  description: ReactNode;
+  /** 버튼들 — 첫 번째를 주 동작으로 둔다 */
+  actions: ReactNode;
+  /**
+   * 원인 요약. 개발 중 디버깅용이라 운영 빌드에서는 넘기지 않는다
+   * (사용자에게는 의미 없고, 스택·내부 경로가 드러날 수 있다).
+   */
+  detail?: string;
+}
+
+/**
+ * 에러 화면의 공통 껍데기 — 404 와 예상치 못한 오류가 같은 얼굴을 쓴다.
+ *
+ * 배경이 앱의 `bg-space`(#0e1017)가 아니라 **완전한 검정**인 이유:
+ *  - 아무 빛도 없는 우주로 보여야 한다는 디자인 결정. 성운(accent) 글로우도 그래서 뺐다
+ *  - 로고의 십자 스파클은 원래 검정 배경 기준으로 그려진 크기라, 배경이 검을 때 원본
+ *    비율(링 지름의 0.57배)이 그대로 맞는다(LogoRing 의 SPARKLE_SCALE 참고)
+ *
+ * 상단 브랜드는 장식이 아니라 **탈출구**다 — 라우팅이 깨져 버튼이 안 먹는 최악의 경우에도
+ * 링크 하나는 남는다.
+ */
+const ErrorScreen = ({ code, title, description, actions, detail }: ErrorScreenProps) => {
+  const goBack = useGoBack('/');
+
+  return (
+    <div className="relative grid min-h-dvh place-items-center overflow-hidden bg-black px-6 py-16">
+      <StarField />
+
+      <div className="relative flex flex-col items-center text-center">
+        <Link
+          to="/"
+          aria-label="우주인 홈으로"
+          className="rounded-md outline-offset-4 transition-opacity hover:opacity-80"
+        >
+          <BrandMark size={26} />
+        </Link>
+
+        {/*
+          우주인을 코드 **위에 겹쳐** 띄운다 — 나란히 두면 둘 다 같은 평면에 있는 그림이
+          되지만, 겹치면 우주인이 앞, 코드가 뒤(멀리)로 읽혀 공간감이 생긴다.
+          가로 중앙이 곧 `0` 의 중심이라 별도 계산 없이 행성 위에 떠 있는 모양이 된다.
+          작게 두는 이유: 크면 캐릭터 일러스트 화면이 되고, 작으면 텅 빈 공간이 주인공이 된다.
+
+          `spaceman-floating.webp` 는 원본 `spaceman-floating-2.png`(1254×1254 / 856KB)를
+          224px WebP 로 구운 것(7KB)이다. 100px 로 쓰는 그림에 856KB 를 받게 할 수 없다 —
+          에러 화면은 이미 뭔가 잘못된 상황에서 뜨므로 특히 가벼워야 한다.
+          그림을 바꿀 일이 생기면 원본을 갈아 끼우고 `node scripts/optimize-spacemans.mjs` 만
+          다시 돌리면 된다.
+        */}
+        <div className="relative mt-20">
+          <ErrorCodeMark code={code} />
+          {/* 정렬은 anchor 가, 표류는 img 가 맡는다 (errorScreen.css 참고) */}
+          <div className="error-spaceman-anchor pointer-events-none absolute left-1/2 top-0">
+            <img
+              src={spacemanFloating}
+              alt=""
+              aria-hidden
+              draggable={false}
+              // 코드와 **같은 비율로** 줄어들어야 한다 — 높이를 px 로 박으면 좁은 화면에서
+              // 코드만 작아져(clamp) 우주인이 0 을 덮어 숫자가 안 읽힌다(실측)
+              //
+              // max-w-none 이 필요한 이유: Tailwind preflight 가 img 에 max-width:100% 를 건다.
+              // anchor 가 absolute left-1/2 라 그 100% 는 **부모(코드 마크) 폭 기준**인데,
+              // 코드가 없는 에러(런타임 예외)에서는 부모가 링 하나 폭뿐이라 가용 폭이 절반으로
+              // 줄고 높이는 고정이라 우주인이 눌린다 — 모바일에서 30x60 으로 찌그러졌다(실측).
+              // 원본이 288x288 정사각형이므로 상한만 풀면 비율이 그대로 유지된다.
+              className="error-spaceman h-[clamp(58px,15vw,112px)] w-auto max-w-none select-none"
+            />
+          </div>
+        </div>
+
+        {/*
+          break-keep(word-break: keep-all) — 한국어는 기본 규칙으로 어절 중간에서 잘린다.
+          실제로 "홈에서"가 "홈에 / 서"로 갈렸다. 낱말 단위로만 넘기게 한다.
+        */}
+        <h1 className="mt-7 break-keep text-xl font-extrabold tracking-tight text-text-1 desktop:text-2xl">
+          {title}
+        </h1>
+        <p className="mt-2.5 max-w-md break-keep text-body leading-relaxed text-text-2">
+          {description}
+        </p>
+
+        {detail && (
+          <p className="mt-4 max-w-md break-words rounded-md border border-border-soft bg-surface/70 px-3 py-2 text-left text-[12px] leading-relaxed text-text-3">
+            {detail}
+          </p>
+        )}
+
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
+          {actions}
+          {/*
+            뒤로가기는 페이지가 아니라 여기서 붙인다 — 두 화면에서 항상 주 동작 **오른쪽**
+            같은 자리에 오게 하려고. 히스토리를 되짚지 않고 홈으로 보내므로(useGoBack)
+            공유 링크·북마크·주소 직접 입력으로 들어온 경우에도 막히지 않는다.
+          */}
+          <button type="button" onClick={goBack} className={errorSecondaryActionClass}>
+            <ArrowLeftIcon />
+            뒤로 가기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ErrorScreen;

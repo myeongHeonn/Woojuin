@@ -26,7 +26,7 @@ const LibrarySearch = () => {
     e.preventDefault();
     const query = text.trim();
     if (!query) {
-      setParams({}, { replace: true });
+      setParams(localAi ? { ai: '1' } : {}, { replace: true });
       return;
     }
     setParams(localAi ? { q: query, ai: '1' } : { q: query });
@@ -35,14 +35,21 @@ const LibrarySearch = () => {
   const onChange = (value: string) => {
     setText(value);
     // 다 지우면 검색을 풀고 전체를 다시 불러온다
-    if (value.trim() === '' && q) setParams({}, { replace: true });
+    if (value.trim() === '' && q) setParams(localAi ? { ai: '1' } : {}, { replace: true });
   };
 
   return (
-    // 우측 정렬·폭 제한은 래퍼가 갖는다 — 안내 문구가 검색창과 같은 폭 기준으로 오른쪽에 맞아야 하고,
-    // ml-auto 는 부모(LibraryPage 의 flex-col)의 flex auto margin 으로 동작한다
-    <div className="mb-2 ml-auto max-w-100">
-      <AiModeHint className="mb-1 pr-1 text-right" />
+    /*
+      폭 제한·정렬은 래퍼가 갖는다 — 안내 문구가 검색창과 같은 폭 기준으로 맞아야 한다.
+      모바일은 컨테이너 폭을 채워 좌우 여백이 같게(가운데), 데스크톱만 우측 정렬한다.
+
+      w-full 이 필요한 이유: 부모가 flex-col 인데 ml-auto 만 주면 가로 stretch 가 깨져
+      내용 크기로 줄어든다. 그러면 좁은 화면에서 왼쪽에 100px 넘는 빈 공간이 생기고
+      검색창이 오른쪽 끝에 붙어 잘린 것처럼 보인다(2026-08-05 실측: 375px 에서
+      왼쪽 여백 102px · 오른쪽 20px).
+    */
+    <div className="mx-auto mb-2 w-full max-w-100 desktop:ml-auto desktop:mr-0">
+      <AiModeHint className="mb-1 pr-1 text-right text-text-3" />
 
       <form
         onSubmit={submit}

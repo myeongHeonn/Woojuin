@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useNavigate } from 'react-router-dom';
+import ConnectedAppsCard from '@/components/domain/mypage/ConnectedAppsCard';
+import ConnectedDevicesCard from '@/components/domain/mypage/ConnectedDevicesCard';
 import ProfileCard from '@/components/domain/mypage/ProfileCard';
 import SettingsCard from '@/components/domain/mypage/SettingsCard';
 import ConfirmModal from '@/components/ui/ConfirmModal';
@@ -18,6 +20,8 @@ import { deleteNotificationToken } from '@/services/notifications';
 import { accessTokenAtom, refreshTokenAtom } from '@/stores/authAtoms';
 import { fcmTokenAtom } from '@/stores/pushAtoms';
 import { useUser } from '@/hooks/useUser';
+import { useSpaces } from '@/hooks/useSpaces';
+import { tutorialReplayAtom, type TutorialReplayType } from '@/stores/tutorialAtoms';
 
 type ConfirmKind = 'logout' | 'withdraw' | null;
 
@@ -29,6 +33,8 @@ const MyPage = () => {
   const setRefreshToken = useSetAtom(refreshTokenAtom);
   const fcmToken = useAtomValue(fcmTokenAtom);
   const setFcmToken = useSetAtom(fcmTokenAtom);
+  const setTutorialReplay = useSetAtom(tutorialReplayAtom);
+  const { personalSpaceId, teams, isLoading: spacesLoading } = useSpaces();
   const [notificationEnabled, setNotificationEnabled] = useState(true);
   const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -97,6 +103,19 @@ const MyPage = () => {
     navigate('/');
   };
 
+  /**
+   * 세션이 서버에서 이미 끝난 뒤의 정리(현재 기기 해제·모든 기기 로그아웃).
+   * handleLogout 과 달리 로그아웃 API 를 부르지 않는다 — 세션은 이미 없고,
+   * 폐기된 토큰으로는 어떤 호출도 통과하지 않는다. 로컬만 정리하고 나간다.
+   */
+  const handleSessionEnded = () => {
+    setAccessToken(null);
+    setRefreshToken(null);
+    setFcmToken(null);
+    queryClient.clear();
+    navigate('/');
+  };
+
   const handleNotificationToggle = () => {
     setNotificationEnabled((enabled) => !enabled);
     setToast({
@@ -105,8 +124,13 @@ const MyPage = () => {
     });
   };
 
+  const handleTutorialReplay = (type: TutorialReplayType, workspaceId: number) => {
+    setTutorialReplay({ type, workspaceId, requestId: Date.now() });
+    navigate(`/workspace/${workspaceId}/universe`);
+  };
+
   return (
-    <div className="h-full overflow-y-auto px-4 pb-28 pt-6 desktop:px-9 desktop:pb-20">
+    <div className="h-full overflow-y-auto px-4 pb-28 pt-[calc(24px+var(--safe-top))] desktop:px-9 desktop:pb-20">
       <div className="mx-auto w-full max-w-[660px]">
         <h1 className="mb-[26px] text-base font-bold text-text-1">마이페이지</h1>
 
@@ -121,23 +145,28 @@ const MyPage = () => {
           onLogout={() => setConfirmKind('logout')}
         />
 
-        <section aria-label="활동 통계" className="mb-4 grid grid-cols-3 gap-3">
+        {/* 상자 없이 숫자만 나란히 — 위계는 타이포 크기가 만든다 */}
+        <section aria-label="활동 통계" className="mb-10 flex gap-10 px-2">
           {[
             [stats?.totalSaved, '전체 저장'],
             [stats?.workspaceCount, '워크스페이스'],
             [stats?.savedThisWeek, '이번 주 저장'],
           ].map(([value, label]) => (
-            <div
-              key={String(label)}
-              className="rounded-lg border border-border-soft bg-surface px-3 py-4 desktop:px-[18px]"
-            >
-              <div className="text-[22px] font-extrabold text-text-1">
+            <div key={String(label)} className="min-w-0">
+              <div className="text-2xl font-extrabold tabular-nums text-text-1">
                 {typeof value === 'number' ? value.toLocaleString('ko-KR') : '—'}
               </div>
-              <div className="mt-0.5 text-xs text-text-3">{label}</div>
+              <div className="mt-1 text-xs text-text-3">{label}</div>
             </div>
           ))}
         </section>
+
+        {/* 계정에 붙어 있는 것들(기기·앱)이 먼저, 사용량·도움말류 설정은 그 아래 */}
+        <ConnectedDevicesCard
+          onSessionEnded={handleSessionEnded}
+          onError={(message) => setToast({ message, tone: 'error' })}
+        />
+        <ConnectedAppsCard onError={(message) => setToast({ message, tone: 'error' })} />
 
         <SettingsCard
           notificationEnabled={notificationEnabled}
@@ -145,6 +174,10 @@ const MyPage = () => {
           aiUsage={aiUsage}
           aiUsageLoading={isAiUsagePending}
           aiUsageError={isAiUsageError}
+          personalSpaceId={personalSpaceId}
+          sharedWorkspaceId={teams[0]?.id}
+          spacesLoading={spacesLoading}
+          onTutorialReplay={handleTutorialReplay}
         />
 
         <div className="mt-[34px] text-center">
@@ -166,10 +199,12 @@ const MyPage = () => {
         onCancel={() => setConfirmKind(null)}
         onConfirm={handleLogout}
       />
+      {/* 탈퇴가 무엇을 되돌릴 수 없게 만드는지 먼저 알린다 — 같은 계정으로 다시 가입할 수는
+          있지만 그건 빈 새 계정이고, 지금 저장한 것들은 따라오지 않는다. */}
       <ConfirmModal
         open={confirmKind === 'withdraw'}
         title="회원 탈퇴"
-        description="정말 회원 탈퇴하시겠어요? 탈퇴하면 계정 이용이 중단되며, 저장된 데이터는 개인정보 처리방침에 따라 처리됩니다."
+        description="정말 회원 탈퇴하시겠어요? 저장된 데이터는 개인정보 처리방침에 따라 처리되며, 다시 볼 수 없습니다. 같은 계정으로 다시 가입할 수 있지만 새 계정으로 시작합니다."
         confirmLabel={withdrawMutation.isPending ? '처리 중...' : '확인'}
         onCancel={() => setConfirmKind(null)}
         onConfirm={() => withdrawMutation.mutate()}

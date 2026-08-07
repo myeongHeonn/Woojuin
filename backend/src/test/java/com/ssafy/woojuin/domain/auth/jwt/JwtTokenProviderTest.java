@@ -20,7 +20,7 @@ class JwtTokenProviderTest {
     @Test
     @DisplayName("access token 발급 후 getUserId로 userId를 복원할 수 있다")
     void createAccessToken_thenGetUserId_returnsSameUserId() {
-        String token = tokenProvider.createAccessToken(1L);
+        String token = tokenProvider.createAccessToken(1L, "sid-1");
 
         assertThat(tokenProvider.getUserId(token)).isEqualTo(1L);
     }
@@ -28,7 +28,7 @@ class JwtTokenProviderTest {
     @Test
     @DisplayName("refresh token 발급 후 getUserId로 userId를 복원할 수 있다")
     void createRefreshToken_thenGetUserId_returnsSameUserId() {
-        String token = tokenProvider.createRefreshToken(42L);
+        String token = tokenProvider.createRefreshToken(42L, "sid-1");
 
         assertThat(tokenProvider.getUserId(token)).isEqualTo(42L);
     }
@@ -36,7 +36,7 @@ class JwtTokenProviderTest {
     @Test
     @DisplayName("정상 발급된 토큰은 유효하다")
     void validateToken_validToken_returnsTrue() {
-        String token = tokenProvider.createAccessToken(1L);
+        String token = tokenProvider.createAccessToken(1L, "sid-1");
 
         assertThat(tokenProvider.validateToken(token)).isTrue();
     }
@@ -46,7 +46,7 @@ class JwtTokenProviderTest {
     void validateToken_expiredToken_returnsFalse() {
         JwtTokenProvider expiredTokenProvider =
                 new JwtTokenProvider(new JwtProperties(TEST_SECRET, -1000L, -1000L));
-        String token = expiredTokenProvider.createAccessToken(1L);
+        String token = expiredTokenProvider.createAccessToken(1L, "sid-1");
 
         assertThat(tokenProvider.validateToken(token)).isFalse();
     }
@@ -56,7 +56,7 @@ class JwtTokenProviderTest {
     void validateToken_differentSecret_returnsFalse() {
         JwtTokenProvider otherTokenProvider = new JwtTokenProvider(
                 new JwtProperties("other-secret-key-for-jwt-unit-test-5678", 3_600_000L, 1_209_600_000L));
-        String token = otherTokenProvider.createAccessToken(1L);
+        String token = otherTokenProvider.createAccessToken(1L, "sid-1");
 
         assertThat(tokenProvider.validateToken(token)).isFalse();
     }
@@ -65,5 +65,24 @@ class JwtTokenProviderTest {
     @DisplayName("형식이 잘못된 문자열은 유효하지 않다")
     void validateToken_malformedToken_returnsFalse() {
         assertThat(tokenProvider.validateToken("not-a-jwt")).isFalse();
+    }
+
+    @Test
+    @DisplayName("토큰에 실은 세션 id 를 그대로 복원한다")
+    void getSessionId_returnsClaim() {
+        String token = tokenProvider.createAccessToken(1L, "sid-abc");
+
+        assertThat(tokenProvider.getSessionId(token)).isEqualTo("sid-abc");
+    }
+
+    @Test
+    @DisplayName("같은 사용자·같은 초에 발급해도 세션이 다르면 토큰 문자열이 다르다")
+    void tokensOfDifferentSessions_differEvenInSameSecond() {
+        // sid 클레임이 없던 시절에는 sub·iat·exp 뿐이라 같은 초의 두 로그인이 동일한
+        // 문자열을 만들었다 — 세션을 가를 수 없는 상태였다 (S15P11C105-459)
+        String first = tokenProvider.createRefreshToken(1L, "sid-1");
+        String second = tokenProvider.createRefreshToken(1L, "sid-2");
+
+        assertThat(first).isNotEqualTo(second);
     }
 }

@@ -2,12 +2,13 @@
 @import './theme.css';
 
 @media (max-width: 639px) {
+  /* 탭바 아래 여백(--tabbar-bottom-pad)을 기준으로 계산 — 탭바가 움직이면 같이 움직인다 */
   [data-map-panel-collapsed='false'] .woojuin-open-free-map .maplibregl-ctrl-bottom-right {
-    bottom: calc(50% + 100px + env(safe-area-inset-bottom));
+    bottom: calc(50% + 86px + var(--tabbar-bottom-pad));
   }
 
   [data-map-panel-collapsed='true'] .woojuin-open-free-map .maplibregl-ctrl-bottom-right {
-    bottom: calc(212px + env(safe-area-inset-bottom));
+    bottom: calc(198px + var(--tabbar-bottom-pad));
   }
 
   .woojuin-open-free-map .maplibregl-ctrl-bottom-right {
@@ -22,6 +23,13 @@
   }
 }
 
+.woojuin-map-reset-view-icon {
+  display: block;
+  width: 19px;
+  height: 19px;
+  margin: 5px;
+}
+
 .woojuin-map-marker-anchor {
   width: 20px;
   height: 20px;
@@ -30,6 +38,309 @@
 .woojuin-map-marker-anchor.has-cluster {
   width: var(--cluster-size);
   height: var(--cluster-size);
+}
+
+/* ── 성좌뷰: 라이트에서 우주 스테이지가 낮 하늘이 된다 ──────────────────
+   전환이 느린 건 의도다. 해가 뜨고 지는 것처럼 보여야 하는데, 즉시 바뀌면 그냥 배경색이
+   튄 것으로 읽힌다.
+
+   **길이와 이징을 여기 한 곳에서만 정한다.** 예전엔 하늘 1.45s·캔버스 1.35s·노을 1.65s 로
+   제각각이라 끝나는 순간이 세 번에 나뉘었다 — 다 같이 흐르지 않고 중간에 하나씩 멈춰
+   서는 것으로 보였다.
+
+   이징이 linear 인 이유: 실제 하늘은 가속하지 않는다. ease-out(빠르게 시작해 느리게 끝남)은
+   UI 가 튀어나오는 느낌이라 하늘의 시간 흐름과는 반대다. 타임랩스처럼 일정한 속도로 흘러야
+   "저절로 바뀌고 있다"로 읽힌다. */
+:root {
+  --universe-theme-duration: 1.8s;
+  --universe-theme-ease: linear;
+}
+
+/* 하늘색을 **보간 가능한 값**으로 등록한다.
+   그냥 커스텀 속성이면 브라우저가 문자열로만 알아서 값이 바뀌는 순간 툭 갈린다 —
+   background-image 자체도 애니메이션되지 않으므로, 예전엔 라이트↔현재시간처럼 그라데이션이
+   통째로 바뀌는 전환이 잘라 붙인 것처럼 보였다. syntax 를 <color> 로 못 박아 두면
+   transition 이 색을 섞어 준다. */
+@property --sky-top {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0e1017;
+}
+
+@property --sky-middle {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0e1017;
+}
+
+@property --sky-bottom {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0e1017;
+}
+
+/* 하늘은 **어느 테마에서도 늘 깔려 있다.** 다크에서는 세 색이 모두 --color-space 와 같은
+   값이라 예전의 민무늬 배경과 똑같이 보인다.
+
+   opacity 를 껐다 켜는 대신 이렇게 한 이유: 켜고 끄는 방식은 다크↔라이트 한 쌍에만 맞는다.
+   현재시간이 끼면 "밤인데 하늘은 있음" 같은 조합이 생겨 어느 쪽으로 가든 색이 한 번 튄다.
+   늘 깔아 두고 색만 흘리면 모든 조합이 같은 방식으로 이어진다.
+
+   바탕색도 함께 흘린다 — 하늘이 반투명해지는 구간에서 그 밑이 먼저 갈리면 번쩍인다. */
+.woojuin-universe-stage {
+  /* 다크의 --color-space 값. var() 로 참조하지 않고 값을 적는 이유: 등록된 커스텀 속성에
+     var() 를 넣으면 브라우저별로 보간 시점이 갈릴 수 있어, 여기서는 확실한 색을 준다. */
+  --sky-top: #0e1017;
+  --sky-middle: #0e1017;
+  --sky-bottom: #0e1017;
+  transition:
+    background-color var(--universe-theme-duration) var(--universe-theme-ease),
+    --sky-top var(--universe-theme-duration) var(--universe-theme-ease),
+    --sky-middle var(--universe-theme-duration) var(--universe-theme-ease),
+    --sky-bottom var(--universe-theme-duration) var(--universe-theme-ease);
+}
+
+/* 라이트의 낮 하늘. 현재시간 모드는 이 값을 인라인 스타일로 덮어쓴다(UniverseCanvas) */
+:root[data-theme='light'] .woojuin-universe-stage {
+  --sky-top: #0c68d8;
+  --sky-middle: #3389e2;
+  --sky-bottom: #8cc4f1;
+}
+
+.woojuin-universe-sky {
+  background: linear-gradient(
+    180deg,
+    var(--sky-top) 0%,
+    var(--sky-middle) 48%,
+    var(--sky-bottom) 100%
+  );
+}
+
+/* 다크에도 **항등 필터**를 명시한다(값은 아무것도 안 한 것과 같다).
+   비워 두면 filter 가 none 이 되는데, none ↔ saturate()·brightness() 사이는 매끄럽게
+   보간되지 않는다. 게다가 필터가 none 이 되는 순간 브라우저가 필터 레이어를 버리고 다시
+   합성해서, 전환이 끝나기 직전에 한 번 번쩍인다. 양쪽을 같은 함수 목록으로 맞추면 사라진다. */
+.woojuin-universe-canvas {
+  filter: saturate(1) brightness(1);
+  transition: filter var(--universe-theme-duration) var(--universe-theme-ease);
+}
+
+/* screen 합성은 라이트에서만 건다 — 다크는 지금 모습이 검증돼 있어 건드리지 않는다.
+   밝은 하늘 위에서는 별 스프라이트의 어두운 가장자리가 그대로 얹혀 지저분해지는데,
+   screen 은 어두운 값을 투명하게 만들어 별빛만 남긴다. */
+:root[data-theme='light'] .woojuin-universe-canvas {
+  mix-blend-mode: screen;
+  filter: saturate(0.9) brightness(1.32);
+}
+
+/* 하늘 위에 얹히는 글자 — 성좌뷰의 제목·요약·시계가 쓴다.
+   테마 토큰(text-1 등)을 쓰지 않는 이유: 그 색들은 '표면 위에서 읽히도록' 정해진 값이라 낮에는
+   어두워지는데, 이 시계가 놓인 화면 최상단은 하늘에서 가장 진한 자리다(한낮에도 #0c68d8 언저리).
+   어두운 글자 + 짙은 파랑이 되어 대비가 1.3:1 까지 떨어졌다.
+
+   하늘 꼭대기는 한낮에도 밝아지지 않으므로 밝은 글자로 고정하면 어느 시각에나 4.7:1 이상이다.
+   글로우는 별이나 성좌선이 글자 뒤를 지날 때를 위한 보험이다.
+
+   그래서 이 규칙은 성좌뷰에만 건다 — 하늘이 없는 대시보드·지도에서는 배경이 밝아
+   같은 글자가 1.0:1 로 사라진다(StageHeader.tsx·SkyClock.tsx). */
+.woojuin-on-sky {
+  color: rgba(240, 242, 246, 0.95);
+  text-shadow: 0 1px 10px rgba(4, 8, 20, 0.85);
+}
+
+/* 하늘 위의 보조 문구(검색창 위 안내) — 위의 .woojuin-on-sky 와 **반대로** 뒤집힌다.
+   같은 하늘인데 규칙이 다른 이유는 높이다. 헤더는 화면 꼭대기라 한낮에도 어둡지만, 이 문구는
+   화면 아래쪽이고 하늘은 지평선으로 갈수록 밝아진다 — 거기에 흰 글자를 두면 낮에 1.5:1 로
+   사라지고, 짙은 글자면 7.7:1 이 나온다. 밤에는 정확히 반대다.
+   그래서 성좌 라벨과 같은 규칙(테마 따라 뒤집기)을 쓴다. */
+.woojuin-on-sky-sub {
+  color: rgba(232, 234, 238, 0.9);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+}
+
+:root[data-theme='light'] .woojuin-on-sky-sub {
+  color: #102a4d;
+  text-shadow: 0 1px 10px rgba(255, 255, 255, 0.9);
+}
+
+.woojuin-constellation-label {
+  color: rgba(232, 234, 238, 0.92);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
+}
+
+/* 낮 하늘 위에서는 밝은 글자 + 검은 글로우가 읽히지 않는다 — 대비를 뒤집는다 */
+:root[data-theme='light'] .woojuin-constellation-label {
+  color: #102a4d;
+  text-shadow: 0 1px 10px rgba(255, 255, 255, 0.9);
+}
+
+/* ── 여명·노을 훑기 ────────────────────────────────────────────────
+   색만 A에서 B로 바꾸면 "배경색이 갈렸다"로 읽힌다. 실제 하늘은 낮과 밤 사이에 반드시
+   노을을 지나가므로, 그 구간을 한 번 그려 주면 같은 전환이 시간의 흐름으로 읽힌다.
+   전환 중에만 DOM 에 있다(ThemeWash.tsx). */
+.woojuin-theme-wash {
+  position: absolute;
+  inset: 0;
+  z-index: 3; /* 캔버스 위, 성좌 라벨(z-4) 아래 */
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* 하늘빛 띠 — 동(오른쪽)에서 들어와 서(왼쪽)로 지나간다.
+   해가 동에서 서로 가므로 하늘이 물드는 것도 그 방향을 따라야 한다. 화면 전체가 동시에
+   밝아졌다 어두워지면 조명 스위치를 누른 것처럼 보인다.
+
+   화면의 두 배 폭으로 만들어 가로지르게 하고, 서쪽 끝을 마스크로 흐려 둔다 — 그 흐린
+   경계가 앞장서면서 색이 번져 나가는 것으로 읽힌다. */
+.woojuin-theme-wash::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 35%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 35%);
+  will-change: transform, opacity;
+  animation: woojuin-wash-sweep var(--universe-theme-duration) var(--universe-theme-ease) both;
+}
+
+/* 지평선의 해 — 뜨고 지는 동시에 서쪽으로 흐른다 */
+.woojuin-theme-wash::after {
+  content: '';
+  position: absolute;
+  right: -12%;
+  bottom: -22%;
+  left: -12%;
+  height: 58%;
+  border-radius: 50%;
+  opacity: 0;
+  filter: blur(30px);
+  will-change: opacity, transform;
+}
+
+/* 띠의 이동은 방향과 무관하게 같다(해는 늘 동에서 서로 간다). 색만 갈린다. */
+@keyframes woojuin-wash-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%);
+  }
+}
+
+/* 위로 갈수록 사라진다.
+   원래는 천정 쪽이 rgba(5,18,51,.82) 로 가장 짙었다. 그 상태로 띠가 가로지르면 화면
+   꼭대기를 어두운 벽이 지나가는 꼴이라, 가로 마스크로 아무리 흐려 놔도 경계가 그대로
+   보였다 — 위쪽은 배경(하늘)과의 명도 차가 가장 큰 자리다.
+
+   실제 노을도 지평선 근처에서 진하고 천정은 거의 물들지 않는다. 색을 아래에 몰아 두면
+   보기에도 맞고 경계도 사라진다. */
+.woojuin-theme-wash-dawn::before {
+  background: linear-gradient(
+    to top,
+    rgba(255, 201, 136, 0.8) 0%,
+    rgba(197, 123, 164, 0.5) 22%,
+    rgba(91, 92, 161, 0.26) 48%,
+    rgba(20, 48, 103, 0.08) 76%,
+    transparent 100%
+  );
+}
+
+.woojuin-theme-wash-dawn::after {
+  background: radial-gradient(
+    ellipse at 72% 50%,
+    rgba(255, 245, 193, 0.95),
+    rgba(255, 183, 113, 0.55) 35%,
+    transparent 72%
+  );
+  animation: woojuin-dawn-horizon var(--universe-theme-duration) var(--universe-theme-ease) both;
+}
+
+.woojuin-theme-wash-dusk::before {
+  background: linear-gradient(
+    to top,
+    rgba(244, 137, 91, 0.78) 0%,
+    rgba(168, 83, 137, 0.5) 26%,
+    rgba(67, 63, 130, 0.24) 56%,
+    rgba(9, 26, 67, 0.07) 80%,
+    transparent 100%
+  );
+}
+
+.woojuin-theme-wash-dusk::after {
+  background: radial-gradient(
+    ellipse at 28% 54%,
+    rgba(255, 207, 139, 0.9),
+    rgba(239, 111, 91, 0.48) 38%,
+    transparent 74%
+  );
+  animation: woojuin-dusk-horizon var(--universe-theme-duration) var(--universe-theme-ease) both;
+}
+
+/* 키프레임은 0 → 정점 → 0 의 대칭 삼각형이다.
+   중간 지점을 하나만 두는 이유: 구간이 늘어날수록 linear 라도 구간마다 기울기가 달라져
+   속도가 들쭉날쭉해진다(원래 값이 0.82→0.95→0.58→0 이라 빨라졌다 느려졌다 했다).
+   시작을 반드시 0 으로 두는 것도 중요하다 — 0.82 로 시작하면 요소가 붙는 순간 색이
+   그만큼 튀어 올라, 전환의 첫인상이 '번쩍'이 된다.
+
+   해(::after)는 transform 키프레임을 양 끝에만 둔다. 그래야 중간에 꺾이지 않고 전 구간을
+   일정한 속도로 가로지른다 — 타임랩스에서 해가 움직이는 방식이다. */
+/* 여명 — 해가 동에서 떠올라 서로 흐른다 */
+@keyframes woojuin-dawn-horizon {
+  0% {
+    opacity: 0;
+    transform: translate(10%, 30%);
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-10%, -20%);
+  }
+}
+
+/* 노을 — 해가 서로 흐르며 진다. 가로 방향은 여명과 같다(해는 늘 서쪽으로 간다) */
+@keyframes woojuin-dusk-horizon {
+  0% {
+    opacity: 0;
+    transform: translate(10%, -20%);
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-10%, 30%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .woojuin-universe-stage,
+  .woojuin-universe-canvas {
+    transition: none;
+  }
+
+  /* 화면을 훑는 큰 움직임이라 통째로 끈다 */
+  .woojuin-theme-wash {
+    display: none;
+  }
+}
+
+/* 지도 좌우 가장자리 비네트 — 색을 --color-space 에서 뽑아 테마를 따라간다 */
+.woojuin-map-vignette {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-space) 14%, transparent),
+    transparent 38%,
+    color-mix(in srgb, var(--color-space) 8%, transparent)
+  );
 }
 
 .woojuin-map-marker {
@@ -83,21 +394,21 @@
 .woojuin-map-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
 .woojuin-map-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
 .woojuin-map-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
-  border-top-color: rgba(32, 36, 47, 0.94);
+  border-top-color: color-mix(in srgb, var(--color-surface) 94%, transparent);
 }
 
 .woojuin-map-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip,
 .woojuin-map-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
 .woojuin-map-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
-  border-bottom-color: rgba(32, 36, 47, 0.94);
+  border-bottom-color: color-mix(in srgb, var(--color-surface) 94%, transparent);
 }
 
 .woojuin-map-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
-  border-right-color: rgba(32, 36, 47, 0.94);
+  border-right-color: color-mix(in srgb, var(--color-surface) 94%, transparent);
 }
 
 .woojuin-map-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
-  border-left-color: rgba(32, 36, 47, 0.94);
+  border-left-color: color-mix(in srgb, var(--color-surface) 94%, transparent);
 }
 
 .woojuin-info-card {
@@ -110,7 +421,7 @@
   overflow: hidden;
   color: var(--color-text-1);
   cursor: pointer;
-  background: rgba(32, 36, 47, 0.94);
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
   border: 1px solid var(--color-border);
   border-radius: 14px;
   box-shadow: var(--shadow-tooltip);
@@ -120,7 +431,7 @@
 
 .woojuin-info-card:hover,
 .woojuin-info-card:focus-visible {
-  background: rgba(42, 46, 58, 0.98);
+  background: color-mix(in srgb, var(--color-surface-2) 98%, transparent);
   outline: none;
 }
 

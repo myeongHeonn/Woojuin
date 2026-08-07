@@ -4,10 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -66,8 +69,8 @@ class ItemSemanticSearchServiceTest {
     @Test
     void 거리순으로_아이템을_찾아_목록으로_돌려준다() {
         when(client.embedQuery("일식 코스")).thenReturn(QUERY_EMBEDDING);
-        when(embeddingRepository.countSimilar(1L, QUERY_EMBEDDING, 0.6)).thenReturn(2L);
-        when(embeddingRepository.searchBySimilarity(1L, QUERY_EMBEDDING, 0.6, 20, 0)).thenReturn(List.of(
+        when(embeddingRepository.countSimilar(1L, QUERY_EMBEDDING, 0.6, List.of())).thenReturn(2L);
+        when(embeddingRepository.searchBySimilarity(1L, QUERY_EMBEDDING, 0.6, List.of(), 20, 0)).thenReturn(List.of(
                 new SimilarityRow(12L, 0.31), new SimilarityRow(10L, 0.44)));
         // findAllById는 순서를 보장하지 않는다 — 일부러 거리 역순으로 돌려줘서 재배열을 검증한다.
         when(itemRepository.findAllById(List.of(12L, 10L))).thenReturn(List.of(item(10L), item(12L)));
@@ -84,7 +87,7 @@ class ItemSemanticSearchServiceTest {
     @Test
     void 임계값_안에_결과가_없으면_null이다() {
         when(client.embedQuery("자동차 수리")).thenReturn(QUERY_EMBEDDING);
-        when(embeddingRepository.countSimilar(1L, QUERY_EMBEDDING, 0.6)).thenReturn(0L);
+        when(embeddingRepository.countSimilar(1L, QUERY_EMBEDDING, 0.6, List.of())).thenReturn(0L);
 
         assertThat(service.search(1L, "자동차 수리", PageRequest.of(0, 20))).isNull();
         verifyNoInteractions(itemRepository);
@@ -111,8 +114,8 @@ class ItemSemanticSearchServiceTest {
     @Test
     void 조회_사이에_사라진_아이템은_건너뛴다() {
         when(client.embedQuery(any())).thenReturn(QUERY_EMBEDDING);
-        when(embeddingRepository.countSimilar(anyLong(), any(), anyDouble())).thenReturn(2L);
-        when(embeddingRepository.searchBySimilarity(anyLong(), any(), anyDouble(), anyInt(), anyInt()))
+        when(embeddingRepository.countSimilar(anyLong(), any(), anyDouble(), anyList())).thenReturn(2L);
+        when(embeddingRepository.searchBySimilarity(anyLong(), any(), anyDouble(), anyList(), anyInt(), anyInt()))
                 .thenReturn(List.of(new SimilarityRow(12L, 0.31), new SimilarityRow(10L, 0.44)));
         when(itemRepository.findAllById(any())).thenReturn(List.of(item(10L)));
         when(itemCategoryQueryService.categoriesByItemIds(any())).thenReturn(Map.of());
@@ -125,13 +128,13 @@ class ItemSemanticSearchServiceTest {
     @Test
     void 페이지네이션은_limit과_offset으로_넘긴다() {
         when(client.embedQuery(any())).thenReturn(QUERY_EMBEDDING);
-        when(embeddingRepository.countSimilar(anyLong(), any(), anyDouble())).thenReturn(25L);
+        when(embeddingRepository.countSimilar(anyLong(), any(), anyDouble(), anyList())).thenReturn(25L);
         // 총 25건에서 세 번째 페이지(offset 20, size 10)면 마지막 5건이 온다.
         List<SimilarityRow> lastPage = List.of(
                 new SimilarityRow(30L, 0.50), new SimilarityRow(31L, 0.52),
                 new SimilarityRow(32L, 0.54), new SimilarityRow(33L, 0.56),
                 new SimilarityRow(34L, 0.58));
-        when(embeddingRepository.searchBySimilarity(eq(1L), eq(QUERY_EMBEDDING), eq(0.6), eq(10), eq(20)))
+        when(embeddingRepository.searchBySimilarity(eq(1L), eq(QUERY_EMBEDDING), eq(0.6), eq(List.of()), eq(10), eq(20)))
                 .thenReturn(lastPage);
         when(itemRepository.findAllById(any()))
                 .thenReturn(List.of(item(30L), item(31L), item(32L), item(33L), item(34L)));
@@ -141,5 +144,59 @@ class ItemSemanticSearchServiceTest {
 
         assertThat(response.page()).isEqualTo(2);
         assertThat(response.totalElements()).isEqualTo(25);
+    }
+
+    /** 보충 — 키워드로 이미 잡힌 아이템(excludeItemIds)을 빼고 거리순으로 돌려준다. */
+    @Test
+    void 보충은_제외_id를_빼고_거리순으로_돌려준다() {
+        when(client.embedQuery("카페")).thenReturn(QUERY_EMBEDDING);
+        when(embeddingRepository.countSimilar(1L, QUERY_EMBEDDING, 0.6, List.of(7L))).thenReturn(2L);
+        when(embeddingRepository.searchBySimilarity(1L, QUERY_EMBEDDING, 0.6, List.of(7L), 19, 0))
+                .thenReturn(List.of(new SimilarityRow(12L, 0.31), new SimilarityRow(10L, 0.44)));
+        when(itemRepository.findAllById(List.of(12L, 10L))).thenReturn(List.of(item(10L), item(12L)));
+        when(itemCategoryQueryService.categoriesByItemIds(any())).thenReturn(Map.of());
+
+        ItemSemanticSearchService.Supplement supplement =
+                service.supplement(1L, "카페", List.of(7L), 19, 0);
+
+        assertThat(supplement.totalElements()).isEqualTo(2);
+        assertThat(supplement.content()).extracting(summary -> summary.itemId())
+                .containsExactly(12L, 10L);
+    }
+
+    /** 페이지가 키워드로 꽉 찼어도(limit=0) 다음 페이지 유무는 알아야 한다 — 건수만 센다. */
+    @Test
+    void 보충_limit이_0이면_내용_조회_없이_건수만_센다() {
+        when(client.embedQuery("카페")).thenReturn(QUERY_EMBEDDING);
+        when(embeddingRepository.countSimilar(anyLong(), any(), anyDouble(), anyList())).thenReturn(5L);
+
+        ItemSemanticSearchService.Supplement supplement =
+                service.supplement(1L, "카페", List.of(7L), 0, 0);
+
+        assertThat(supplement.totalElements()).isEqualTo(5);
+        assertThat(supplement.content()).isEmpty();
+        verify(embeddingRepository, never())
+                .searchBySimilarity(anyLong(), any(), anyDouble(), anyList(), anyInt(), anyInt());
+    }
+
+    @Test
+    void 보충도_임계값_안에_없으면_빈_결과다() {
+        when(client.embedQuery("카페")).thenReturn(QUERY_EMBEDDING);
+        when(embeddingRepository.countSimilar(anyLong(), any(), anyDouble(), anyList())).thenReturn(0L);
+
+        ItemSemanticSearchService.Supplement supplement =
+                service.supplement(1L, "카페", List.of(7L), 19, 0);
+
+        assertThat(supplement.totalElements()).isZero();
+        assertThat(supplement.content()).isEmpty();
+    }
+
+    /** 보충 실패는 흡수하고 null — 키워드 결과가 사이드카 장애로 500이 되면 안 된다. */
+    @Test
+    void 보충_임베딩이_실패하면_예외_없이_null이다() {
+        when(client.embedQuery(any())).thenThrow(new IllegalStateException("ai-mix 다운"));
+
+        assertThat(service.supplement(1L, "카페", List.of(), 19, 0)).isNull();
+        verifyNoInteractions(embeddingRepository, itemRepository);
     }
 }

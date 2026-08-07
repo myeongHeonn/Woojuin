@@ -1,6 +1,7 @@
 package com.ssafy.woojuin.domain.auth.jwt;
 
 import com.ssafy.woojuin.domain.auth.repository.UserRepository;
+import com.ssafy.woojuin.domain.auth.session.SessionRevocationStore;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,13 +30,16 @@ class JwtAuthenticationFilterTest {
     private UserRepository userRepository;
 
     @Mock
+    private SessionRevocationStore revocationStore;
+
+    @Mock
     private FilterChain filterChain;
 
     private JwtAuthenticationFilter filter;
 
     @BeforeEach
     void setUp() {
-        filter = new JwtAuthenticationFilter(tokenProvider, userRepository);
+        filter = new JwtAuthenticationFilter(tokenProvider, userRepository, revocationStore);
         SecurityContextHolder.clearContext();
     }
 
@@ -50,6 +56,8 @@ class JwtAuthenticationFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         when(tokenProvider.validateToken("valid-token")).thenReturn(true);
+        when(tokenProvider.getSessionId("valid-token")).thenReturn("sid-1");
+        when(revocationStore.isRevoked("sid-1")).thenReturn(false);
         when(tokenProvider.getUserId("valid-token")).thenReturn(1L);
         when(userRepository.existsByIdAndDeletedAtIsNull(1L)).thenReturn(true);
 
@@ -57,7 +65,46 @@ class JwtAuthenticationFilterTest {
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
         assertThat(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).isEqualTo(1L);
+        // sid 는 details 로 실려 로그아웃·기기 목록의 "이 기기" 판별에 쓰인다
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getDetails()).isEqualTo("sid-1");
         verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("폐기된 세션의 토큰은 서명이 유효해도 인증하지 않는다 — 기기 해제가 즉시 반영되는 지점")
+    void revokedSessionToken_doesNotAuthenticate_butContinuesChain() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer revoked-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(tokenProvider.validateToken("revoked-token")).thenReturn(true);
+        when(tokenProvider.getSessionId("revoked-token")).thenReturn("sid-x");
+        when(revocationStore.isRevoked("sid-x")).thenReturn(true);
+
+        filter.doFilter(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        // 폐기 확인이 DB 확인보다 앞이다 — 해제된 기기의 요청에 Postgres 조회를 쓰지 않는다
+        verify(userRepository, never()).existsByIdAndDeletedAtIsNull(any());
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("sid 가 없는(세션 구조 배포 전) 토큰은 폐기 확인 없이 통과한다 — 남은 수명 최대 1시간")
+    void legacyTokenWithoutSid_authenticates() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer legacy-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(tokenProvider.validateToken("legacy-token")).thenReturn(true);
+        when(tokenProvider.getSessionId("legacy-token")).thenReturn(null);
+        when(tokenProvider.getUserId("legacy-token")).thenReturn(1L);
+        when(userRepository.existsByIdAndDeletedAtIsNull(1L)).thenReturn(true);
+
+        filter.doFilter(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
+        verify(revocationStore, never()).isRevoked(any());
     }
 
     @Test
@@ -68,6 +115,8 @@ class JwtAuthenticationFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         when(tokenProvider.validateToken("withdrawn-user-token")).thenReturn(true);
+        when(tokenProvider.getSessionId("withdrawn-user-token")).thenReturn("sid-1");
+        when(revocationStore.isRevoked("sid-1")).thenReturn(false);
         when(tokenProvider.getUserId("withdrawn-user-token")).thenReturn(1L);
         when(userRepository.existsByIdAndDeletedAtIsNull(1L)).thenReturn(false);
 

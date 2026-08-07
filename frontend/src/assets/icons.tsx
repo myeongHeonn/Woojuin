@@ -188,8 +188,15 @@ export function PlusIcon(props: SVGProps<SVGSVGElement>) {
 export function PencilIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
-      <path d="M4 20h4L18.5 9.5a2 2 0 0 0-2.8-2.8L5 17.2V20z" />
-      <path d="m13.5 6.5 4 4" />
+      {/*
+        몸통 — 심 끝(3,20)으로 모이는 삼각형 + 축을 따라 올라가는 사각 몸통 + 꼭지 라운드.
+        이전 경로는 두 곳이 어긋나 있었다: 밑변이 (4,20)·(5,20)·(8,20) 세 점을 지나 심 끝이
+        뾰족하지 않고 뭉툭한 블록이 됐고, 꼭지 쪽에서는 선이 몸통 밖으로 가시처럼 튀어나왔다.
+      */}
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7.5 18.5 3 20l1.5-4.5 12-12z" />
+      {/* 나무와 지우개를 가르는 띠 — 축에 수직이고 몸통 폭을 정확히 가로지른다(3,3).
+          이전 값(4,4)은 한 유닛 길어서 오른쪽 변을 뚫고 나왔다 */}
+      <path d="m13.5 6.5 3 3" />
     </svg>
   );
 }
@@ -199,6 +206,40 @@ export function CheckIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
       <path d="m5 12 5 5L20 7" />
+    </svg>
+  );
+}
+
+/** 해 — 테마 토글에서 "라이트로 전환" */
+export function SunIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="3.5" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" />
+    </svg>
+  );
+}
+
+/** 달 — 테마 토글에서 "다크로 전환" */
+export function MoonIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2z" />
+    </svg>
+  );
+}
+
+/**
+ * 시계 — 테마 토글의 "현재시간".
+ *
+ * 해와 달을 섞은 그림도 써 봤지만 그건 "낮이면서 밤"으로 읽힌다. 이 모드가 말하는 건
+ * 시간을 따라간다는 것이라 시계가 맞다.
+ */
+export function ClockIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 6.8V12l3.6 2.1" />
     </svg>
   );
 }

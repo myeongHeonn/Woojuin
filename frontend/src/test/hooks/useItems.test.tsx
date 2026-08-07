@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { userEvent } from 'vitest/browser';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useItems, processingPollInterval } from '@/hooks/useItems';
+import { useItems, processingPollInterval, processingItemCount } from '@/hooks/useItems';
 import { fetchItems } from '@/services/items';
 import type { Item, ItemListResponse, ItemStatus } from '@/types/item';
 
@@ -153,5 +153,19 @@ describe('processingPollInterval — 처리 중일 때만 폴링', () => {
 
   it('데이터가 아직 없으면 false', () => {
     expect(processingPollInterval(undefined)).toBe(false);
+  });
+});
+
+describe('processingItemCount — 처리 중인 아이템 개수', () => {
+  it('여러 페이지에 걸친 PROCESSING 을 모두 센다', () => {
+    expect(processingItemCount([pageWith('PROCESSING', 'DONE'), pageWith('PROCESSING')])).toBe(2);
+  });
+
+  it('전부 완료면 0', () => {
+    expect(processingItemCount([pageWith('DONE', 'PARTIAL', 'FAILED')])).toBe(0);
+  });
+
+  it('데이터가 아직 없으면 0', () => {
+    expect(processingItemCount(undefined)).toBe(0);
   });
 });

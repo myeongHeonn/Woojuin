@@ -23,8 +23,12 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>히트율에 기대하지 말 것.</b> 카카오톡·인스타그램 등 대부분의 메신저·SNS가 업로드
  * 시점에 GPS EXIF를 지우고, 스크린샷엔 애초에 없다. 카메라 롤에서 바로 올린 사진만 걸린다.
- * HEIC/HEIF(아이폰 기본)는 2.18의 지원이 부분적이라 사실상 기대하기 어렵다 — scrimage가
- * HEIC 썸네일을 못 만드는 것과 같은 한계다.
+ *
+ * <p>HEIC/HEIF(아이폰 기본)는 애초에 이 클래스까지 오지 않는다 — 서버가 HEIC를 디코딩하지
+ * 못해(scrimage가 썸네일을 못 만드는 것과 같은 한계) 웹 프론트가 업로드 전에 JPEG로 바꾼다.
+ * 그때 디코딩 결과물엔 EXIF가 없어서 좌표가 통째로 날아가는데, 프론트가 원본 HEIC에서 GPS만
+ * 읽어 결과 JPEG의 EXIF로 다시 심어 준다(frontend {@code utils/heicToJpeg.ts}). 즉 여기 도착하는
+ * 아이폰 사진은 <b>GPS 태그만 남은 JPEG</b>이고, 이 클래스는 평소대로 읽으면 된다.
  *
  * <p>다행인 점: {@code S3Uploader}가 멀티파트를 재인코딩 없이 스트리밍하므로 S3 원본에
  * EXIF가 그대로 남는다.

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Modal from '@/components/ui/Modal';
 import type { AiUsage } from '@/services/auth';
+import TutorialReplayCard from '@/components/domain/mypage/TutorialReplayCard';
+import type { TutorialReplayType } from '@/stores/tutorialAtoms';
 
 interface SettingsCardProps {
   // TODO: 알림 설정 기능을 다시 노출할 때 아래 두 prop과 주석 처리된 UI를 사용한다.
@@ -10,9 +12,21 @@ interface SettingsCardProps {
   aiUsage?: AiUsage;
   aiUsageLoading: boolean;
   aiUsageError: boolean;
+  personalSpaceId?: number;
+  sharedWorkspaceId?: number;
+  spacesLoading?: boolean;
+  onTutorialReplay?: (type: TutorialReplayType, workspaceId: number) => void;
 }
 
-const SettingsCard = ({ aiUsage, aiUsageLoading, aiUsageError }: SettingsCardProps) => {
+const SettingsCard = ({
+  aiUsage,
+  aiUsageLoading,
+  aiUsageError,
+  personalSpaceId,
+  sharedWorkspaceId,
+  spacesLoading = false,
+  onTutorialReplay = () => undefined,
+}: SettingsCardProps) => {
   const [helpOpen, setHelpOpen] = useState(false);
   const usagePercent =
     aiUsage && aiUsage.limitEnabled && !aiUsage.unlimited && aiUsage.limit > 0
@@ -22,11 +36,16 @@ const SettingsCard = ({ aiUsage, aiUsageLoading, aiUsageError }: SettingsCardPro
     ? '사용량을 불러오지 못했습니다.'
     : aiUsageLoading
       ? '사용량을 불러오는 중입니다.'
+      : '아이템 1개를 저장할 때마다 AI가 제목·요약·카테고리를 생성해요.';
+  const usageValue = aiUsageLoading
+    ? '—'
+    : aiUsageError
+      ? '확인 불가'
       : aiUsage?.unlimited
-        ? 'AI 정리를 제한 없이 사용할 수 있어요.'
+        ? `${aiUsage.used.toLocaleString('ko-KR')}회`
         : aiUsage?.limitEnabled
-          ? `월 ${aiUsage.limit.toLocaleString('ko-KR')}회 중 ${aiUsage.used.toLocaleString('ko-KR')}회를 사용했어요.`
-          : '현재 월간 사용량 제한이 적용되지 않아요.';
+          ? `${aiUsage.used.toLocaleString('ko-KR')} / ${aiUsage.limit.toLocaleString('ko-KR')}회`
+          : '제한 없음';
 
   return (
     <>
@@ -62,68 +81,74 @@ const SettingsCard = ({ aiUsage, aiUsageLoading, aiUsageError }: SettingsCardPro
           </div>
         </section>
       */}
-      <section
-        aria-labelledby="monthly-ai-usage-title"
-        className="mb-4 rounded-[20px] border border-border-soft bg-surface px-5 py-[18px]"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h2
-              id="monthly-ai-usage-title"
-              className="text-xs font-bold tracking-[0.1em] text-text-3"
-            >
-              이번 달 AI 사용량
-            </h2>
-            <p className="mt-2 text-xs text-text-3">{usageDescription}</p>
-          </div>
-          <div className="shrink-0 text-right">
-            <span className="text-[24px] font-extrabold text-text-1">
-              {aiUsage ? aiUsage.used.toLocaleString('ko-KR') : '—'}
+      {/* 사용량 블록과 행 두 개를 채움 하나에 — 테두리 없이 면의 톤 차로 구획한다 */}
+      <section className="mb-8 overflow-hidden rounded-[20px] bg-surface">
+        <div aria-labelledby="monthly-ai-usage-title" className="px-4 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2
+                id="monthly-ai-usage-title"
+                className="text-xs font-bold tracking-[0.1em] text-text-3"
+              >
+                이번 달 AI 사용량
+              </h2>
+              <p className="mt-2 text-xs text-text-3">{usageDescription}</p>
+            </div>
+            <span className="shrink-0 text-[18px] font-extrabold tabular-nums text-text-1">
+              {usageValue}
             </span>
-            <span className="ml-1 text-xs font-semibold text-text-3">회</span>
           </div>
+
+          {aiUsage?.limitEnabled && !aiUsage.unlimited && (
+            <div className="mt-4">
+              <div
+                role="progressbar"
+                aria-label="이번 달 AI 사용량"
+                aria-valuemin={0}
+                aria-valuemax={aiUsage.limit}
+                aria-valuenow={Math.min(aiUsage.used, aiUsage.limit)}
+                className="h-2 overflow-hidden rounded-pill bg-surface-3"
+              >
+                <div
+                  className="h-full rounded-pill bg-accent transition-[width]"
+                  style={{ width: `${usagePercent}%` }}
+                />
+              </div>
+              <div className="mt-1.5 flex justify-between text-[11px] text-text-3">
+                <span>{aiUsage.used.toLocaleString('ko-KR')}회 저장</span>
+                <span>{aiUsage.limit.toLocaleString('ko-KR')}회 한도</span>
+              </div>
+            </div>
+          )}
+
+          {aiUsage?.unlimited && (
+            <span className="mt-3 inline-flex rounded-pill bg-surface-3 px-2.5 py-1 text-[11px] font-bold text-text-2">
+              무제한
+            </span>
+          )}
         </div>
 
-        {aiUsage?.limitEnabled && !aiUsage.unlimited && (
-          <div className="mt-4">
-            <div
-              role="progressbar"
-              aria-label="월간 AI 사용량"
-              aria-valuemin={0}
-              aria-valuemax={aiUsage.limit}
-              aria-valuenow={Math.min(aiUsage.used, aiUsage.limit)}
-              className="h-2 overflow-hidden rounded-pill bg-surface-3"
-            >
-              <div
-                className="h-full rounded-pill bg-accent transition-[width]"
-                style={{ width: `${usagePercent}%` }}
-              />
-            </div>
-            <div className="mt-1.5 flex justify-between text-[11px] text-text-3">
-              <span>{aiUsage.used.toLocaleString('ko-KR')}회 사용</span>
-              <span>{aiUsage.limit.toLocaleString('ko-KR')}회 한도</span>
-            </div>
-          </div>
-        )}
-
-        {aiUsage?.unlimited && (
-          <span className="mt-3 inline-flex rounded-pill bg-surface-3 px-2.5 py-1 text-[11px] font-bold text-text-2">
-            무제한
-          </span>
-        )}
-      </section>
-
-      <section className="rounded-[20px] border border-border-soft bg-surface p-1.5">
-        <button
-          type="button"
-          onClick={() => setHelpOpen(true)}
-          className="flex w-full items-center rounded-md px-5 py-[13px] text-left hover:bg-surface-2"
-        >
-          <span className="flex-1 text-sm font-semibold text-text-1">도움말 및 고객센터</span>
-          <span aria-hidden="true" className="text-lg leading-none text-text-3">
-            ›
-          </span>
-        </button>
+        {/* 채팅 앱 연동은 "연결된 앱" 섹션으로 옮겼다 — 연동 목록·해제와 한곳 */}
+        <div className="border-t border-border-soft">
+          <TutorialReplayCard
+            personalSpaceId={personalSpaceId}
+            sharedWorkspaceId={sharedWorkspaceId}
+            loading={spacesLoading}
+            onReplay={onTutorialReplay}
+          />
+        </div>
+        <div className="border-t border-border-soft">
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            className="flex w-full items-center px-4 py-3.5 text-left hover:bg-surface-2"
+          >
+            <span className="flex-1 text-sm font-semibold text-text-1">도움말 및 고객센터</span>
+            <span aria-hidden="true" className="text-lg leading-none text-text-3">
+              ›
+            </span>
+          </button>
+        </div>
       </section>
 
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title="도움말 및 고객센터">

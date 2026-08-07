@@ -14,6 +14,9 @@ public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificat
 
     long countByCreatedByAndDeletedAtIsNull(Long createdBy);
 
+    /** 워크스페이스의 마지막 확인 시각 이후 아이템 활동(생성·처리완료·수정·삭제·즐겨찾기·휴지통) 존재 여부 */
+    boolean existsByWorkspaceIdAndUpdatedAtAfter(Long workspaceId, OffsetDateTime updatedAt);
+
     long countByCreatedByAndDeletedAtIsNullAndCreatedAtGreaterThanEqual(
             Long createdBy, OffsetDateTime createdAt);
 
@@ -47,4 +50,29 @@ public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificat
             + "where i.workspaceId = :workspaceId and i.deletedAt is null "
             + "and i.lat is not null and i.lng is not null")
     List<ItemGeoRow> findGeoRows(@Param("workspaceId") Long workspaceId, Limit limit);
+
+    /**
+     * 임베딩 백필 대상 워크스페이스 — 임베딩 적격 활성 아이템이 하나라도 있는 곳
+     * ({@code ItemEmbeddingBackfillRunner}). 적격 = 요약이 있고(임베딩 입력 계약),
+     * 본문·미리보기 설명 중 하나는 있는 것({@code ItemEmbeddingService#hasEmbeddableSourceText}
+     * — 텍스트 신호가 제목뿐이면 요약이 지어낸 문장이라 임베딩하지 않는다).
+     */
+    @Query("select distinct i.workspaceId from Item i where i.deletedAt is null "
+            + "and i.summary is not null and trim(i.summary) <> '' "
+            + "and (trim(coalesce(i.content, '')) <> '' or trim(coalesce(i.previewDescription, '')) <> '')")
+    List<Long> findWorkspaceIdsWithEmbeddableItems();
+
+    /**
+     * 임베딩 백필 입력 프로젝션 — 엔티티로 받으면 백필이 쓰지 않는 {@code content}
+     * (text 컬럼, 본문 전문)까지 워크스페이스 전건이 메모리로 올라온다({@link #findGeoRows}와
+     * 같은 이유). 워크스페이스당 최대 1000건 수준이라 페이지네이션은 두지 않는다.
+     * 적격 조건은 {@link #findWorkspaceIdsWithEmbeddableItems}와 같다.
+     */
+    @Query("select new com.ssafy.woojuin.domain.item.repository.ItemEmbeddingSourceRow("
+            + "i.id, i.title, i.summary) "
+            + "from Item i "
+            + "where i.workspaceId = :workspaceId and i.deletedAt is null "
+            + "and i.summary is not null and trim(i.summary) <> '' "
+            + "and (trim(coalesce(i.content, '')) <> '' or trim(coalesce(i.previewDescription, '')) <> '')")
+    List<ItemEmbeddingSourceRow> findEmbeddingSourceRows(@Param("workspaceId") Long workspaceId);
 }

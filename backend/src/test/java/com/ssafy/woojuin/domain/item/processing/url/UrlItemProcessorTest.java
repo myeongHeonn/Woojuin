@@ -17,10 +17,13 @@ import com.ssafy.woojuin.domain.item.repository.ItemRepository;
 import com.ssafy.woojuin.domain.item.entity.ItemType;
 import com.ssafy.woojuin.domain.item.event.ItemDoneEvent;
 import com.ssafy.woojuin.domain.item.processing.ItemProcessingMessage;
+import com.ssafy.woojuin.domain.item.processing.image.ImageThumbnailGenerator;
+import com.ssafy.woojuin.domain.item.service.S3Uploader;
 import com.ssafy.woojuin.domain.location.Geocoder;
 import com.ssafy.woojuin.domain.location.LocationResolver;
 import com.ssafy.woojuin.domain.location.MapLinkCoordinateParser;
 import com.ssafy.woojuin.global.common.ItemStatus;
+import com.ssafy.woojuin.global.common.TransactionRunner;
 import java.util.List;
 import java.util.Optional;
 import org.jsoup.Jsoup;
@@ -44,6 +47,9 @@ class UrlItemProcessorTest {
     @Mock HtmlFetcher htmlFetcher;
     @Mock OpenGraphScraper openGraphScraper;
     @Mock ContentExtractor contentExtractor;
+    @Mock PreviewImageFetcher previewImageFetcher;
+    @Mock ImageThumbnailGenerator thumbnailGenerator;
+    @Mock S3Uploader s3Uploader;
     @Mock AiAnalyzer aiAnalyzer;
     @Mock CategoryAssignmentService categoryAssignmentService;
     @Mock ApplicationEventPublisher eventPublisher;
@@ -65,9 +71,11 @@ class UrlItemProcessorTest {
         // 파서는 순수 함수라 실제 구현을 쓰고 외부 호출이 필요한 지오코더만 목으로 둔다.
         LocationResolver locationResolver = new LocationResolver(
                 new MapLinkCoordinateParser(), geocoder);
+        // 단위 테스트에선 프록시가 없어 람다가 트랜잭션 없이 인라인 실행된다(TransactionRunner javadoc).
         processor = new UrlItemProcessor(itemRepository, normalizer, oEmbedClient,
-                htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer, categoryAssignmentService,
-                eventPublisher, locationResolver);
+                htmlFetcher, openGraphScraper, contentExtractor, previewImageFetcher,
+                thumbnailGenerator, s3Uploader, aiAnalyzer, categoryAssignmentService,
+                eventPublisher, locationResolver, new TransactionRunner());
     }
 
     private Item urlItem() {
@@ -218,6 +226,28 @@ class UrlItemProcessorTest {
         verifyNoInteractions(oEmbedClient, htmlFetcher, contentExtractor, aiAnalyzer, categoryAssignmentService);
     }
 
+    @Test
+    void 외부_호출_중_아이템이_삭제되면_아무것도_반영하지_않는다() {
+        // 외부 호출(크롤·LLM)이 트랜잭션 밖으로 나가면서 생기는 경합 — 반영 트랜잭션이
+        // 다시 로드해 가드를 재확인해야 삭제된 아이템에 카테고리를 붙이는 사고가 없다.
+        Item item = urlItem();
+        aiReturnsEmpty();
+        when(itemRepository.findById(any()))
+                .thenReturn(Optional.of(item))    // 1단계: 스냅숏은 살아 있었다
+                .thenReturn(Optional.empty());    // 3단계: 반영 시점엔 삭제됨
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(doc);
+        when(openGraphScraper.scrape(doc)).thenReturn(new UrlPreview("제목", null, null));
+        when(contentExtractor.extract(doc)).thenReturn("본문");
+
+        processor.process(message());   // 예외 없이 통과
+
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.PROCESSING);   // 스냅숏은 안 건드렸다
+        // candidates는 2단계(외부 호출)에서 이미 불렸을 수 있으니 쓰기 경로인 assign만 본다.
+        verify(categoryAssignmentService, never()).assign(any(), any(), any());
+        verifyNoInteractions(eventPublisher);
+    }
+
     // ---------- 위치 확보 (FR-023) ----------
 
     @Test
@@ -290,9 +320,9 @@ class UrlItemProcessorTest {
         aiReturnsEmpty();
         // 이 테스트는 실제 정규화 규칙을 써야 의미가 있으므로 setUp의 통과 스텁을 대체한다.
         processor = new UrlItemProcessor(itemRepository, new UrlNormalizer(), oEmbedClient,
-                htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer,
-                categoryAssignmentService, eventPublisher,
-                new LocationResolver(new MapLinkCoordinateParser(), geocoder));
+                htmlFetcher, openGraphScraper, contentExtractor, previewImageFetcher,
+                thumbnailGenerator, s3Uploader, aiAnalyzer, categoryAssignmentService, eventPublisher,
+                new LocationResolver(new MapLinkCoordinateParser(), geocoder), new TransactionRunner());
 
         Document shell = Jsoup.parse("<html><head><title>네이버 지도</title></head></html>",
                 "https://map.naver.com/p/entry/place/1301934134?placePath=%2Fhome");
@@ -326,9 +356,9 @@ class UrlItemProcessorTest {
         Item item = urlItem("https://naver.me/GzE9COFR");
         aiReturnsEmpty();
         processor = new UrlItemProcessor(itemRepository, new UrlNormalizer(), oEmbedClient,
-                htmlFetcher, openGraphScraper, contentExtractor, aiAnalyzer,
-                categoryAssignmentService, eventPublisher,
-                new LocationResolver(new MapLinkCoordinateParser(), geocoder));
+                htmlFetcher, openGraphScraper, contentExtractor, previewImageFetcher,
+                thumbnailGenerator, s3Uploader, aiAnalyzer, categoryAssignmentService, eventPublisher,
+                new LocationResolver(new MapLinkCoordinateParser(), geocoder), new TransactionRunner());
 
         Document shell = Jsoup.parse("<html></html>",
                 "https://map.naver.com/p/entry/place/1301934134");
@@ -462,5 +492,61 @@ class UrlItemProcessorTest {
         assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
         assertThat(item.getContent()).isEqualTo("확보한 본문");
         assertThat(item.hasCoordinates()).isFalse();   // 좌표까지 함께 유실된다(호출부 catch)
+    }
+
+    // ---------- 미리보기 썸네일 (목록 카드용 S3 캐시) ----------
+
+    @Test
+    void 대표_이미지가_있으면_썸네일을_만들어_S3키를_저장한다() {
+        Item item = urlItem();
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(doc);
+        when(openGraphScraper.scrape(doc)).thenReturn(new UrlPreview("제목", "https://cdn/og.jpg", null));
+        when(contentExtractor.extract(doc)).thenReturn("본문");
+        when(previewImageFetcher.fetch("https://cdn/og.jpg")).thenReturn(new byte[] {1, 2, 3});
+        when(thumbnailGenerator.toThumbnail(any())).thenReturn(new byte[] {4});
+        when(s3Uploader.uploadThumbnail(any(), any())).thenReturn("previews/1/uuid.thumb.webp");
+
+        processor.process(message());
+
+        assertThat(item.getThumbnailS3Key()).isEqualTo("previews/1/uuid.thumb.webp");
+        // 외부 원본 URL은 상세 화면용으로 그대로 남는다 — 썸네일이 대체하는 건 목록뿐이다.
+        assertThat(item.getPreviewThumbnailUrl()).isEqualTo("https://cdn/og.jpg");
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
+    }
+
+    @Test
+    void 썸네일_생성이_실패해도_상태와_미리보기는_유지된다() {
+        // 썸네일은 최적화지 필수 경로가 아니다 — 실패가 새어나가면 파이프라인 전체가 재실행된다.
+        Item item = urlItem();
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(doc);
+        when(openGraphScraper.scrape(doc)).thenReturn(new UrlPreview("제목", "https://cdn/og.jpg", null));
+        when(contentExtractor.extract(doc)).thenReturn("본문");
+        when(previewImageFetcher.fetch(any())).thenThrow(new HtmlFetchException("핫링크 차단"));
+
+        processor.process(message());   // 예외가 밖으로 나오지 않아야 한다
+
+        assertThat(item.getStatus()).isEqualTo(ItemStatus.DONE);
+        assertThat(item.getThumbnailS3Key()).isNull();
+        assertThat(item.getPreviewThumbnailUrl()).isEqualTo("https://cdn/og.jpg");   // 목록은 외부 URL 폴백
+        verifyNoInteractions(s3Uploader);
+    }
+
+    @Test
+    void 대표_이미지가_없으면_썸네일을_시도하지_않는다() {
+        Item item = urlItem();
+        aiReturnsEmpty();
+        when(oEmbedClient.fetch(any())).thenReturn(Optional.empty());
+        when(htmlFetcher.fetch(any())).thenReturn(doc);
+        when(openGraphScraper.scrape(doc)).thenReturn(new UrlPreview("제목", null, null));
+        when(contentExtractor.extract(doc)).thenReturn("본문");
+
+        processor.process(message());
+
+        assertThat(item.getThumbnailS3Key()).isNull();
+        verifyNoInteractions(previewImageFetcher, thumbnailGenerator, s3Uploader);
     }
 }

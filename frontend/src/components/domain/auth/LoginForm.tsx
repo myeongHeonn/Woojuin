@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAtom, useSetAtom } from 'jotai';
@@ -12,24 +12,28 @@ import SubmitButton from '@/components/ui/button/SubmitButton';
 import GoogleAuthButton from './GoogleAuthButton';
 
 /**
- * 구글 로그인 버튼을 띄울지 여부.
- *
- * 우리 구글 Cloud 프로젝트가 정책 위반으로 정지돼 동의 화면이 열리지 않는다(2026-08-04, 재심사 요청 상태).
- * 버튼을 그대로 두면 누른 사람 전원이 우리 화면 밖 구글 오류 페이지로 떨어져 돌아올 방법이 없으므로
- * 심사가 끝날 때까지 감춘다. 컴포넌트·백엔드 ClientRegistration·콜백 라우트는 손대지 않았으니
- * 심사가 통과하면 이 값만 true 로 되돌리면 된다.
- */
-const GOOGLE_LOGIN_ENABLED: boolean = false;
-
-/**
  * 로그인 폼 — /login 페이지와 모바일 랜딩이 함께 쓴다.
  *
  * 페이지 레이아웃(가운데 정렬·배경)은 쓰는 쪽이 정하고 여기서는 폼만 그린다.
  * autoFocus 를 두지 않는 이유: 랜딩에서는 데스크톱용 마크업과 함께 DOM 에 있고
  * CSS 로만 감춰지므로, 자동 포커스가 엉뚱한 곳으로 튈 수 있다.
  */
+/**
+ * 구글 로그인 실패 사유(백엔드 OAuth2LoginFailureHandler 가 넘기는 error 값) → 사용자 문구.
+ *
+ * 여기 없는 코드는 문구를 띄우지 않는다. 그래서 `access_denied` 는 일부러 비워 뒀다 —
+ * 사용자가 구글 동의 화면에서 스스로 취소한 경우라, 자기가 한 일을 오류로 되돌려 받으면
+ * 오히려 무슨 문제가 생긴 줄 안다.
+ */
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  // 파기 이전에 탈퇴한 계정만 여기에 닿는다(지금은 탈퇴 시 식별자를 파기해 재가입이 된다).
+  withdrawn_user: '탈퇴한 계정입니다. 새로 가입해 주세요.',
+  oauth_failed: '구글 로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+};
+
 const LoginForm = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const formMethods = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
   const setAccessToken = useSetAtom(accessTokenAtom);
   const setRefreshToken = useSetAtom(refreshTokenAtom);
@@ -49,11 +53,15 @@ const LoginForm = () => {
 
   // 자격 증명이 틀렸는지(401) 서버가 죽었는지는 사용자가 할 수 있는 일이 다르므로
   // 서버 메시지를 그대로 보여주고, 메시지가 없을 때만 기본 문구로 떨어진다.
+  //
+  // 방금 누른 이메일 로그인의 실패가 우선이다 — 구글 실패 문구는 리다이렉트로 넘어온
+  // 이전 시도의 흔적이라, 새로 시도해서 난 오류를 덮어서는 안 된다.
+  const oauthErrorMessage = OAUTH_ERROR_MESSAGES[searchParams.get('error') ?? ''] ?? null;
   const errorMessage = loginMutation.isError
     ? ((axios.isAxiosError(loginMutation.error)
         ? loginMutation.error.response?.data?.message
         : null) ?? '로그인에 실패했습니다')
-    : null;
+    : oauthErrorMessage;
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -74,7 +82,9 @@ const LoginForm = () => {
         </SubmitButton>
       </form>
 
-      {GOOGLE_LOGIN_ENABLED && <GoogleAuthButton />}
+      {/* 구글 Cloud 프로젝트 정지 기간(2026-08-04~08-06) 동안 감춰 뒀던 버튼 — 계정이 복구돼 되살린다.
+          이메일 로그인은 그대로 남긴다: 그 기간에 가입한 LOCAL 계정들이 유일한 진입로를 잃는다. */}
+      <GoogleAuthButton />
 
       {/* 구글은 첫 로그인이 곧 가입이라(OAuthAccountService.findOrCreateUser) 여기에도 고지한다 */}
       <p className="text-center text-xs text-text-3">
@@ -87,7 +97,10 @@ const LoginForm = () => {
 
       <p className="text-center text-sm text-text-3">
         계정이 없으신가요?{' '}
-        <Link to="/signup" className="font-semibold text-accent hover:text-accent-hover">
+        {/* replace — 로그인·가입은 서로 오가는 관문이라 히스토리에 쌓을 이유가 없고, 남으면
+            로그인 뒤 뒤로가기가 GuestOnly 에 되돌려져 "눌러도 아무 일이 없는" 상태가 된다.
+            돌아올 길은 반대쪽 화면의 같은 링크가 맡는다. */}
+        <Link to="/signup" replace className="font-semibold text-accent hover:text-accent-hover">
           회원가입
         </Link>
       </p>

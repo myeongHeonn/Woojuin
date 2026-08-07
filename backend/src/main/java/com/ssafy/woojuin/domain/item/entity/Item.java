@@ -59,8 +59,9 @@ public class Item extends BaseTimeEntity {
     @Column(length = 500)
     private String s3Key;
 
-    // IMAGE 썸네일(목록 카드용 저용량 webp)의 S3 키. 비동기 처리기가 생성하므로 생성 전/실패 시
-    // null이고, 그때 목록은 원본(s3Key)으로 폴백한다. IMAGE가 아닌 타입은 항상 null.
+    // 목록 카드용 저용량 webp 썸네일의 S3 키. IMAGE는 원본에서, URL은 미리보기 대표 이미지
+    // (og:image)에서 비동기 처리기가 생성한다. 생성 전/실패 시 null이고, 그때 목록은 IMAGE는
+    // 원본(s3Key)으로, URL은 외부 이미지 URL(previewThumbnailUrl)로 폴백한다. MEMO는 항상 null.
     @Column(length = 500)
     private String thumbnailS3Key;
 
@@ -145,8 +146,9 @@ public class Item extends BaseTimeEntity {
     }
 
     /**
-     * IMAGE 썸네일 생성(비동기) 결과 반영. 생성 실패 시엔 호출되지 않아 null로 남고,
-     * 목록 응답은 원본 s3Key로 폴백한다. null 인자는 "생성 못 함"이라 무시한다.
+     * 목록 카드용 썸네일 생성(비동기) 결과 반영. 생성 실패 시 null로 남고, 목록 응답은
+     * IMAGE는 원본 s3Key로, URL은 외부 이미지 URL로 폴백한다. null 인자는 "생성 못 함"이라
+     * 무시한다.
      */
     public void applyThumbnail(String thumbnailS3Key) {
         if (thumbnailS3Key != null) {

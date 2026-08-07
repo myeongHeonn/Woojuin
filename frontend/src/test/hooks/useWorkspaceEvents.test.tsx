@@ -9,7 +9,12 @@ import { accessTokenAtom } from '@/stores/authAtoms';
 
 // 실제 통신은 막는다 — 검증 대상은 신호를 받았을 때의 무효화·재연결 판단이지 SSE 프로토콜이 아니다
 vi.mock('@microsoft/fetch-event-source', () => ({ fetchEventSource: vi.fn() }));
-vi.mock('@/services/client', () => ({ requestTokenRefresh: vi.fn() }));
+// 공용 mock 사용 — src/services/__mocks__/client.ts (파일별 팩토리는 동시 실행 시 경쟁한다.
+// 이 파일은 client 를 **모듈 mock 으로** 가로채는 유일한 테스트다. requestTokenRefresh 가
+// ESM 함수 export 라 재할당이 불가능해서(axios 인스턴스 메서드와 달리) 다른 방법이 없다 —
+// 서비스 테스트 3개는 그래서 test/helpers/stubApi.ts 로 옮겼다(그쪽 주석에 이유 전체).
+// 공용 mock 을 명시적으로 가리켜 __mocks__ 자동 탐색을 거치지 않는다.
+vi.mock('@/services/client', () => import('@/services/__mocks__/client'));
 
 const mockFetchEventSource = vi.mocked(fetchEventSource);
 const mockRefresh = vi.mocked(requestTokenRefresh);

@@ -7,14 +7,16 @@ import type { AiUsage } from '@/services/auth';
 
 const limitedUsage: AiUsage = {
   period: '2026-07',
-  used: 12,
-  limit: 30,
-  remaining: 18,
+  used: 2,
+  limit: 500,
+  remaining: 498,
   unlimited: false,
   limitEnabled: true,
   resetAt: '2026-08-01T00:00:00+09:00',
 };
 
+// ChatIntegrationCard 가 ConnectedAppsCard 로 옮겨 가면서 이 카드엔 쿼리가 없다 —
+// QueryClientProvider 없이 렌더된다.
 const renderSettingsCard = (aiUsage: AiUsage) =>
   render(
     <MemoryRouter>
@@ -29,16 +31,19 @@ const renderSettingsCard = (aiUsage: AiUsage) =>
   );
 
 describe('마이페이지 설정 카드', () => {
-  it('이번 달 AI 사용 횟수와 한도를 표시한다', async () => {
+  it('이번 달 AI 사용량과 AI 생성 안내를 표시한다', async () => {
     const { container } = await renderSettingsCard(limitedUsage);
 
     expect(container.textContent).toContain('이번 달 AI 사용량');
-    expect(container.textContent).toContain('12회');
-    expect(container.textContent).toContain('30회 한도');
+    expect(container.textContent).toContain('2 / 500회');
+    expect(container.textContent).toContain(
+      '아이템 1개를 저장할 때마다 AI가 제목·요약·카테고리를 생성해요.',
+    );
+    expect(container.textContent).toContain('500회 한도');
 
     const progress = container.querySelector('[role="progressbar"]');
-    expect(progress?.getAttribute('aria-valuenow')).toBe('12');
-    expect(progress?.getAttribute('aria-valuemax')).toBe('30');
+    expect(progress?.getAttribute('aria-valuenow')).toBe('2');
+    expect(progress?.getAttribute('aria-valuemax')).toBe('500');
   });
 
   it('무제한 사용자는 누적 횟수와 무제한 상태를 표시한다', async () => {

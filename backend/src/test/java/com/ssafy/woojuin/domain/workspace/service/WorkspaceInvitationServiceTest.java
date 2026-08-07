@@ -8,17 +8,24 @@ import com.ssafy.woojuin.domain.workspace.dto.WorkspaceResponse;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceInvitation;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivity;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMemberActivityType;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceRole;
 import com.ssafy.woojuin.domain.workspace.entity.WorkspaceType;
+import com.ssafy.woojuin.domain.workspace.exception.WorkspaceBannedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationExpiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotAllowedException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceInvitationNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceMemberRequiredException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceNotFoundException;
 import com.ssafy.woojuin.domain.workspace.exception.WorkspaceOwnerRequiredException;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceBanRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceInvitationRepository;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberActivityRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
+import com.ssafy.woojuin.global.sse.WorkspaceChangedEvent;
+import com.ssafy.woojuin.global.sse.WorkspaceMemberAction;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +42,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +58,12 @@ class WorkspaceInvitationServiceTest {
 
     @Mock
     private WorkspaceInvitationRepository workspaceInvitationRepository;
+
+    @Mock
+    private WorkspaceBanRepository workspaceBanRepository;
+
+    @Mock
+    private WorkspaceMemberActivityRepository workspaceMemberActivityRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -231,5 +245,78 @@ class WorkspaceInvitationServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
 
         verify(workspaceMemberRepository, never()).save(any(WorkspaceMember.class));
+    }
+
+    @Test
+    @DisplayName("이 워크스페이스에서 추방된 이력이 있으면 초대를 수락할 수 없다")
+    void accept_bannedUser_throwsBanned() {
+        User creator = user(1L);
+        Workspace ws = workspace(10L, creator);
+        WorkspaceInvitation inv = invitation("abc-123", ws, creator, OffsetDateTime.now().plusDays(1));
+        when(workspaceInvitationRepository.findByCode("abc-123")).thenReturn(Optional.of(inv));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+        when(workspaceBanRepository.existsByWorkspaceIdAndUserId(10L, 2L)).thenReturn(true);
+
+        assertThatThrownBy(() -> workspaceInvitationService.accept("abc-123", 2L))
+                .isInstanceOf(WorkspaceBannedException.class);
+
+        verify(workspaceMemberRepository, never()).save(any(WorkspaceMember.class));
+    }
+
+    @Test
+    @DisplayName("유효한 코드로 수락하면 활동 이력에 JOINED로 기록된다")
+    void accept_valid_logsJoinedActivity() {
+        User creator = user(1L);
+        Workspace ws = workspace(10L, creator);
+        WorkspaceInvitation inv = invitation("abc-123", ws, creator, OffsetDateTime.now().plusDays(1));
+        User joiner = user(2L);
+        when(workspaceInvitationRepository.findByCode("abc-123")).thenReturn(Optional.of(inv));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(joiner));
+        when(workspaceMemberRepository.save(any(WorkspaceMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        workspaceInvitationService.accept("abc-123", 2L);
+
+        ArgumentCaptor<WorkspaceMemberActivity> captor = ArgumentCaptor.forClass(WorkspaceMemberActivity.class);
+        verify(workspaceMemberActivityRepository).save(captor.capture());
+        assertThat(captor.getValue().getWorkspace()).isEqualTo(ws);
+        assertThat(captor.getValue().getUser()).isEqualTo(joiner);
+        assertThat(captor.getValue().getType()).isEqualTo(WorkspaceMemberActivityType.JOINED);
+    }
+
+    @Test
+    @DisplayName("활동 이력 저장에 실패하면 예외가 전파되어 멤버십 생성이 롤백된다")
+    void accept_activityLogSaveFails_propagatesException() {
+        User creator = user(1L);
+        Workspace ws = workspace(10L, creator);
+        WorkspaceInvitation inv = invitation("abc-123", ws, creator, OffsetDateTime.now().plusDays(1));
+        User joiner = user(2L);
+        when(workspaceInvitationRepository.findByCode("abc-123")).thenReturn(Optional.of(inv));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(joiner));
+        when(workspaceMemberRepository.save(any(WorkspaceMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new RuntimeException("DB 오류")).when(workspaceMemberActivityRepository).save(any());
+
+        assertThatThrownBy(() -> workspaceInvitationService.accept("abc-123", 2L))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @DisplayName("초대를 수락하면 SSE 이벤트에 JOINED 세부 종류가 실린다")
+    void accept_valid_publishesEventWithJoinedAction() {
+        User creator = user(1L);
+        Workspace ws = workspace(10L, creator);
+        WorkspaceInvitation inv = invitation("abc-123", ws, creator, OffsetDateTime.now().plusDays(1));
+        User joiner = user(2L);
+        when(workspaceInvitationRepository.findByCode("abc-123")).thenReturn(Optional.of(inv));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(joiner));
+        when(workspaceMemberRepository.save(any(WorkspaceMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        workspaceInvitationService.accept("abc-123", 2L);
+
+        ArgumentCaptor<WorkspaceChangedEvent> captor = ArgumentCaptor.forClass(WorkspaceChangedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().memberAction()).isEqualTo(WorkspaceMemberAction.JOINED);
     }
 }

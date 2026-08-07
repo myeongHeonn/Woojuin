@@ -22,9 +22,11 @@ public class CustomOidcUserService extends OidcUserService {
         OidcUser oidcUser = super.loadUser(userRequest);
         GoogleUserInfo userInfo = new GoogleUserInfo(oidcUser.getClaims());
 
+        // findOrCreateUser보다 먼저 확인해야 한다 — 그 호출이 없으면 바로 만들어버린다.
+        boolean isNewUser = oAuthAccountService.isNewAccount(AuthProvider.GOOGLE, userInfo.getProviderId());
         User user = oAuthAccountService.findOrCreateUser(
                 AuthProvider.GOOGLE, userInfo.getProviderId(), userInfo.getEmail(), userInfo.getNickname());
 
-        return new CustomOidcUser(user.getId(), oidcUser);
+        return new CustomOidcUser(user.getId(), isNewUser, oidcUser);
     }
 }

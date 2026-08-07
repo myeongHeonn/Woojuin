@@ -6,12 +6,26 @@ import {
   NavigationControl,
   Popup,
   setWorkerUrl,
+  type IControl,
 } from 'maplibre-gl';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import maximizeIconUrl from '@/assets/icons/tabler-maximize.svg?url';
 import type { MapAdapter, MapAdapterOptions, MapPoint } from '@/components/domain/map/mapAdapter';
 import { INFO_CARD_CLASS } from '@/components/ui/infoCardStyles';
+import type { Theme } from '@/stores/themeAtoms';
 
-const OPEN_FREE_MAP_STYLE = 'https://tiles.openfreemap.org/styles/fiord';
+/**
+ * 테마별 베이스맵.
+ *
+ * fiord 는 배경이 #45516E 인 어두운 청회색, positron 은 rgb(242,243,240) 인 밝은 회색이다.
+ * 라이트에 positron 을 고른 이유: 앱의 라이트 캔버스(--color-space #f4f5f8)와 톤이 거의 같아
+ * 지도와 페이지가 이어져 보이고, 채도가 낮아 컬러 마커(--marker-color)가 묻히지 않는다.
+ * bright·liberty 도 밝지만 따뜻한 베이지(#f8f4f0)에 채도가 높아 마커와 색이 부딪힌다.
+ */
+const OPEN_FREE_MAP_STYLES: Record<Theme, string> = {
+  dark: 'https://tiles.openfreemap.org/styles/fiord',
+  light: 'https://tiles.openfreemap.org/styles/positron',
+};
 const DEFAULT_CENTER: [number, number] = [127.7669, 35.9078];
 const CLUSTER_RADIUS_PX = 36;
 const CLUSTER_ZOOM_STEP = 2;
@@ -24,6 +38,35 @@ const DISTANT_PLACE_THRESHOLD_METERS = 800_000;
 const SELECTED_PLACE_ZOOM = 17.5;
 
 setWorkerUrl(maplibreWorkerUrl);
+
+const createResetViewControl = (onReset: () => void): IControl => {
+  let control: HTMLDivElement | null = null;
+
+  return {
+    onAdd() {
+      control = document.createElement('div');
+      control.className = 'maplibregl-ctrl maplibregl-ctrl-group woojuin-map-reset-view-control';
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.title = '전체 장소 보기';
+      button.setAttribute('aria-label', '전체 장소 보기');
+      button.addEventListener('click', onReset);
+
+      const icon = document.createElement('img');
+      icon.className = 'woojuin-map-reset-view-icon';
+      icon.src = maximizeIconUrl;
+      icon.alt = '';
+      button.append(icon);
+      control.append(button);
+      return control;
+    },
+    onRemove() {
+      control?.remove();
+      control = null;
+    },
+  };
+};
 
 const createPopupContent = (point: MapPoint, onOpen: (pointId: number) => void) => {
   const content = document.createElement('article');
@@ -72,13 +115,16 @@ const createPopupContent = (point: MapPoint, onOpen: (pointId: number) => void) 
 
 export const createOpenFreeMapAdapter = ({
   container,
+  theme,
   onSelectPoint,
   onOpenPoint,
   onDeselectPoint,
+  onResetView,
 }: MapAdapterOptions): MapAdapter => {
+  let currentTheme = theme;
   const map = new MapLibreMap({
     container,
-    style: OPEN_FREE_MAP_STYLE,
+    style: OPEN_FREE_MAP_STYLES[theme],
     center: DEFAULT_CENTER,
     zoom: 6.2,
     attributionControl: { compact: true },
@@ -97,14 +143,6 @@ export const createOpenFreeMapAdapter = ({
 
   map.on('styledata', collapseInitialAttribution);
   collapseInitialAttribution();
-
-  map.addControl(
-    new NavigationControl({
-      showCompass: false,
-      showZoom: true,
-    }),
-    'bottom-right',
-  );
 
   let points: MapPoint[] = [];
   let markers: Marker[] = [];
@@ -317,8 +355,8 @@ export const createOpenFreeMapAdapter = ({
 
     const isDesktop = width >= 640;
     const requestedPadding = isDesktop
-      ? { top: 96, right: 390, bottom: 96, left: 72 }
-      : { top: 72, right: 24, bottom: Math.round(height * 0.5), left: 24 };
+      ? { top: 112, right: 430, bottom: 150, left: 88 }
+      : { top: 88, right: 64, bottom: Math.round(height * 0.55), left: 40 };
     const horizontalBudget = width - 1;
     const verticalBudget = height - 1;
     const left = Math.min(requestedPadding.left, Math.floor(horizontalBudget / 2));
@@ -339,6 +377,22 @@ export const createOpenFreeMapAdapter = ({
     });
   };
 
+  map.addControl(
+    new NavigationControl({
+      showCompass: false,
+      showZoom: true,
+    }),
+    'bottom-right',
+  );
+
+  map.addControl(
+    createResetViewControl(() => {
+      onResetView();
+      fitPoints();
+    }),
+    'bottom-right',
+  );
+
   map.on('moveend', renderMarkers);
   map.on('click', handleMapClick);
 
@@ -352,6 +406,13 @@ export const createOpenFreeMapAdapter = ({
     selectPoint(pointId) {
       selectedPointId = pointId;
       updateSelection();
+    },
+    setTheme(nextTheme) {
+      if (nextTheme === currentTheme) return;
+      currentTheme = nextTheme;
+      // 마커·팝업은 DOM 오버레이라 스타일 교체의 영향을 받지 않는다(지도 레이어가 아니다).
+      // 그래서 다시 그릴 필요 없이 베이스맵만 갈아 끼우면 된다 — 카메라 위치도 유지된다.
+      map.setStyle(OPEN_FREE_MAP_STYLES[nextTheme]);
     },
     resize() {
       map.resize();
