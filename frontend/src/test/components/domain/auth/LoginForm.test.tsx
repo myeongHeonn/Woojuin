@@ -25,13 +25,13 @@ const apiError = (status: number, message: string) =>
  * 기본 store 를 공유하면 앞 테스트가 메모리에 남긴 값이 그대로 보여서
  * "이 테스트가 심어둔 스토리지 값"이 반영되지 않는다.
  */
-const renderLoginForm = () =>
+const renderLoginForm = (search = '') =>
   render(
     <JotaiProvider store={createStore()}>
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
-        <MemoryRouter initialEntries={['/login']}>
+        <MemoryRouter initialEntries={[`/login${search}`]}>
           <Routes>
             <Route path="/login" element={<LoginForm />} />
             {/* 로그인 후 도착지 — 어느 쪽으로 갔는지를 이 문구들로 구분한다 */}
@@ -112,6 +112,46 @@ describe('로그인 폼', () => {
     await expect.poll(() => container.textContent).toContain('서재 화면');
     // 한 번 쓰고 비워야 다음 로그인이 옛 목적지로 끌려가지 않는다
     expect(sessionStorage.getItem('woojuin:postLoginRedirect')).toBe('null');
+  });
+
+  // 구글 로그인 실패는 리다이렉트로 돌아오므로 폼의 mutation 상태에 흔적이 없다.
+  // error 파라미터를 읽지 않으면 "눌렀는데 아무 일도 없는" 화면이 된다.
+  it('구글 로그인 실패 사유가 있으면 문구로 알려 준다', async () => {
+    const { container } = await renderLoginForm('?error=oauth_failed');
+
+    expect(container.textContent).toContain('구글 로그인에 실패했습니다');
+  });
+
+  it('식별자 파기 전에 탈퇴한 계정이면 새로 가입하라고 안내한다', async () => {
+    const { container } = await renderLoginForm('?error=withdrawn_user');
+
+    expect(container.textContent).toContain('탈퇴한 계정입니다');
+  });
+
+  // 사용자가 구글 동의 화면에서 스스로 취소한 것이라, 오류로 되돌려 주면
+  // 자기가 한 일을 문제가 생긴 것으로 읽는다.
+  it('사용자가 구글 동의를 취소한 경우(access_denied)엔 오류를 띄우지 않는다', async () => {
+    const { container } = await renderLoginForm('?error=access_denied');
+
+    expect(container.textContent).not.toContain('실패');
+  });
+
+  it('모르는 오류코드는 문구를 만들어내지 않는다', async () => {
+    const { container } = await renderLoginForm('?error=something_unmapped');
+
+    expect(container.textContent).not.toContain('실패');
+  });
+
+  it('새로 시도한 이메일 로그인 실패가 구글 실패 문구를 덮는다', async () => {
+    vi.mocked(login).mockRejectedValue(apiError(401, '이메일 또는 비밀번호가 올바르지 않습니다'));
+    const { container } = await renderLoginForm('?error=oauth_failed');
+
+    await fillAndSubmit(container, 'wrong-password');
+
+    await expect
+      .poll(() => container.textContent)
+      .toContain('이메일 또는 비밀번호가 올바르지 않습니다');
+    expect(container.textContent).not.toContain('구글 로그인에 실패했습니다');
   });
 
   it('자격 증명이 틀리면 서버가 준 문구를 그대로 보여준다', async () => {

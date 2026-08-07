@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { Provider as JotaiProvider, createStore } from 'jotai';
 import OAuthCallbackPage from '@/pages/OAuthCallbackPage';
 import { accessTokenAtom, postLoginRedirectAtom } from '@/stores/authAtoms';
+
+/** 로그인 화면으로 넘어간 쿼리까지 보이게 한다 — 실패 사유가 실려 가는지 확인해야 한다. */
+const LoginProbe = () => <p>로그인 화면{useLocation().search}</p>;
 
 const renderCallback = (search: string, store = createStore()) =>
   render(
@@ -14,7 +17,7 @@ const renderCallback = (search: string, store = createStore()) =>
           <Route path="/oauth/onboarding" element={<p>온보딩 화면</p>} />
           <Route path="/home" element={<p>개인 워크스페이스</p>} />
           <Route path="/workspace/9/library" element={<p>서재 화면</p>} />
-          <Route path="/login" element={<p>로그인 화면</p>} />
+          <Route path="/login" element={<LoginProbe />} />
         </Routes>
       </MemoryRouter>
     </JotaiProvider>,
@@ -68,6 +71,21 @@ describe('OAuthCallbackPage', () => {
     const { container } = await renderCallback('');
 
     await expect.poll(() => container.textContent).toContain('로그인 화면');
+  });
+
+  // 사유를 버리면 로그인 화면은 무슨 일이 있었는지 말할 수 없다 — 사용자에겐
+  // "구글 버튼을 눌렀는데 아무 일도 없음"이 된다.
+  it('실패 사유(error)를 로그인 화면까지 실어 보낸다', async () => {
+    const { container } = await renderCallback('?error=withdrawn_user');
+
+    await expect.poll(() => container.textContent).toContain('error=withdrawn_user');
+  });
+
+  it('사유가 없으면 쿼리를 붙이지 않는다', async () => {
+    const { container } = await renderCallback('');
+
+    await expect.poll(() => container.textContent).toContain('로그인 화면');
+    expect(container.textContent).not.toContain('error=');
   });
 
   it('신규 가입자면 토큰을 저장한다', async () => {
