@@ -1,27 +1,15 @@
-<!--
-  표지 이미지 — docs/images/cover.png 파일을 팀 표지로 **덮어쓰면** 됩니다(권장 16:9).
-  파일명을 바꾸고 싶으면 아래 src 도 같이 바꿔주세요.
--->
-<div align="center">
-  <img src="docs/images/cover.png" alt="우주인 (Woojuin)" width="100%" />
-</div>
-
-<div align="center">
-
 # 🪐 우주인 (Woojuin)
 
-### 우리 주변의 인포메이션
+<!-- 표지 이미지 — docs/images/cover.png 를 덮어쓰면 이 자리에 그대로 들어갑니다(권장 16:9) -->
+<img src="docs/images/cover.png" alt="우주인 (Woojuin)" width="100%" />
+
+### 🌠 흩어진 정보를 AI가 정리해주는 올인원 AI 스크랩북
+
+> 우주인은 링크·사진·메모를 형식 구분 없이 한곳에 모아, AI가 제목·요약·카테고리를 붙여 정리하고 서로 관련 있는 정보를 별자리처럼 이어 보여주는 서비스입니다.
 
 **저장은 1초, 정리는 AI가, 찾을 땐 검색 한 번.**
 
-흩어진 링크·사진·메모를 한곳에 모으면, AI가 제목·요약·카테고리를 붙여 정리하고<br />
-서로 관련 있는 정보를 **별자리처럼 이어 보여주는** 올인원 AI 스크랩북
-
-[**woojuin.store**](https://woojuin.store)
-
-SSAFY 15기 광주1반 공통프로젝트 (6인 / 2026.07.13 ~ 2026.08.07)
-
-</div>
+🔗 **서비스** [woojuin.store](https://woojuin.store) · SSAFY 15기 광주1반 공통프로젝트 (6인 / 2026.07.13 ~ 2026.08.07)
 
 ---
 
