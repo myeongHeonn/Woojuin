@@ -12,6 +12,8 @@ import com.ssafy.woojuin.domain.item.exception.WorkspaceAccessDeniedException;
 import com.ssafy.woojuin.domain.item.dto.ItemCreateResponse;
 import com.ssafy.woojuin.domain.item.service.ItemService;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
+import com.ssafy.woojuin.domain.workspace.entity.WorkspaceMember;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -20,6 +22,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -39,6 +42,7 @@ public class DiscordImageSaveService {
     private final ChatAccountConnectionRepository connectionRepository;
     private final ChatCommandDeduplicationService deduplicationService;
     private final WorkspaceRepository workspaceRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
     private final ItemService itemService;
     private final String frontendBaseUrl;
     private final HttpClient httpClient;
@@ -47,12 +51,14 @@ public class DiscordImageSaveService {
             ChatAccountConnectionRepository connectionRepository,
             ChatCommandDeduplicationService deduplicationService,
             WorkspaceRepository workspaceRepository,
+            WorkspaceMemberRepository workspaceMemberRepository,
             ItemService itemService,
             @org.springframework.beans.factory.annotation.Value("${woojuin.integrations.chat.frontend-base-url:http://localhost:5173}")
             String frontendBaseUrl) {
         this.connectionRepository = connectionRepository;
         this.deduplicationService = deduplicationService;
         this.workspaceRepository = workspaceRepository;
+        this.workspaceMemberRepository = workspaceMemberRepository;
         this.itemService = itemService;
         this.frontendBaseUrl = frontendBaseUrl.replaceAll("/+$", "");
         this.httpClient = HttpClient.newBuilder()
@@ -64,7 +70,7 @@ public class DiscordImageSaveService {
     public ChatCommandResult save(
             String externalUserId,
             String requestId,
-            Long requestedWorkspaceId,
+            Long requestedWorkspaceNumber,
             List<DiscordAttachment> attachments) {
         if (!deduplicationService.acquire(ChatPlatform.DISCORD, requestId)) {
             return ChatCommandResult.of("이미 처리한 요청이에요. 우주인에서 결과를 확인해주세요.");
@@ -75,8 +81,8 @@ public class DiscordImageSaveService {
             ChatAccountConnection connection = connectionRepository
                     .findByPlatformAndExternalUserId(ChatPlatform.DISCORD, externalUserId)
                     .orElseThrow(ChatAccountNotLinkedException::new);
-            Long workspaceId = requestedWorkspaceId != null
-                    ? requestedWorkspaceId
+            Long workspaceId = requestedWorkspaceNumber != null
+                    ? resolveWorkspaceIdByNumber(connection, requestedWorkspaceNumber.intValue())
                     : defaultWorkspaceId(connection);
             List<DiscordAttachment> images = attachments.stream()
                     .filter(this::isImage)
@@ -122,6 +128,22 @@ public class DiscordImageSaveService {
     private Long defaultWorkspaceId(ChatAccountConnection connection) {
         if (connection.getDefaultWorkspace() == null) throw new DefaultWorkspaceNotSetException();
         return connection.getDefaultWorkspace().getId();
+    }
+
+    /**
+     * 사용자가 입력한 목록 순번(1-based)을 실제 워크스페이스 ID로 바꾼다.
+     * 순서는 ChatCommandService의 목록 표시와 동일하게 워크스페이스 ID 오름차순이다.
+     */
+    private Long resolveWorkspaceIdByNumber(ChatAccountConnection connection, int number) {
+        List<WorkspaceMember> memberships = workspaceMemberRepository
+                .findByUserId(connection.getUser().getId()).stream()
+                .sorted(Comparator.comparing(member -> member.getWorkspace().getId()))
+                .toList();
+        if (number < 1 || number > memberships.size()) {
+            throw new IllegalArgumentException(
+                    "해당 번호의 워크스페이스가 없어요. `/woojuin workspace`로 목록을 확인해주세요.");
+        }
+        return memberships.get(number - 1).getWorkspace().getId();
     }
 
     private boolean isImage(DiscordAttachment attachment) {

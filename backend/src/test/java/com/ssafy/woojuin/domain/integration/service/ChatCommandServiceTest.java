@@ -129,13 +129,36 @@ class ChatCommandServiceTest {
     @Test
     void reportsWorkspaceAccessDenied() {
         arrangeConnected("request-4");
-        when(itemService.createFromRequest(eq(99L), eq(7L), any()))
-                .thenThrow(new WorkspaceAccessDeniedException(99L));
+        when(itemService.createFromRequest(eq(11L), eq(7L), any()))
+                .thenThrow(new WorkspaceAccessDeniedException(11L));
 
         ChatCommandResult result = service.handle(
-                command("request-4", "save https://example.com --workspace 99"));
+                command("request-4", "save https://example.com"));
 
         assertThat(result.message()).contains("접근할 권한이 없어요");
+    }
+
+    @Test
+    void savesToWorkspaceByListNumberOverride() {
+        arrangeConnected("request-4b");
+        Workspace second = Workspace.builder().name("두번째").type(WorkspaceType.TEAM)
+                .createdBy(connection.getUser()).build();
+        ReflectionTestUtils.setField(second, "id", 20L);
+        WorkspaceMember m1 = WorkspaceMember.builder().workspace(workspace)
+                .user(connection.getUser()).role(WorkspaceRole.OWNER).build();
+        WorkspaceMember m2 = WorkspaceMember.builder().workspace(second)
+                .user(connection.getUser()).role(WorkspaceRole.OWNER).build();
+        when(workspaceMemberRepository.findByUserId(7L)).thenReturn(List.of(m1, m2));
+        when(itemService.createFromRequest(eq(20L), eq(7L), any(ItemCreateRequest.class)))
+                .thenReturn(new ItemCreateResponse(44L, ItemStatus.PROCESSING, OffsetDateTime.now()));
+        when(workspaceRepository.findById(20L)).thenReturn(Optional.of(second));
+
+        // 순번 2 = ID 오름차순으로 정렬한 목록의 두 번째(ID 20), ID를 직접 넣는 게 아니다.
+        ChatCommandResult result = service.handle(
+                command("request-4b", "save https://example.com --workspace 2"));
+
+        assertThat(result.message()).contains("저장 공간: `두번째`");
+        verify(itemService).createFromRequest(eq(20L), eq(7L), any(ItemCreateRequest.class));
     }
 
     @Test
@@ -193,16 +216,40 @@ class ChatCommandServiceTest {
 
         ChatCommandResult list = service.handle(command("workspace-list", "workspace list"));
 
-        assertThat(list.message()).contains("11. 마이스페이스");
+        // 워크스페이스 ID(11)가 아니라 목록 순번(1)으로 표시된다.
+        assertThat(list.message()).contains("1. 마이스페이스").doesNotContain("11. 마이스페이스");
 
         arrangeConnected("workspace-number");
-        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(11L, 7L))
-                .thenReturn(Optional.of(membership));
 
-        ChatCommandResult changed = service.handle(command("workspace-number", "workspace 11"));
+        ChatCommandResult changed = service.handle(command("workspace-number", "workspace 1"));
 
         assertThat(changed.message()).contains("마이스페이스").contains("변경했어요");
         verify(connectionRepository).save(connection);
+    }
+
+    @Test
+    void discordWorkspaceListShowsOptionStyleHint() {
+        when(deduplicationService.acquire(ChatPlatform.DISCORD, "discord-list")).thenReturn(true);
+        ChatAccountConnection discordConnection =
+                new ChatAccountConnection(ChatPlatform.DISCORD, "dc-user", connection.getUser());
+        discordConnection.changeDefaultWorkspace(workspace);
+        when(connectionRepository.findByPlatformAndExternalUserId(ChatPlatform.DISCORD, "dc-user"))
+                .thenReturn(Optional.of(discordConnection));
+        WorkspaceMember membership = WorkspaceMember.builder()
+                .workspace(workspace)
+                .user(connection.getUser())
+                .role(WorkspaceRole.OWNER)
+                .build();
+        when(workspaceMemberRepository.findByUserId(7L)).thenReturn(List.of(membership));
+
+        ChatCommandResult result = service.handle(new ChatCommand(
+                ChatPlatform.DISCORD, "dc-user", "discord-list", "workspace list"));
+
+        assertThat(result.message())
+                .contains("1. 마이스페이스")
+                .contains("`number` 칸")
+                .contains("/woojuin workspace number:3")
+                .doesNotContain("/woojuin workspace <번호>");
     }
 
     @Test
@@ -226,7 +273,7 @@ class ChatCommandServiceTest {
         assertThat(result.message())
                 .contains("`user`님의 우주인 계정이 연결됐어요")
                 .contains("마이스페이스")
-                .contains("11. 마이스페이스")
+                .contains("1. 마이스페이스")
                 .contains("/woojuin workspace <번호>");
     }
 

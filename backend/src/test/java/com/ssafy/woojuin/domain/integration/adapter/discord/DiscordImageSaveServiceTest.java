@@ -13,6 +13,7 @@ import com.ssafy.woojuin.domain.integration.repository.ChatAccountConnectionRepo
 import com.ssafy.woojuin.domain.integration.service.ChatCommandDeduplicationService;
 import com.ssafy.woojuin.domain.item.service.ItemService;
 import com.ssafy.woojuin.domain.workspace.entity.Workspace;
+import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,7 @@ class DiscordImageSaveServiceTest {
     @Mock private ChatAccountConnectionRepository connectionRepository;
     @Mock private ChatCommandDeduplicationService deduplicationService;
     @Mock private WorkspaceRepository workspaceRepository;
+    @Mock private WorkspaceMemberRepository workspaceMemberRepository;
     @Mock private ItemService itemService;
     @Mock private User user;
     @Mock private Workspace workspace;
@@ -37,7 +39,8 @@ class DiscordImageSaveServiceTest {
     @BeforeEach
     void setUp() {
         service = new DiscordImageSaveService(
-                connectionRepository, deduplicationService, workspaceRepository, itemService,
+                connectionRepository, deduplicationService, workspaceRepository,
+                workspaceMemberRepository, itemService,
                 "http://localhost:5173");
         ChatAccountConnection connection = new ChatAccountConnection(ChatPlatform.DISCORD, "discord-user", user);
         connection.changeDefaultWorkspace(workspace);

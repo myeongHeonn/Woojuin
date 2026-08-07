@@ -24,6 +24,7 @@ import com.ssafy.woojuin.domain.workspace.repository.WorkspaceMemberRepository;
 import com.ssafy.woojuin.domain.workspace.repository.WorkspaceRepository;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -128,51 +129,85 @@ public class ChatCommandService {
                 ? user.getEmail()
                 : user.getNickname();
         return ChatCommandResult.of("`" + markdownCode(nickname) + "`님의 우주인 계정이 연결됐어요.\n\n"
-                + workspaceListMessage(connection));
+                + workspaceListMessage(connection, command.platform()));
     }
 
     private ChatCommandResult workspace(ChatCommand command, String arguments) {
         ChatAccountConnection connection = requireConnection(command);
         if (arguments.equalsIgnoreCase("list")) {
-            return ChatCommandResult.of(workspaceListMessage(connection));
+            return ChatCommandResult.of(workspaceListMessage(connection, command.platform()));
         }
         String selector = arguments.toLowerCase(Locale.ROOT).startsWith("set ")
                 ? arguments.substring(4).trim()
                 : arguments.trim();
         if (!selector.isBlank()) {
-            Long workspaceId = parseWorkspaceId(selector);
-            WorkspaceMember membership = workspaceMemberRepository
-                    .findByWorkspaceIdAndUserId(workspaceId, connection.getUser().getId())
-                    .orElse(null);
+            int number = parseWorkspaceNumber(selector);
+            WorkspaceMember membership = resolveWorkspaceByNumber(connection.getUser().getId(), number);
             if (membership == null) {
-                return ChatCommandResult.of("해당 번호의 워크스페이스에 접근할 수 없어요. "
-                        + "`/woojuin workspace list`로 번호를 확인해주세요.");
+                return ChatCommandResult.of("해당 번호의 워크스페이스가 없어요. "
+                        + workspaceListHint(command.platform()));
             }
             connection.changeDefaultWorkspace(membership.getWorkspace());
             connectionRepository.save(connection);
-            return ChatCommandResult.of("기본 저장 공간을 `" + membership.getWorkspace().getName() + "`(으)로 변경했어요.");
+            return ChatCommandResult.of("기본 저장 공간을 `"
+                    + markdownLabel(membership.getWorkspace().getName()) + "`(으)로 변경했어요.");
         }
-        return ChatCommandResult.of("사용법: `/woojuin workspace list` 또는 `/woojuin workspace <번호>`");
+        return ChatCommandResult.of("사용법 — " + workspaceListHint(command.platform())
+                + " " + workspaceChangeHint(command.platform()));
     }
 
-    private String workspaceListMessage(ChatAccountConnection connection) {
-        List<WorkspaceMember> memberships = workspaceMemberRepository.findByUserId(connection.getUser().getId());
+    private String workspaceListMessage(ChatAccountConnection connection, ChatPlatform platform) {
+        List<WorkspaceMember> memberships = orderedMemberships(connection.getUser().getId());
         if (memberships.isEmpty()) {
             return "접근할 수 있는 워크스페이스가 없어요.";
         }
         StringBuilder message = new StringBuilder("**접근 가능한 워크스페이스**\n\n");
+        int number = 1;
         for (WorkspaceMember member : memberships) {
             Workspace workspace = member.getWorkspace();
             boolean selected = connection.getDefaultWorkspace() != null
                     && connection.getDefaultWorkspace().getId().equals(workspace.getId());
             message.append(selected ? "`[✓]` " : "`[ ]` ")
-                    .append(workspace.getId()).append(". ")
+                    .append(number++).append(". ")
                     .append(markdownLabel(workspace.getName()));
             if (selected) message.append("  (기본 저장 공간)");
             message.append('\n');
         }
-        message.append("\n변경하려면 `/woojuin workspace <번호>`를 입력하세요.");
+        message.append('\n').append(workspaceChangeHint(platform));
         return message.toString();
+    }
+
+    /**
+     * 사용자가 접근 가능한 워크스페이스를 목록 표시·번호 선택에서 동일한 순서로 다룬다.
+     * 워크스페이스 ID가 아니라 이 순서상의 1-based 순번을 사용자에게 노출한다.
+     */
+    private List<WorkspaceMember> orderedMemberships(Long userId) {
+        return workspaceMemberRepository.findByUserId(userId).stream()
+                .sorted(Comparator.comparing(member -> member.getWorkspace().getId()))
+                .toList();
+    }
+
+    /** 목록 순번(1-based)으로 워크스페이스 멤버십을 찾는다. 범위를 벗어나면 null. */
+    private WorkspaceMember resolveWorkspaceByNumber(Long userId, int number) {
+        List<WorkspaceMember> memberships = orderedMemberships(userId);
+        if (number < 1 || number > memberships.size()) {
+            return null;
+        }
+        return memberships.get(number - 1);
+    }
+
+    /** 워크스페이스를 바꾸는 방법 안내. Discord는 옵션 입력, Mattermost는 위치 인자로 표현이 다르다. */
+    private String workspaceChangeHint(ChatPlatform platform) {
+        return platform == ChatPlatform.DISCORD
+                ? "변경하려면 `/woojuin workspace`를 선택하고 `number` 칸에 번호를 입력하세요. 예: `/woojuin workspace number:3`"
+                : "변경하려면 `/woojuin workspace <번호>`를 입력하세요. 예: `/woojuin workspace 3`";
+    }
+
+    /** 워크스페이스 목록을 다시 보는 방법 안내. */
+    private String workspaceListHint(ChatPlatform platform) {
+        return platform == ChatPlatform.DISCORD
+                ? "`/woojuin workspace`를 번호 없이 실행하면 목록을 볼 수 있어요."
+                : "`/woojuin workspace list`로 번호를 확인해주세요.";
     }
 
     private ChatCommandResult save(ChatCommand command, String arguments) {
@@ -181,9 +216,18 @@ public class ChatCommandService {
         if (parsed.content().isBlank()) {
             return ChatCommandResult.of("저장할 URL이나 메모를 입력해주세요. 예: `/woojuin save 다음 회의 일정 확인`");
         }
-        Long workspaceId = parsed.workspaceId() != null
-                ? parsed.workspaceId()
-                : defaultWorkspaceId(connection);
+        Long workspaceId;
+        if (parsed.workspaceNumber() != null) {
+            WorkspaceMember membership = resolveWorkspaceByNumber(
+                    connection.getUser().getId(), parsed.workspaceNumber());
+            if (membership == null) {
+                return ChatCommandResult.of("해당 번호의 워크스페이스가 없어요. "
+                        + workspaceListHint(command.platform()));
+            }
+            workspaceId = membership.getWorkspace().getId();
+        } else {
+            workspaceId = defaultWorkspaceId(connection);
+        }
         try {
             boolean url = isValidHttpUrl(parsed.content());
             ItemCreateResponse item = itemService.createFromRequest(workspaceId, connection.getUser().getId(),
@@ -316,12 +360,12 @@ public class ChatCommandService {
                 .orElse("워크스페이스 " + workspaceId);
     }
 
-    private Long parseWorkspaceId(String value) {
+    private int parseWorkspaceNumber(String value) {
         try {
-            return Long.valueOf(value);
+            return Integer.parseInt(value.trim());
         } catch (NumberFormatException e) {
             throw new InvalidCommandException("워크스페이스 번호는 숫자로 입력해주세요. "
-                    + "`/woojuin workspace list`로 번호를 확인할 수 있어요.");
+                    + "목록의 순번(1, 2, 3 …)을 입력하면 돼요.");
         }
     }
 
@@ -331,17 +375,17 @@ public class ChatCommandService {
         }
         String trimmed = arguments.trim();
         String content = trimmed;
-        Long workspaceId = null;
+        Integer workspaceNumber = null;
         int optionIndex = trimmed.toLowerCase(Locale.ROOT).lastIndexOf(" --workspace ");
         if (optionIndex >= 0) {
             content = trimmed.substring(0, optionIndex).trim();
             String selector = trimmed.substring(optionIndex + " --workspace ".length()).trim();
             if (selector.isBlank()) {
-                throw new InvalidCommandException("사용법: `/woojuin save <URL 또는 메모> [--workspace <ID>]`");
+                throw new InvalidCommandException("사용법: `/woojuin save <URL 또는 메모> [--workspace <번호>]`");
             }
-            workspaceId = parseWorkspaceId(selector);
+            workspaceNumber = parseWorkspaceNumber(selector);
         }
-        return new SaveArguments(content, workspaceId);
+        return new SaveArguments(content, workspaceNumber);
     }
 
     private boolean isValidHttpUrl(String value) {
@@ -356,24 +400,27 @@ public class ChatCommandService {
     }
 
     private ChatCommandResult help(ChatPlatform platform) {
-        String title = platform == ChatPlatform.MATTERMOST
-                ? ":woojuin_white1: **우주인 명령어**"
-                : "**우주인 명령어**";
-        String common = title + "\n\n" + """
-
-                - `/woojuin save <URL 또는 메모>` 링크·메모 저장
-                - `/woojuin search <검색어>` 정보 검색
-                - `/woojuin workspace list` 워크스페이스 목록
-                - `/woojuin workspace <번호>` 워크스페이스 변경
-                - `/woojuin account` 연결 계정 확인
-                - `/woojuin connect <코드>` 계정 연결
-                - `/woojuin disconnect` 연결 계정 해제
-                """.trim();
-        if (platform == ChatPlatform.DISCORD) {
-            common += "\n- `/woojuin image attachment:<이미지>` 이미지 저장"
-                    + "\n- 메시지 우클릭 → `앱` → `우주인에 저장`";
+        boolean discord = platform == ChatPlatform.DISCORD;
+        String title = discord ? "**우주인 명령어**" : ":woojuin_white1: **우주인 명령어**";
+        String workspaceList = discord
+                ? "- `/woojuin workspace` (번호 없이) 워크스페이스 목록"
+                : "- `/woojuin workspace list` 워크스페이스 목록";
+        String workspaceChange = discord
+                ? "- `/woojuin workspace number:<번호>` 워크스페이스 변경"
+                : "- `/woojuin workspace <번호>` 워크스페이스 변경";
+        StringBuilder message = new StringBuilder(title).append("\n\n")
+                .append("- `/woojuin save <URL 또는 메모>` 링크·메모 저장\n")
+                .append("- `/woojuin search <검색어>` 정보 검색\n")
+                .append(workspaceList).append('\n')
+                .append(workspaceChange).append('\n')
+                .append("- `/woojuin account` 연결 계정 확인\n")
+                .append("- `/woojuin connect <코드>` 계정 연결\n")
+                .append("- `/woojuin disconnect` 연결 계정 해제");
+        if (discord) {
+            message.append("\n- `/woojuin image attachment:<이미지>` 이미지 저장")
+                    .append("\n- 메모·링크는 메시지 우클릭 → `앱` → `우주인에 저장`으로도 저장할 수 있어요");
         }
-        return ChatCommandResult.of(common);
+        return ChatCommandResult.of(message.toString());
     }
 
     private ChatCommandResult savedMessage(String type, Long workspaceId, Long itemId) {
@@ -392,7 +439,7 @@ public class ChatCommandService {
         };
     }
 
-    private record SaveArguments(String content, Long workspaceId) {
+    private record SaveArguments(String content, Integer workspaceNumber) {
     }
 
     public static class ChatAccountNotLinkedException extends RuntimeException {

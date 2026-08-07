@@ -93,7 +93,7 @@ class DiscordInteractionControllerTest {
                         .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.type").value(4))
-                .andExpect(jsonPath("$.data.flags").value(64))
+                .andExpect(jsonPath("$.data.flags").value(68))
                 .andExpect(jsonPath("$.data.content").value("우주인으로 보냈어요."));
 
         verify(commandService).handle(any());
