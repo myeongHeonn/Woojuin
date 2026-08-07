@@ -53,6 +53,21 @@ public class KakaoLocalGeocoder implements Geocoder {
     /** 그룹당 가져올 개수 — 카카오 카테고리 검색의 size 상한이 15다. */
     private static final int NEARBY_GROUP_SIZE = 15;
     /**
+     * <b>카테고리 검색만으로는 못 보는 장소가 있다.</b> 응답의 {@code category_group_code}는
+     * 카카오 문서상 "중요 카테고리만 그룹핑한" 값이라 <b>비어 있는 장소가 많다</b> — 공장·회사·
+     * 기숙사·물류센터 같은 것들이다. 카테고리 검색은 코드가 필수 파라미터라 그런 장소는 어떤
+     * 코드로도 조회되지 않는다. 실제로 광주 하남산단 한복판(오선동)에서 25m 앞 삼성전자
+     * 광주사업장이 18그룹 × 반경 500m 로도 0건이었다.
+     *
+     * <p>그래서 <b>동 이름을 검색어로 한 키워드 검색</b>을 함께 돌린다. 키워드 검색은 장소명뿐
+     * 아니라 <b>주소도 매칭</b>하므로 "오선동"이면 그 동네 장소가 걸리고, 여기서는
+     * {@code category_group_code}가 선택이라 코드 없는 장소도 그대로 나온다. 같은 좌표에서
+     * 카테고리 0건 대 키워드 2건(반경 100m)이었다.
+     *
+     * <p>검색어는 역지오코딩으로 좌표에서 얻는다 — 사용자가 이름을 말할 필요가 없다.
+     */
+    private static final int NEARBY_REGION_SIZE = 15;
+    /**
      * 응답에 실을 상한. 워치가 5개씩 "더 보기"로 펼치는 재료라 넉넉히 주되,
      * 블루투스 프록시를 타는 워치 응답이 무한정 커지지 않게 자른다.
      */
@@ -114,9 +129,11 @@ public class KakaoLocalGeocoder implements Geocoder {
 
     /**
      * 좌표 주변 장소 후보 — 반경 {@value NEARBY_RADIUS_METERS}m 안에서 카테고리 그룹별로
-     * 한 요청씩 병렬로 모아 거리순 상위 {@value NEARBY_LIMIT}개. 같은 장소가 두 그룹에
-     * 걸리는 일은 없으므로(그룹이 배타적) 중복 제거는 하지 않는다. 실패한 그룹은
+     * 한 요청씩 병렬로 모아 거리순 상위 {@value NEARBY_LIMIT}개. 실패한 그룹은
      * {@link #call}이 null로 흡수하므로 건너뛴다.
+     *
+     * <p>확장할 때는 <b>동 이름 키워드 검색</b>도 함께 돈다(이유는 {@link #NEARBY_REGION_SIZE}).
+     * 카테고리 그룹끼리는 배타적이지만 키워드 검색은 그것들과 겹치므로 중복을 제거한다.
      */
     @Override
     public NearbySearch nearby(GeoPoint point, boolean expand) {
@@ -124,19 +141,21 @@ public class KakaoLocalGeocoder implements Geocoder {
             return new NearbySearch(java.util.List.of(), true);
         }
         if (expand) {
-            return new NearbySearch(sortAndTrim(fetchGroups(NEARBY_ALL_GROUPS, point)), true);
+            return new NearbySearch(sortAndTrim(fetchGroups(NEARBY_ALL_GROUPS, point, true)), true);
         }
-        java.util.List<NearbyPlace> found = fetchGroups(NEARBY_PRIMARY_GROUPS, point);
+        java.util.List<NearbyPlace> found = fetchGroups(NEARBY_PRIMARY_GROUPS, point, false);
         if (!found.isEmpty()) {
             return new NearbySearch(sortAndTrim(found), false);
         }
-        // 음식점·카페가 0건 — 나머지 그룹만 더 묻는다(방금 0건인 둘을 다시 물을 이유가 없다)
-        return new NearbySearch(sortAndTrim(fetchGroups(NEARBY_SECONDARY_GROUPS, point)), true);
+        // 음식점·카페가 0건 — 나머지 그룹과 동 이름 키워드로 더 묻는다
+        // (방금 0건인 둘을 다시 물을 이유가 없다)
+        return new NearbySearch(sortAndTrim(fetchGroups(NEARBY_SECONDARY_GROUPS, point, true)), true);
     }
 
-    private java.util.List<NearbyPlace> fetchGroups(java.util.List<String> groups, GeoPoint point) {
+    private java.util.List<NearbyPlace> fetchGroups(
+            java.util.List<String> groups, GeoPoint point, boolean withRegion) {
         java.util.List<java.util.concurrent.CompletableFuture<JsonNode>> futures =
-                groups.stream()
+                new java.util.ArrayList<>(groups.stream()
                         .map(group -> java.util.concurrent.CompletableFuture.supplyAsync(
                                 () -> call(CATEGORY_SEARCH, Map.of(
                                         "category_group_code", group,
@@ -146,16 +165,71 @@ public class KakaoLocalGeocoder implements Geocoder {
                                         "sort", "distance",
                                         "size", String.valueOf(NEARBY_GROUP_SIZE))),
                                 nearbyExecutor))
-                        .toList();
+                        .toList());
+        if (withRegion) {
+            // 역지오코딩 → 키워드 검색으로 왕복이 둘이라, 그룹 호출들과 나란히 태워 묻는다
+            futures.add(java.util.concurrent.CompletableFuture.supplyAsync(
+                    () -> regionDocuments(point), nearbyExecutor));
+        }
         java.util.List<NearbyPlace> found = new java.util.ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
         for (java.util.concurrent.CompletableFuture<JsonNode> future : futures) {
             JsonNode documents = future.join();
             if (documents == null) continue;
             for (JsonNode document : documents) {
-                toNearbyPlace(document).ifPresent(found::add);
+                toNearbyPlace(document)
+                        .filter(place -> seen.add(dedupeKey(place)))
+                        .ifPresent(found::add);
             }
         }
         return found;
+    }
+
+    /**
+     * 현재 좌표가 속한 동 이름으로 키워드 검색. 코드 없는 장소까지 닿는 유일한 경로다
+     * (이유는 {@link #NEARBY_REGION_SIZE}). 동 이름을 못 얻으면 null을 돌려 그냥 건너뛴다.
+     */
+    private JsonNode regionDocuments(GeoPoint point) {
+        String region = regionKeyword(point);
+        if (region == null) {
+            return null;
+        }
+        return call(KEYWORD_SEARCH, Map.of(
+                "query", region,
+                "x", String.valueOf(point.lng()),
+                "y", String.valueOf(point.lat()),
+                "radius", String.valueOf(NEARBY_RADIUS_METERS),
+                "sort", "distance",
+                "size", String.valueOf(NEARBY_REGION_SIZE)));
+    }
+
+    /**
+     * 좌표 → 검색어로 쓸 동 이름. <b>{@code road_address}의 것을 먼저 보면 안 된다</b> —
+     * 도로명 주소 쪽 {@code region_3depth_name}은 빈 문자열인 경우가 흔하다(실측: 오선동
+     * 좌표에서 지번 쪽은 "오선동", 도로명 쪽은 ""). 동이 없으면 도로명으로 떨어진다.
+     */
+    private String regionKeyword(GeoPoint point) {
+        JsonNode documents = call(COORD_TO_ADDRESS, Map.of(
+                "x", String.valueOf(point.lng()),
+                "y", String.valueOf(point.lat()),
+                "input_coord", "WGS84"));
+        if (documents == null || documents.isEmpty()) {
+            return null;
+        }
+        JsonNode first = documents.get(0);
+        String dong = text(first.path("address").path("region_3depth_name"));
+        return dong != null ? dong : text(first.path("road_address").path("road_name"));
+    }
+
+    /**
+     * 같은 장소를 두 번 싣지 않기 위한 키. 카카오 장소 상세 URL이 장소 id를 담고 있어
+     * 가장 안전하고, 없으면 이름+좌표로 떨어진다.
+     */
+    private String dedupeKey(NearbyPlace place) {
+        if (place.placeUrl() != null) {
+            return place.placeUrl();
+        }
+        return place.name() + "@" + place.point().lat() + "," + place.point().lng();
     }
 
     private java.util.List<NearbyPlace> sortAndTrim(java.util.List<NearbyPlace> found) {
