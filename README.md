@@ -97,7 +97,7 @@
 | 백엔드                     | Spring Boot 3.3, Java 21, Spring Security                                            | 공통 응답 `{status, message, data}`          |
 | DB                         | PostgreSQL 16 + **pgvector**                                                         | 스키마는 Flyway가 소유(`ddl-auto=validate`)  |
 | 큐                         | Redis Streams                                                                        | 컨슈머 그룹 · pending 회수                   |
-| 스토리지                   | AWS S3 (로컬은 MinIO)                                                                | 원본 + webp 썸네일                           |
+| 스토리지                   | MinIO (S3 호환) — 로컬·배포 공통                                                     | AWS SDK로 접근 · presigned URL 발급 · 원본 + webp 썸네일 |
 | AI (요약·분류·임베딩·좌표) | `ai/ai-mix` FastAPI 사이드카 — OpenRouter `qwen3-8b`, `text-embedding-3-small`, UMAP | Structured Outputs로 스키마 강제             |
 | AI (이미지)                | OpenRouter `qwen3-vl-8b-instruct`                                                    | OCR·설명·객체 태그                           |
 | AI (검색 해석·STT)         | OpenAI 호환(SSAFY GMS) `gpt-5-mini`, `whisper-1`                                     | 키 없으면 규칙 기반 폴백                     |
