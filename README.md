@@ -76,30 +76,10 @@
 
 ---
 
-## 🏗 서비스 구조
+## 🏗 아키텍처
 
-```
- [웹앱 PWA]  [Chrome 확장]  [Wear OS]  [Discord · Mattermost 봇]
-      │            │            │              │
-      └────────────┴──────┬─────┴──────────────┘
-                          ▼
-                  Spring Boot API
-        (JWT 인증 · 워크스페이스 권한 · SSE 실시간 반영)
-                          │
-        저장 즉시 201 ─────┤
-                          ▼
-              Redis Streams  woojuin:item-processing
-                          │      (컨슈머 3 · 재시도 · 유실 회수)
-                          ▼
-        ┌───────── 백그라운드 워커 ─────────┐
-        │  URL   → Jsoup ─(실패 시)→ 크롤러 사이드카(Scrapling)
-        │  IMAGE → S3 업로드 · 썸네일 · EXIF 좌표 · 비전 모델(OCR·설명)
-        │  MEMO  → 본문 정리
-        │            └→ ai-mix: 제목·요약 → 카테고리 분류 → 임베딩 → 3D 좌표(UMAP)
-        └──────────────────┬───────────────┘
-                           ▼
-            PostgreSQL (+pgvector)   ·   S3   ·   FCM 푸시
-```
+<!-- 아키텍처 다이어그램 — docs/images/architecture.png 를 덮어쓰면 이 자리에 그대로 들어갑니다 -->
+<img src="docs/images/architecture.png" alt="우주인 아키텍처" width="100%" />
 
 - **비동기 처리** — 저장 경로에 AI 호출이 없습니다. 큐 소비는 재시도·유실 회수·재발행 안전망까지 갖춰 두어, 워커가 죽어도 아이템이 `PROCESSING`에 영원히 남지 않습니다
 - **없어도 뜬다** — 크롤러·ai-mix·비전·지오코딩·푸시는 모두 키나 사이드카가 없으면 **해당 기능만 조용히 꺼지고** 앱은 정상 기동합니다
