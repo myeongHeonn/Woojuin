@@ -115,7 +115,7 @@
 ## 📁 레포 구조 (모노레포)
 
 ```
-S15P11C105/
+/
 ├── frontend/     # 웹앱 (React + Vite + TS, PWA)
 ├── extension/    # Chrome 익스텐션 (Manifest V3)
 ├── backend/      # API 서버 (Spring Boot, Java 21)
