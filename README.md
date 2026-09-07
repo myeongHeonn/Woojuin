@@ -9,7 +9,7 @@
 
 **저장은 1초, 정리는 AI가, 찾을 땐 검색 한 번.**
 
-🔗 **서비스** [woojuin.store](https://woojuin.store) · SSAFY 15기 광주1반 공통프로젝트 (6인 / 2026.07.13 ~ 2026.08.07)
+🔗 **서비스** [woojuin.store](https://woojuin.store)
 
 ---
 
